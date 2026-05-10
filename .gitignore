@@ -24,7 +24,6 @@ ktlint-cache/
 build/
 captures/
 externalNativeBuild/
-```
 
 # GitHub
 *~
@@ -32,32 +31,29 @@ externalNativeBuild/
 *.swp
 *.swo
 *~
-```
-EOF'
 
-echo "✅ .gitignore 创建完成" && \
+# Gradle files
+.gradle/
+build/
 
-# 添加所有文件
-git add . && \
+# Log/OS Files
+*.log
 
-# 首次提交
-git commit -m "🎉 Initial commit: CarLife Wireless Box 项目
+# Android Studio generated files and folders
+*.aab
+output-metadata.json
 
-- ✅ 项目技术文档（1358行）
-- ✅ 版本兼容性设计（强制使用 CarLife 6.7.2）
-- ✅ 技术路线设计（USB网络共享 + TCP桥接）
-- ✅ CarLife 协议深度解析
-- ✅ 开源项目源码分析（CarProjection / CarLifeVehicleLib）
-- ✅ 核心模块实现方案
-- ✅ 开发路线图与风险评估
+# IntelliJ
+misc.xml
+deploymentTargetDropDown.xml
+render.experimental.xml
 
-📋 关键发现：
-- CarLife 6.7.2 ✅ 可连接 WinCE 车机
-- CarLife 7.2+ ❌ 黑屏不兼容（协议变更）
-- 必须使用 6.7.2 版本！
+# Keystore files
+*.jks
+*.keystore
 
-🏗️ 技术架构：
-[手机B - CarLife 6.7.2] ←WiFi→ [旧手机APP] ←USB→ [WinCE车机]
-" && \
+# Google Services
+google-services.json
 
-echo "✅ Commit 完成"
+# Android Profiling
+*.hprof
