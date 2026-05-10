@@ -1,0 +1,63 @@
+# Android
+*.apk
+*.ap_
+*.dex
+*.class
+*.jar
+*.list
+*.lst
+*.o
+*.o.d
+*.so
+*.pyc
+*.pyo
+*.rc
+*log
+*.un~
+.gradle/
+local.properties
+*.iml
+.idea/
+.navigation/
+.cxx/
+ktlint-cache/
+build/
+captures/
+externalNativeBuild/
+```
+
+# GitHub
+*~
+.DS_Store
+*.swp
+*.swo
+*~
+```
+EOF'
+
+echo "✅ .gitignore 创建完成" && \
+
+# 添加所有文件
+git add . && \
+
+# 首次提交
+git commit -m "🎉 Initial commit: CarLife Wireless Box 项目
+
+- ✅ 项目技术文档（1358行）
+- ✅ 版本兼容性设计（强制使用 CarLife 6.7.2）
+- ✅ 技术路线设计（USB网络共享 + TCP桥接）
+- ✅ CarLife 协议深度解析
+- ✅ 开源项目源码分析（CarProjection / CarLifeVehicleLib）
+- ✅ 核心模块实现方案
+- ✅ 开发路线图与风险评估
+
+📋 关键发现：
+- CarLife 6.7.2 ✅ 可连接 WinCE 车机
+- CarLife 7.2+ ❌ 黑屏不兼容（协议变更）
+- 必须使用 6.7.2 版本！
+
+🏗️ 技术架构：
+[手机B - CarLife 6.7.2] ←WiFi→ [旧手机APP] ←USB→ [WinCE车机]
+" && \
+
+echo "✅ Commit 完成"
