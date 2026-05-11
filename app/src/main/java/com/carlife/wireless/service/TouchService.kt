@@ -12,6 +12,7 @@ import android.os.Looper
 import android.util.DisplayMetrics
 import android.view.Surface
 import android.view.WindowManager
+import android.view.OrientationEventListener
 import android.view.accessibility.AccessibilityNodeInfo
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
@@ -84,6 +85,7 @@ class TouchService : Service() {
 
     // 缓存 WindowManager，避免每次触摸事件都 getSystemService
     private lateinit var windowManager: WindowManager
+    @Volatile private var currentRotation: Int = Surface.ROTATION_0
 
     // 屏幕尺寸（手机侧，用于坐标转换）
     private var screenWidth: Int = 1920
@@ -103,6 +105,9 @@ class TouchService : Service() {
     // 触摸注入器（由 AccessibilityService 提供）
     private var touchInjector: TouchInjector? = null
 
+    // 屏幕方向监听器
+    private var orientationListener: OrientationEventListener? = null
+
     // 长按检测
     private var touchDownTime: Long = 0L
     private var lastTouchX: Float = 0f
@@ -121,6 +126,19 @@ class TouchService : Service() {
 
         // 获取手机真实屏幕尺寸
         refreshScreenSize()
+
+        // 监听屏幕方向变化，避免每次触摸事件都查询 rotation
+        currentRotation = @Suppress("DEPRECATION") windowManager.defaultDisplay.rotation
+        orientationListener = object : OrientationEventListener(this) {
+            override fun onOrientationChanged(orientation: Int) {
+                val newRotation = @Suppress("DEPRECATION") windowManager.defaultDisplay.rotation
+                if (newRotation != currentRotation) {
+                    currentRotation = newRotation
+                    refreshScreenSize()
+                    LogUtils.i(TAG, "屏幕方向变更: rotation=$newRotation")
+                }
+            }
+        }.apply { enable() }
 
         LogUtils.i(TAG, "Screen: ${screenWidth}x${screenHeight}, Car: ${carDisplayWidth}x${carDisplayHeight}")
     }
@@ -168,6 +186,8 @@ class TouchService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         LogUtils.i(TAG, "TouchService destroyed")
+        orientationListener?.disable()
+        orientationListener = null
         stopTouchListener()
         executor.shutdown()
     }
@@ -411,8 +431,8 @@ class TouchService : Service() {
      * 参考 CarProjection 的 genarateGesture() 逻辑。
      */
     private fun convertCoordinates(carX: Float, carY: Float): Pair<Float, Float> {
-        @Suppress("DEPRECATION")
-        val rotation = windowManager.defaultDisplay.rotation
+        // 使用缓存的 rotation（由 OrientationEventListener 更新），避免每次触摸都查询
+        val rotation = currentRotation
 
         val phoneX: Float
         val phoneY: Float

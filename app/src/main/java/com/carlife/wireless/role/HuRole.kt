@@ -185,6 +185,10 @@ class HuRole(
         updateState(HuState.CONNECTING)
         connectedChannelCount.set(0)
 
+        // 清理可能残留的旧 Channel（如快速重连场景）
+        disconnect("preparing new connection")
+        state.set(HuState.CONNECTING)
+
         // 在后台线程执行端口预检 + 连接
         Thread {
             try {
