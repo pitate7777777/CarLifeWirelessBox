@@ -36,8 +36,9 @@
 | **通道抽象层** | `Channel` 统一客户端/服务端通道，6 种 `ChannelType`，协议分帧（CMD 8 字节 / Media 11 字节包头），支持 CarLife CMD 格式读写 |
 | **网络层** | `TcpServer`（多客户端管理、协程、支持 autoRead 控制）/ `TcpClient`（心跳、重连、协议分帧） |
 | **HU 角色** | `HuRole` 连接手机 B，完整 CarLife 协议握手（版本→设备信息→认证→特性协商→编码器初始化），端口预检，支持数据转发方法 |
-| **MD 角色** | `MdRole` 启动 6 端口监听，**完整 CarLife 协议握手**（8 阶段：版本匹配→设备信息→认证→特性协商→编码器初始化），CMD 通道 CarLife 格式专用读取循环 |
+| **MD 角色** | `MdRole` 启动 6 端口监听，**完整 CarLife 协议握手**（8 阶段：版本匹配→设备信息→认证→特性协商→编码器初始化），所有通道 CarLife 协议格式专用读取循环 |
 | **数据桥接** | `StreamBridge` 单通道桥接 + `StreamBridgeManager` 管理器，支持协议转换；ConnectionService 直接转发模式（HuRole↔MdRole 端到端） |
+| **USB 连接** | `UsbTetheringManager` — USB 网络共享状态检测、车机 IP 自动扫描（192.168.42.x）、USB 状态广播、网口检测（usb0/rndis0/ncm） |
 | **协议转换** | `ProtocolTranslator`（H.265→H.264 / Opus→AAC 框架）、`VersionDetector` 版本检测 |
 | **视频服务** | `VideoService` — MediaProjection 屏幕采集 + MediaCodec H.264 硬编码，SPS/PPS 缓存 |
 | **音频服务** | `AudioService` — AudioPlaybackCapture 系统音频录制 + MediaCodec AAC 编码 |
@@ -55,10 +56,9 @@
 
 | 模块 | 说明 | 优先级 |
 |------|------|--------|
-| **USB 有线连接** | 参考 CarProjection，实现 USB Accessory 通道连接 WinCE 车机（当前仅支持 WiFi 热点模式） | P0 |
-| **MdRole 媒体通道协议** | 验证车机媒体通道（VIDEO/MEDIA/CTRL）是否使用 ChannelHeader 格式，必要时适配 CarLife 格式 | P1 |
+| **USB 连接引导** | 引导用户开启 USB 网络共享，自动检测车机 IP，连接流程优化 | P1 |
 | **动态比特率** | 根据 Wi-Fi 信号强度自动调节视频码率 | P2 |
-| **VR 通道透传** | 车机麦克风数据转发到手机 B，支持语音识别（框架已就绪，需端到端测试） | P2 |
+| **VR 通道端到端** | 框架已就绪，需实际测试车机麦克风→手机B语音识别 | P2 |
 
 ## 项目结构
 
