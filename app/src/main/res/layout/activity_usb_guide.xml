@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- 标题 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔗 USB 有线连接"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="通过 USB 数据线连接车机，延迟更低、更稳定"
+            android:textSize="14sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <!-- 步骤指示器 (4个圆点) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="24dp">
+
+            <View
+                android:id="@+id/dot_step_0"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/ic_notification"
+                android:backgroundTint="#FF2196F3" />
+
+            <View
+                android:layout_width="32dp"
+                android:layout_height="2dp"
+                android:background="#FFBDBDBD" />
+
+            <View
+                android:id="@+id/dot_step_1"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/ic_notification"
+                android:backgroundTint="#FFBDBDBD" />
+
+            <View
+                android:layout_width="32dp"
+                android:layout_height="2dp"
+                android:background="#FFBDBDBD" />
+
+            <View
+                android:id="@+id/dot_step_2"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/ic_notification"
+                android:backgroundTint="#FFBDBDBD" />
+
+            <View
+                android:layout_width="32dp"
+                android:layout_height="2dp"
+                android:background="#FFBDBDBD" />
+
+            <View
+                android:id="@+id/dot_step_3"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/ic_notification"
+                android:backgroundTint="#FFBDBDBD" />
+
+        </LinearLayout>
+
+        <!-- 步骤内容卡片 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:id="@+id/tv_step_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="第 1 步：连接 USB 数据线"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:id="@+id/tv_step_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="请使用 USB 数据线将旧手机连接到车机的 USB 接口。"
+                    android:textSize="15sp"
+                    android:lineSpacingExtra="4dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 连接信息卡片 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📊 连接信息"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/tv_connection_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="检测中..."
+                    android:textSize="13sp"
+                    android:fontFamily="monospace" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 操作按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_open_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚙️ 打开网络共享设置"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            app:icon="@drawable/ic_settings" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_retry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔄 刷新状态"
+            android:layout_marginBottom="12dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_done"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="✅ 完成，开始使用"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            app:backgroundTint="#FF4CAF50" />
+
+        <!-- 提示信息 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#FFF3E0">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💡 常见问题"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="• 车机无法识别 USB：尝试更换数据线或 USB 接口\n• USB 共享选项灰色：需要先关闭 Wi-Fi\n• 车机获取不到 IP：重启车机后重试\n• 连接后无画面：确认手机 B 已开启 CarWith"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="4dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+</ScrollView>

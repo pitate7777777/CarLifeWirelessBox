@@ -139,6 +139,38 @@
                     android:textSize="14sp"
                     android:visibility="gone" />
 
+                <!-- WiFi 信号 + 动态码率 -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp"
+                    android:background="?android:attr/listDivider" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/tv_signal"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="📶 信号: --"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/tv_dynamic_bitrate"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="码率: --"
+                        android:textSize="13sp"
+                        android:textColor="?android:attr/textColorSecondary" />
+
+                </LinearLayout>
+
             </LinearLayout>
 
         </com.google.android.material.card.MaterialCardView>
@@ -263,6 +295,16 @@
                 app:icon="@drawable/ic_settings"
                 app:iconTint="#FF1976D2"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_usb_guide"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🔗 USB 连接引导"
+                android:textColor="#FF4CAF50"
+                app:icon="@drawable/ic_settings"
+                app:iconTint="#FF4CAF50"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
 
         </LinearLayout>
 

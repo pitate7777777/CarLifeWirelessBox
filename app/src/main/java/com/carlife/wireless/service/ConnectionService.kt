@@ -16,6 +16,7 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.carlife.wireless.R
 import com.carlife.wireless.model.ChannelHeader
+import com.carlife.wireless.network.DynamicBitrate
 import com.carlife.wireless.role.HuRole
 import com.carlife.wireless.role.HuRoleListener
 import com.carlife.wireless.role.HuState
@@ -49,6 +50,8 @@ class ConnectionService : Service() {
         const val EXTRA_ERROR_MESSAGE = "error_message"
         const val EXTRA_USB_STATE = "usb_state"
         const val EXTRA_CAR_IP = "car_ip"
+        const val EXTRA_SIGNAL_LEVEL = "signal_level"
+        const val EXTRA_DYNAMIC_BITRATE = "dynamic_bitrate"
 
         /** 请求 MediaProjection 授权的 action */
         const val ACTION_REQUEST_PROJECTION = "com.carlife.wireless.REQUEST_PROJECTION"
@@ -75,6 +78,9 @@ class ConnectionService : Service() {
 
     // USB 网络共享
     private var usbTetheringManager: UsbTetheringManager? = null
+
+    // 动态码率
+    private var dynamicBitrate: DynamicBitrate? = null
 
     // 子服务引用
     private var videoService: VideoService? = null
@@ -259,6 +265,39 @@ class ConnectionService : Service() {
     }
 
     fun getUsbTetheringManager(): UsbTetheringManager? = usbTetheringManager
+
+    // ==================== 动态码率 ====================
+
+    private fun startDynamicBitrate() {
+        if (dynamicBitrate != null) return
+
+        val baseBitrate = SettingsManager.getBitrate(this)
+        dynamicBitrate = DynamicBitrate(this).apply {
+            setBaseBitrate(baseBitrate)
+            setListener(object : DynamicBitrate.BitrateChangeListener {
+                override fun onBitrateChanged(newBitrateKbps: Int, signalLevel: DynamicBitrate.SignalLevel, rssi: Int) {
+                    LogUtils.i(TAG, "动态码率调整: ${newBitrateKbps}kbps (${signalLevel.label}, RSSI=$rssi)")
+                    // 通知 VideoService 调整码率
+                    videoService?.setVideoParameters(
+                        SettingsManager.getResolution(this@ConnectionService).first,
+                        SettingsManager.getResolution(this@ConnectionService).second,
+                        newBitrateKbps * 1000,
+                        SettingsManager.getFramerate(this@ConnectionService)
+                    )
+                    updateNotification("码率: ${newBitrateKbps}kbps (${signalLevel.label})")
+                }
+            })
+            start()
+        }
+        LogUtils.i(TAG, "动态码率调节启动, 基础码率: ${baseBitrate / 1000}kbps")
+    }
+
+    private fun stopDynamicBitrate() {
+        dynamicBitrate?.stop()
+        dynamicBitrate = null
+    }
+
+    fun getDynamicBitrate(): DynamicBitrate? = dynamicBitrate
 
     private fun startMdnsService() {
         try {
@@ -493,6 +532,9 @@ class ConnectionService : Service() {
             return
         }
 
+        // 启动动态码率调节
+        startDynamicBitrate()
+
         // 启动并绑定 VideoService
         val videoIntent = Intent(this, VideoService::class.java)
         startService(videoIntent)
@@ -507,6 +549,7 @@ class ConnectionService : Service() {
     }
 
     private fun stopVideoAndAudioServices() {
+        stopDynamicBitrate()
         videoService?.stopVideo()
         audioService?.stopAudio()
 
@@ -633,6 +676,8 @@ class ConnectionService : Service() {
             putExtra(EXTRA_ERROR_MESSAGE, getLastErrorMessage())
             putExtra(EXTRA_USB_STATE, usbTetheringManager?.getState()?.name ?: "UNKNOWN")
             putExtra(EXTRA_CAR_IP, usbTetheringManager?.getCarIp() ?: "")
+            putExtra(EXTRA_SIGNAL_LEVEL, dynamicBitrate?.getCurrentLevel()?.name ?: "DISCONNECTED")
+            putExtra(EXTRA_DYNAMIC_BITRATE, dynamicBitrate?.getCurrentBitrateKbps() ?: 0)
         }
         sendBroadcast(intent)
     }

@@ -100,6 +100,11 @@ class MainActivity : AppCompatActivity() {
                     // USB 状态显示
                     updateUsbStatus(usbState, carIp)
 
+                    // 信号和码率显示
+                    val signalLevel = intent.getStringExtra(ConnectionService.EXTRA_SIGNAL_LEVEL) ?: "DISCONNECTED"
+                    val dynamicBitrate = intent.getIntExtra(ConnectionService.EXTRA_DYNAMIC_BITRATE, 0)
+                    updateSignalInfo(signalLevel, dynamicBitrate)
+
                     if (error.isNotEmpty()) addLog("错误: $error")
                     val durText = if (duration > 0) " ${duration / 1000}秒" else ""
                     addLog("状态: $state, 通道: $channels/6$durText")
@@ -193,6 +198,10 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnDiag.setOnClickListener {
             startActivity(Intent(this, NetworkDiagActivity::class.java))
+        }
+
+        binding.btnUsbGuide.setOnClickListener {
+            startActivity(Intent(this, UsbGuideActivity::class.java))
         }
     }
 
@@ -311,6 +320,25 @@ class MainActivity : AppCompatActivity() {
             binding.tvCarIp.visibility = android.view.View.VISIBLE
         } else {
             binding.tvCarIp.visibility = android.view.View.GONE
+        }
+    }
+
+    private fun updateSignalInfo(signalLevel: String, dynamicBitrateKbps: Int) {
+        val (label, emoji) = when (signalLevel) {
+            "EXCELLENT" -> "极好" to "📶"
+            "GOOD" -> "良好" to "📶"
+            "FAIR" -> "一般" to "📶"
+            "WEAK" -> "较差" to "📶"
+            "TERRIBLE" -> "极差" to "📶"
+            else -> "未连接" to "📵"
+        }
+        binding.tvSignal.text = "$emoji 信号: $label"
+
+        if (dynamicBitrateKbps > 0) {
+            binding.tvDynamicBitrate.text = "码率: ${dynamicBitrateKbps}kbps"
+            binding.tvDynamicBitrate.visibility = android.view.View.VISIBLE
+        } else {
+            binding.tvDynamicBitrate.visibility = android.view.View.GONE
         }
     }
 
