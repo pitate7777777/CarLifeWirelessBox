@@ -8,7 +8,7 @@
 -keep public class * extends android.content.ContentProvider
 
 # 保留 Protos (Protocol Buffers)
--keep class com.carlife.wireless.protobuf.** { *; }
+-keep class com.carlife.wireless.proto.** { *; }
 -keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite {
     <fields>;
 }

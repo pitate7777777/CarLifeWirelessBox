@@ -5,12 +5,12 @@ plugins {
 }
 
 android {
-    namespace = "com.carlife.wireless.box"
+    namespace = "com.carlife.wireless"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.carlife.wireless.box"
-        minSdk = 24
+        applicationId = "com.carlife.wireless"
+        minSdk = 26
         targetSdk = 34
         versionCode = 1
         versionName = "1.0.0"
@@ -27,6 +27,7 @@ android {
         debug {
             isMinifyEnabled = false
             isDebuggable = true
+            applicationIdSuffix = ".debug"
         }
     }
 
@@ -79,7 +80,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-common-java8:2.7.0")
 
     // Kotlin
-    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.22")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.24")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
 
@@ -89,9 +90,6 @@ dependencies {
     // Networking - WiFi/WebSocket for CarLife wireless
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.java-websocket:Java-WebSocket:1.5.4")
-
-    // mDNS/NSD for service discovery
-    // (uses Android framework android.net.nsd)
 
     // JSON
     implementation("com.google.code.gson:gson:2.10.1")

@@ -13,6 +13,8 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.carlife.wireless.R
 import com.carlife.wireless.role.HuRole
+import com.carlife.wireless.role.HuRoleListener
+import com.carlife.wireless.role.HuState
 import com.carlife.wireless.role.MdRole
 import com.carlife.wireless.util.LogUtils
 import java.io.IOException
