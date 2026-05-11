@@ -37,4 +37,7 @@
 
     <!-- 分辨率选项 -->
     <string name="resolution_custom">自定义...</string>
+
+    <!-- 无障碍服务 -->
+    <string name="accessibility_service_description">CarLife Wireless Box 需要此权限来将车机的触摸操作传回手机。开启后，您可以在车机屏幕上直接操控手机。</string>
 </resources>

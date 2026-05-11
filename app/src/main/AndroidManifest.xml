@@ -119,6 +119,20 @@
             android:enabled="true"
             android:exported="false" />
 
+        <!-- 无障碍服务：触摸手势注入（需用户在系统设置中手动开启） -->
+        <service
+            android:name=".service.CarAccessibilityService"
+            android:enabled="true"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
         <!-- ==================== 设置 Activity ==================== -->
         <activity
             android:name=".ui.SettingsActivity"

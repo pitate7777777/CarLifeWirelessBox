@@ -3,6 +3,8 @@ package com.carlife.wireless.util
 import android.content.Context
 
 object SettingsManager {
+
+    const val SAMPLE_RATE_DEFAULT = 44100
     
     fun getResolution(context: Context): Pair<Int, Int> {
         val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
