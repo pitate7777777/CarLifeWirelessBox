@@ -116,7 +116,7 @@ class TcpServer(
      * @param port 监听的端口号（默认使用 type.getPort(role)）
      */
     fun start(port: Int = customPort) {
-        if (isRunning.get()) {
+        if (!isRunning.compareAndSet(false, true)) {
             LogUtils.w("$TAG: Already running on port $port")
             return
         }
@@ -125,7 +125,6 @@ class TcpServer(
             try {
                 serverSocket = ServerSocket(port)
                 boundPort = port
-                isRunning.set(true)
                 LogUtils.i("$TAG: Started on port $port, type=${type.name}")
                 listener?.onStarted(port)
 
@@ -176,12 +175,13 @@ class TcpServer(
                     channel.connect("", port)
                 }
             } catch (e: IOException) {
-                if (isRunning.get()) {
+                if (isRunning.getAndSet(false)) {
                     val error = "Failed to start server on port $port: ${e.message}"
                     LogUtils.e(e, "$TAG: $error")
                     listener?.onError(port, "Failed to start server on port $port: ${e.message}")
                 }
             } finally {
+                isRunning.set(false)
                 // 清理 ServerSocket（避免 accept() 阻塞）
                 try {
                     serverSocket?.close()

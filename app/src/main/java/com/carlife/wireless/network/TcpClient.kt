@@ -348,8 +348,9 @@ class TcpClient(
      * 发送原始字节（内部使用）
      */
     private fun sendDataRaw(data: ByteArray): Boolean {
-        val output = outputStream ?: return false
         synchronized(this) {
+            if (!isConnected.get()) return false
+            val output = outputStream ?: return false
             output.write(data)
             output.flush()
         }
@@ -359,21 +360,22 @@ class TcpClient(
     fun getSocket(): Socket? = socket
 
     fun disconnect() {
-        if (!isConnected.get() && !isConnecting.get()) return
+        if (!isConnected.compareAndSet(true, false) && !isConnecting.compareAndSet(true, false)) return
 
         LogUtils.i("$TAG: Disconnecting...")
 
         stopHeartbeat()
-        isConnected.set(false)
-        isConnecting.set(false)
 
-        try { inputStream?.close() } catch (_: Exception) {}
-        try { outputStream?.close() } catch (_: Exception) {}
-        try { socket?.close() } catch (_: Exception) {}
+        // 关闭流放在 synchronized 块中，防止与 sendDataRaw 并发写入已关闭的流
+        synchronized(this) {
+            try { inputStream?.close() } catch (_: Exception) {}
+            try { outputStream?.close() } catch (_: Exception) {}
+            try { socket?.close() } catch (_: Exception) {}
 
-        socket = null
-        inputStream = null
-        outputStream = null
+            socket = null
+            inputStream = null
+            outputStream = null
+        }
 
         heartbeatSequence.set(0)
         lastHeartbeatTime.set(0)

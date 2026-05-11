@@ -25,6 +25,7 @@ import com.carlife.wireless.usb.UsbTetheringManager
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import java.io.IOException
+import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
@@ -63,8 +64,9 @@ class ConnectionService : Service() {
         const val EXTRA_FRAME_IS_KEY = "frame_is_key"
 
         /** 当前运行的 ConnectionService 实例（供 MainActivity 传递 MediaProjection） */
-        @Volatile
-        var instance: ConnectionService? = null
+        private var instanceRef: WeakReference<ConnectionService>? = null
+        val instance: ConnectionService?
+            get() = instanceRef?.get()
             private set
     }
 
@@ -99,7 +101,7 @@ class ConnectionService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        instance = this
+        instanceRef = WeakReference(this)
         LogUtils.i(TAG, "ConnectionService created")
         createNotificationChannel()
     }
@@ -118,7 +120,7 @@ class ConnectionService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
-        instance = null
+        instanceRef = null
         LogUtils.i(TAG, "ConnectionService destroyed")
         stopAllServices()
         stopMdRole()

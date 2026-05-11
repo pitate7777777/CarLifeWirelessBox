@@ -404,6 +404,12 @@ abstract class Channel(
      * 精确读取指定字节数（阻塞）
      */
     protected fun readExact(length: Int): ByteArray? {
+        if (length == 0) return ByteArray(0)
+        if (length < 0) {
+            LogUtils.e("[$name] readExact: invalid length $length")
+            disconnect("invalid payload length: $length")
+            return null
+        }
         val buffer = ByteArray(length)
         var offset = 0
         val input = inputStream ?: return null

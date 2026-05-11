@@ -82,6 +82,9 @@ class TouchService : Service() {
     private val isActive = AtomicBoolean(false)
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    // 缓存 WindowManager，避免每次触摸事件都 getSystemService
+    private lateinit var windowManager: WindowManager
+
     // 屏幕尺寸（手机侧，用于坐标转换）
     private var screenWidth: Int = 1920
     private var screenHeight: Int = 1080
@@ -109,6 +112,8 @@ class TouchService : Service() {
         super.onCreate()
         LogUtils.i(TAG, "TouchService created")
 
+        windowManager = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+
         // 读取分辨率配置
         val resolution = SettingsManager.getResolution(this)
         carDisplayWidth = resolution.first
@@ -125,10 +130,9 @@ class TouchService : Service() {
      * 参考 CarProjection 的 refreshSize() 逻辑
      */
     private fun refreshScreenSize() {
-        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         val metrics = DisplayMetrics()
         @Suppress("DEPRECATION")
-        wm.defaultDisplay.getRealMetrics(metrics)
+        windowManager.defaultDisplay.getRealMetrics(metrics)
         screenWidth = metrics.widthPixels
         screenHeight = metrics.heightPixels
 
@@ -407,9 +411,8 @@ class TouchService : Service() {
      * 参考 CarProjection 的 genarateGesture() 逻辑。
      */
     private fun convertCoordinates(carX: Float, carY: Float): Pair<Float, Float> {
-        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
         @Suppress("DEPRECATION")
-        val rotation = wm.defaultDisplay.rotation
+        val rotation = windowManager.defaultDisplay.rotation
 
         val phoneX: Float
         val phoneY: Float
