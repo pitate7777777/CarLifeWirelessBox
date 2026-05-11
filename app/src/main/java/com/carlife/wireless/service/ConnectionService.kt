@@ -256,7 +256,7 @@ class ConnectionService : Service() {
         }
 
         // 初始检测
-        val state = usbTetheringManager!!.checkUsbState()
+        val state = usbTetheringManager?.checkUsbState() ?: UsbTetheringManager.UsbState.DISCONNECTED
         LogUtils.i(TAG, "USB 初始状态: $state")
     }
 
@@ -353,7 +353,8 @@ class ConnectionService : Service() {
             LogUtils.i(TAG, "Phone B IP: $phoneBIp")
             huRole = HuRole(this, phoneBIp)
             // 将 HuRole 注入 MdRole，实现车机→手机B的数据转发
-            mdRole?.setHuRole(huRole!!)
+            val hr = huRole
+            if (hr != null) mdRole?.setHuRole(hr)
             huRole?.listener = object : HuRoleListener {
                 override fun onStateChanged(state: HuState, reason: String?) {
                     LogUtils.i(TAG, "HuRole state: $state ($reason)")
@@ -650,13 +651,14 @@ class ConnectionService : Service() {
         updateNotification("连接中断，${delayMs / 1000}秒后重连 (第 $attempt 次)")
 
         cancelHuReconnect()
-        huReconnectRunnable = Runnable {
+        val runnable = Runnable {
             if (isRunning && huRole == null) {
                 LogUtils.i(TAG, "HuRole 自动重连: 第 $attempt 次")
                 startHuRole()
             }
         }
-        reconnectHandler.postDelayed(huReconnectRunnable!!, delayMs)
+        huReconnectRunnable = runnable
+        reconnectHandler.postDelayed(runnable, delayMs)
     }
 
     private fun cancelHuReconnect() {

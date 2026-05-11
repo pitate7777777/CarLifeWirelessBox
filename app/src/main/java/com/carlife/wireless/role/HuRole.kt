@@ -298,9 +298,7 @@ class HuRole(
 
         updateState(HuState.DISCONNECTED, reason)
 
-        cmdReadThread?.interrupt()
-        cmdReadThread = null
-
+        // 先关闭通道（关闭 socket 会中断阻塞的 read）
         try {
             cmdChannel?.disconnect("HuRole disconnect")
             videoChannel?.disconnect("HuRole disconnect")
@@ -311,6 +309,11 @@ class HuRole(
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: Error during disconnect")
         }
+
+        // socket 关闭后 join 读取线程
+        cmdReadThread?.interrupt()
+        cmdReadThread?.join(2000)
+        cmdReadThread = null
 
         cmdChannel = null
         videoChannel = null

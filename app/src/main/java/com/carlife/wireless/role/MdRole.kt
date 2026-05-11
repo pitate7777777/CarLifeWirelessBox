@@ -87,16 +87,16 @@ class MdRole(private val context: Context) {
     }
 
     private val state = AtomicReference(MdState.IDLE)
-    private var stateListener: ((MdState) -> Unit)? = null
+    @Volatile private var stateListener: ((MdState) -> Unit)? = null
     private val executor: ExecutorService = Executors.newCachedThreadPool()
     private val tcpServers: MutableMap<Int, TcpServer> = ConcurrentHashMap()
     private val channels: MutableMap<Int, Channel> = ConcurrentHashMap()
     private val connectedCount = AtomicInteger(0)
-    private var huRole: HuRole? = null
+    @Volatile private var huRole: HuRole? = null
     private val handshakeCompleted = AtomicBoolean(false)
     private val connectionStartTime = AtomicLong(0L)
     private val lastErrorMessage = AtomicReference("")
-    private var cmdReadThread: Thread? = null
+    @Volatile private var cmdReadThread: Thread? = null
     private val mediaReadThreads: MutableMap<Int, Thread> = ConcurrentHashMap()
 
     fun setStateListener(listener: (MdState) -> Unit) { this.stateListener = listener }
@@ -161,17 +161,21 @@ class MdRole(private val context: Context) {
     fun stop() {
         LogUtils.i(TAG, "Stopping MdRole...")
 
+        // 先关闭所有通道（关闭 socket 会中断阻塞的 read 操作）
+        channels.values.forEach { it.disconnect("MdRole stopped") }
+        channels.clear()
+
+        // 关闭 socket 后 join 读取线程，确保完全退出
         cmdReadThread?.interrupt()
+        cmdReadThread?.join(2000)
         cmdReadThread = null
 
         mediaReadThreads.values.forEach { it.interrupt() }
+        mediaReadThreads.values.forEach { it.join(2000) }
         mediaReadThreads.clear()
 
         tcpServers.values.forEach { it.release() }
         tcpServers.clear()
-
-        channels.values.forEach { it.disconnect("MdRole stopped") }
-        channels.clear()
 
         executor.shutdown()
 
