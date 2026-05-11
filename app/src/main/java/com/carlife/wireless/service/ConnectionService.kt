@@ -48,6 +48,11 @@ class ConnectionService : Service() {
         /** 请求 MediaProjection 授权的 action */
         const val ACTION_REQUEST_PROJECTION = "com.carlife.wireless.REQUEST_PROJECTION"
 
+        /** 视频帧广播（用于本地预览） */
+        const val ACTION_VIDEO_FRAME = "com.carlife.wireless.VIDEO_FRAME"
+        const val EXTRA_FRAME_DATA = "frame_data"
+        const val EXTRA_FRAME_IS_KEY = "frame_is_key"
+
         /** 当前运行的 ConnectionService 实例（供 MainActivity 传递 MediaProjection） */
         @Volatile
         var instance: ConnectionService? = null
@@ -67,6 +72,9 @@ class ConnectionService : Service() {
     private var videoService: VideoService? = null
     private var audioService: AudioService? = null
     private var touchService: TouchService? = null
+
+    // 预览帧计数器（每 N 帧广播 1 帧给 MainActivity）
+    private var previewFrameCounter = 0L
 
     override fun onCreate() {
         super.onCreate()
@@ -248,6 +256,11 @@ class ConnectionService : Service() {
                             header.payloadType,
                             frame
                         )
+                    }
+                    // 广播给 MainActivity 用于本地预览（每 3 帧取 1 帧，减少开销）
+                    previewFrameCounter++
+                    if (previewFrameCounter % 3 == 0) {
+                        broadcastVideoFrame(frame, false)
                     }
                 }
 
@@ -536,4 +549,16 @@ class ConnectionService : Service() {
 
     private fun getConnectionDuration(): Long = mdRole?.getConnectionDuration() ?: 0L
     private fun getLastErrorMessage(): String = mdRole?.getLastErrorMessage() ?: ""
+
+    /**
+     * 广播视频帧给 MainActivity（用于本地预览）
+     */
+    private fun broadcastVideoFrame(frame: ByteArray, isKeyFrame: Boolean) {
+        val intent = Intent(ACTION_VIDEO_FRAME).apply {
+            `package` = packageName
+            putExtra(EXTRA_FRAME_DATA, frame)
+            putExtra(EXTRA_FRAME_IS_KEY, isKeyFrame)
+        }
+        sendBroadcast(intent)
+    }
 }

@@ -31,7 +31,7 @@ import java.util.*
  * 功能：
  * 1. 启动/停止 ConnectionService
  * 2. 请求 MediaProjection 授权（屏幕采集需要）
- * 3. 显示连接状态和日志
+ * 3. 显示连接状态、视频预览和日志
  * 4. 引导用户开启无障碍服务（触摸注入需要）
  */
 class MainActivity : AppCompatActivity() {
@@ -61,6 +61,9 @@ class MainActivity : AppCompatActivity() {
 
     private val logBuffer = mutableListOf<String>()
 
+    // 视频预览
+    private val previewHelper = VideoPreviewHelper()
+
     /** MediaProjection 请求 launcher */
     private val mediaProjectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -69,7 +72,6 @@ class MainActivity : AppCompatActivity() {
             LogUtils.i(TAG, "MediaProjection 授权成功")
             val projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
             val projection = projectionManager.getMediaProjection(result.resultCode, result.data!!)
-            // 传递给正在运行的 ConnectionService
             ConnectionService.instance?.setMediaProjection(projection)
             addLog("屏幕录制授权成功")
         } else {
@@ -78,7 +80,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // 接收 ConnectionService 的状态更新
+    // 接收广播
     private val stateReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.action) {
@@ -96,10 +98,22 @@ class MainActivity : AppCompatActivity() {
                     if (error.isNotEmpty()) addLog("错误: $error")
                     val durText = if (duration > 0) " ${duration / 1000}秒" else ""
                     addLog("状态: $state, 通道: $channels/6$durText")
+
+                    // 根据连接状态控制预览
+                    if (channels >= 6) {
+                        previewHelper.startPreview()
+                    } else {
+                        previewHelper.stopPreview()
+                    }
                 }
                 ConnectionService.ACTION_REQUEST_PROJECTION -> {
-                    // ConnectionService 请求 MediaProjection
                     requestMediaProjection()
+                }
+                ConnectionService.ACTION_VIDEO_FRAME -> {
+                    val data = intent.getByteArrayExtra(ConnectionService.EXTRA_FRAME_DATA)
+                    if (data != null) {
+                        previewHelper.feedFrame(data)
+                    }
                 }
             }
         }
@@ -116,8 +130,16 @@ class MainActivity : AppCompatActivity() {
         val filter = IntentFilter().apply {
             addAction(ConnectionService.ACTION_STATE_CHANGED)
             addAction(ConnectionService.ACTION_REQUEST_PROJECTION)
+            addAction(ConnectionService.ACTION_VIDEO_FRAME)
         }
         ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+
+        // 初始化视频预览
+        previewHelper.bind(
+            binding.surfacePreview,
+            binding.tvPreviewPlaceholder,
+            binding.tvPreviewFps
+        )
 
         checkAndRequestPermissions()
         setupListeners()
@@ -129,8 +151,6 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         updateUI()
         uiHandler.postDelayed(periodicRefreshRunnable, 5000)
-
-        // 检查无障碍服务状态
         checkAccessibilityService()
     }
 
@@ -143,6 +163,7 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
         uiHandler.removeCallbacks(periodicRefreshRunnable)
         unregisterReceiver(stateReceiver)
+        previewHelper.release()
     }
 
     // ==================== UI 交互 ====================
@@ -172,10 +193,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // 先请求 MediaProjection 授权
         requestMediaProjection()
 
-        // 启动 ConnectionService
         val intent = Intent(this, ConnectionService::class.java)
         startForegroundService(intent)
         Toast.makeText(this, R.string.toast_service_started, Toast.LENGTH_SHORT).show()
@@ -187,6 +206,7 @@ class MainActivity : AppCompatActivity() {
         stopService(Intent(this, ConnectionService::class.java))
         Toast.makeText(this, R.string.toast_service_stopped, Toast.LENGTH_SHORT).show()
         binding.tvStatus.text = getString(R.string.status_disconnected)
+        previewHelper.stopPreview()
         addLog("服务已停止")
     }
 
@@ -206,8 +226,7 @@ class MainActivity : AppCompatActivity() {
     // ==================== 无障碍服务 ====================
 
     private fun checkAccessibilityService() {
-        val enabled = isAccessibilityServiceEnabled()
-        if (!enabled) {
+        if (!isAccessibilityServiceEnabled()) {
             addLog("提示: 开启无障碍服务可支持车机触摸操控")
         }
     }
@@ -318,9 +337,7 @@ class MainActivity : AppCompatActivity() {
         AlertDialog.Builder(this)
             .setTitle("需要权限")
             .setMessage("以下权限被永久拒绝：\n\n$names\n\n请在设置中手动授予。")
-            .setPositiveButton("去设置") {
-                _, _ -> openAppSettings()
-            }
+            .setPositiveButton("去设置") { _, _ -> openAppSettings() }
             .setNegativeButton("取消", null)
             .show()
     }

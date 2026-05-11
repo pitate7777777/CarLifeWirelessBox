@@ -102,6 +102,78 @@
 
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- 视频预览卡片 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/card_preview"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/card_status">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="投屏预览"
+                        android:textSize="18sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tv_preview_fps"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="-- fps"
+                        android:textSize="12sp"
+                        android:textColor="?android:attr/textColorSecondary" />
+
+                </LinearLayout>
+
+                <!-- 16:9 预览窗口 -->
+                <FrameLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:minHeight="180dp">
+
+                    <SurfaceView
+                        android:id="@+id/surface_preview"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent" />
+
+                    <!-- 未连接时的遮罩 -->
+                    <TextView
+                        android:id="@+id/tv_preview_placeholder"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:minHeight="180dp"
+                        android:background="#FF1A1A2E"
+                        android:gravity="center"
+                        android:text="等待手机B连接..."
+                        android:textColor="#80FFFFFF"
+                        android:textSize="14sp" />
+
+                </FrameLayout>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- 操作按钮区域 -->
         <LinearLayout
             android:id="@+id/layout_buttons"
@@ -111,7 +183,7 @@
             android:layout_marginBottom="16dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/card_status">
+            app:layout_constraintTop_toBottomOf="@id/card_preview">
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_start"
