@@ -18,6 +18,7 @@
     </string-array>
     
     <string-array name="framerate_options">
+        <item>25</item>
         <item>30</item>
         <item>60</item>
     </string-array>
@@ -25,5 +26,25 @@
     <string-array name="sample_rate_options">
         <item>44100</item>
         <item>48000</item>
+    </string-array>
+
+    <!-- 车机兼容模式预设 -->
+    <string-array name="car_preset_options">
+        <item>WinCE 标准 (800x480)</item>
+        <item>WinCE 宽屏 (1024x600)</item>
+        <item>WinCE 超宽 (1280x480)</item>
+        <item>Android 车机 (1280x720)</item>
+        <item>Android 车机 (1920x1080)</item>
+        <item>自定义</item>
+    </string-array>
+
+    <!-- 车机兼容模式预设值（与 SettingsManager.CarPreset 枚举顺序一致） -->
+    <string-array name="car_preset_values">
+        <item>WINCE_800x480</item>
+        <item>WINCE_1024x600</item>
+        <item>WINCE_1280x480</item>
+        <item>ANDROID_1280x720</item>
+        <item>ANDROID_1920x1080</item>
+        <item>CUSTOM</item>
     </string-array>
 </resources>

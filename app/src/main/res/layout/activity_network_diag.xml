@@ -81,6 +81,15 @@
 
         </LinearLayout>
 
+        <!-- 生成报告按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_generate_report"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:text="📄 生成诊断报告"
+            style="@style/Widget.MaterialComponents.Button.TextButton" />
+
         <!-- 进度条 -->
         <ProgressBar
             android:id="@+id/progress_diag"

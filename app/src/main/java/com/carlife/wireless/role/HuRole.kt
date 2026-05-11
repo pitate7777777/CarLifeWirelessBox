@@ -25,6 +25,7 @@ import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoCodecType
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoResolution
 import com.carlife.wireless.proto.CarlifeProtocolVersionProto
 import com.carlife.wireless.util.Constants
+import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
 import java.util.concurrent.atomic.AtomicInteger
@@ -204,6 +205,7 @@ class HuRole(
                               "请在手机 B 上打开 CarWith → CarLife 连接 → 无线连接"
                     LogUtils.w("$TAG: $msg")
                     listener?.onError(msg)
+                    ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, 0)
                     updateState(HuState.DISCONNECTED, "CarWith not ready")
                     return@Thread
                 }
@@ -251,6 +253,7 @@ class HuRole(
             } catch (e: Exception) {
                 LogUtils.e(e, "$TAG: Failed to initialize connections")
                 listener?.onError("Connection initialization failed: ${e.message}")
+                ErrorTracker.recordConnectionLost("HuRole", "初始化失败: ${e.message}")
                 updateState(HuState.DISCONNECTED, "Initialization failed")
             }
         }.apply {
@@ -476,6 +479,7 @@ class HuRole(
             LogUtils.i("$TAG: [Phase 1] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 1] Failed to send protocol version")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase1-ProtocolVersion")
             disconnect("Protocol version failed")
         }
     }
@@ -501,6 +505,7 @@ class HuRole(
             LogUtils.i("$TAG: [Phase 2] HU_INFO sent")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 2] Failed to send HU_INFO")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase2-HuInfo")
             disconnect("HU_INFO failed")
         }
     }
@@ -524,6 +529,7 @@ class HuRole(
             LogUtils.i("$TAG: [Phase 3] HU_AUTHEN_REQUEST sent")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 3] Failed to send authen request")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase3-AuthenRequest")
             disconnect("Authen request failed")
         }
     }
@@ -561,6 +567,7 @@ class HuRole(
             LogUtils.i("$TAG: [Phase 4] HU_AUTHEN_RESULT sent (result=$success)")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 4] Failed to send authen result")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase4-AuthenResult")
             disconnect("Authen result failed")
         }
     }
@@ -592,6 +599,7 @@ class HuRole(
             sendVideoEncoderInit()
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 5] Failed to send feature config")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase5-FeatureConfig")
             disconnect("Feature config failed")
         }
     }
@@ -627,6 +635,7 @@ class HuRole(
             LogUtils.i("$TAG: [Phase 6] VIDEO_ENCODER_INIT sent")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 6] Failed to send VIDEO_ENCODER_INIT")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase6-VideoEncoderInit")
             disconnect("Video encoder init failed")
         }
     }
@@ -644,6 +653,7 @@ class HuRole(
             LogUtils.i("$TAG: ===== Screen projection started =====")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 7] Failed to send VIDEO_ENCODER_START")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase7-VideoEncoderStart")
             disconnect("Video encoder start failed")
         }
     }

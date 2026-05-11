@@ -10,7 +10,9 @@ import androidx.appcompat.app.AppCompatActivity
 import com.carlife.wireless.R
 import com.carlife.wireless.databinding.ActivitySettingsBinding
 import com.carlife.wireless.databinding.DialogCustomResolutionBinding
+import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
+import com.carlife.wireless.util.SettingsManager
 
 /**
  * 设置 Activity
@@ -25,6 +27,7 @@ class SettingsActivity : AppCompatActivity() {
     
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var resolutions: Array<String> // 改为 var，允许更新
+    private val carPresetValues = SettingsManager.CarPreset.entries.map { it.name }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +45,26 @@ class SettingsActivity : AppCompatActivity() {
     }
     
     private fun setupSpinners() {
+        // 车机兼容模式预设
+        val presetOptions = resources.getStringArray(R.array.car_preset_options)
+        binding.spinnerCarPreset.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, presetOptions)
+        binding.spinnerCarPreset.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
+                val presetName = carPresetValues.getOrNull(position) ?: return
+                val preset = try { SettingsManager.CarPreset.valueOf(presetName) } catch (_: Exception) { return }
+                if (preset != SettingsManager.CarPreset.CUSTOM) {
+                    // 自动更新分辨率、帧率、码率
+                    val resIndex = resolutions.indexOf("${preset.width}x${preset.height}")
+                    if (resIndex >= 0) binding.spinnerResolution.setSelection(resIndex)
+                    val fpsOptions = resources.getStringArray(R.array.framerate_options)
+                    val fpsIndex = fpsOptions.indexOf(preset.fps.toString())
+                    if (fpsIndex >= 0) binding.spinnerFramerate.setSelection(fpsIndex)
+                    binding.seekbarBitrate.progress = preset.bitrateKbps
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>) {}
+        }
+
         // 分辨率选项（从资源文件加载）
         binding.spinnerResolution.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, resolutions)
         
@@ -67,6 +90,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun loadSettings() {
         LogUtils.d(TAG, "Loading settings...")
         val prefs = getSharedPreferences("carlife_settings", MODE_PRIVATE)
+
+        // 加载车机兼容模式
+        val preset = SettingsManager.getCarPreset(this)
+        val presetIndex = carPresetValues.indexOf(preset.name).coerceAtLeast(0)
+        binding.spinnerCarPreset.setSelection(presetIndex)
         
         // 加载分辨率
         val resolution = prefs.getString("resolution", "1280x720") ?: "1280x720"

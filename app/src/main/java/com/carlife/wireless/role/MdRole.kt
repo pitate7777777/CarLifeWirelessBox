@@ -16,6 +16,7 @@ import com.carlife.wireless.proto.CarlifeFeatureConfigProto
 import com.carlife.wireless.proto.CarlifeProtocolVersionProto
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto
 import com.carlife.wireless.util.Constants
+import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import java.util.concurrent.ConcurrentHashMap
@@ -370,6 +371,7 @@ class MdRole(private val context: Context) {
             LogUtils.i(TAG, "[Phase 1] VERSION_MATCH_STATUS sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "[Phase 1] Failed to send VERSION_MATCH_STATUS")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase1-VersionMatch")
         }
     }
 
@@ -400,6 +402,7 @@ class MdRole(private val context: Context) {
             LogUtils.i(TAG, "[Phase 2] MD_INFO sent")
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "[Phase 2] Failed to send MD_INFO")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase2-MdInfo")
         }
     }
 
@@ -424,6 +427,7 @@ class MdRole(private val context: Context) {
             LogUtils.i(TAG, "[Phase 3] MD_AUTHEN_RESPONSE sent (success=true)")
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "[Phase 3] Failed to send MD_AUTHEN_RESPONSE")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase3-AuthenResponse")
         }
     }
 
@@ -448,6 +452,7 @@ class MdRole(private val context: Context) {
             LogUtils.i(TAG, "[Phase 4] MD_AUTHEN_RESULT sent (SUCCESS)")
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "[Phase 4] Failed to send MD_AUTHEN_RESULT")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase4-AuthenResult")
         }
 
         // Phase 5: 发送特性配置请求
@@ -475,6 +480,7 @@ class MdRole(private val context: Context) {
             LogUtils.i(TAG, "[Phase 5] MD_FEATURE_CONFIG_REQUEST sent")
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "[Phase 5] Failed to send MD_FEATURE_CONFIG_REQUEST")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase5-FeatureConfig")
         }
     }
 
@@ -522,6 +528,7 @@ class MdRole(private val context: Context) {
             LogUtils.i(TAG, "[Phase 7] VIDEO_ENCODER_INIT_DONE sent")
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "[Phase 7] Failed to send VIDEO_ENCODER_INIT_DONE")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase7-VideoEncoderInitDone")
         }
     }
 

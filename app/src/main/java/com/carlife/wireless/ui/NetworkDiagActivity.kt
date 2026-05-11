@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.carlife.wireless.databinding.ActivityNetworkDiagBinding
 import com.carlife.wireless.util.Constants
+import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
 import com.carlife.wireless.util.SettingsManager
@@ -61,6 +62,10 @@ class NetworkDiagActivity : AppCompatActivity() {
                 startQuickCheck()
             }
         }
+
+        binding.btnGenerateReport.setOnClickListener {
+            generateReport()
+        }
     }
 
     private fun updatePhoneBIp() {
@@ -72,6 +77,70 @@ class NetworkDiagActivity : AppCompatActivity() {
         val prefs = getSharedPreferences("carlife_settings", MODE_PRIVATE)
         return prefs.getString("phone_b_ip", Constants.IpAddress.USB_TETHERING_LOCAL)
             ?: Constants.IpAddress.USB_TETHERING_LOCAL
+    }
+
+    /**
+     * 在诊断结果末尾追加错误统计
+     */
+    private fun appendErrorStats() {
+        val stats = ErrorTracker.getErrorStats()
+        val total = ErrorTracker.getTotalErrors()
+        if (total == 0) return
+
+        val current = binding.tvDiagResult.text.toString()
+        val sb = StringBuilder(current)
+        sb.appendLine()
+        sb.appendLine("═══ 错误统计 ═══")
+        sb.appendLine("总错误数: $total")
+        stats.forEach { (type, count) ->
+            if (count > 0) sb.appendLine("  ${type.label}: $count 次")
+        }
+
+        // 最近 3 条错误
+        val recent = ErrorTracker.getRecentErrors(3)
+        if (recent.isNotEmpty()) {
+            sb.appendLine()
+            sb.appendLine("最近错误:")
+            recent.forEach { sb.appendLine("  ${it.format()}") }
+        }
+
+        sb.appendLine()
+        sb.appendLine("💡 点击「生成报告」可保存完整诊断报告")
+
+        binding.tvDiagResult.text = sb.toString()
+    }
+
+    /**
+     * 生成并保存诊断报告
+     */
+    private fun generateReport() {
+        try {
+            val file = ErrorTracker.saveReportToFile(this)
+            if (file != null) {
+                Toast.makeText(this, "报告已保存: ${file.name}", Toast.LENGTH_LONG).show()
+
+                // 尝试分享报告
+                try {
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        this, "${packageName}.fileprovider", file
+                    )
+                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                        putExtra(android.content.Intent.EXTRA_SUBJECT, "CarLife 诊断报告")
+                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    startActivity(android.content.Intent.createChooser(shareIntent, "分享诊断报告"))
+                } catch (e: Exception) {
+                    LogUtils.w(TAG, "分享报告失败: ${e.message}")
+                }
+            } else {
+                Toast.makeText(this, "保存报告失败", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            Toast.makeText(this, "生成报告失败: ${e.message}", Toast.LENGTH_SHORT).show()
+            LogUtils.e(TAG, e, "生成诊断报告失败")
+        }
     }
 
     /**
@@ -119,6 +188,9 @@ class NetworkDiagActivity : AppCompatActivity() {
                     binding.tvDiagStatus.text = "诊断完成"
 
                     LogUtils.i(TAG, "Diagnostics completed: ${result.toSummary()}")
+
+                    // 追加错误统计信息
+                    appendErrorStats()
                 }
             } catch (e: Exception) {
                 handler.post {

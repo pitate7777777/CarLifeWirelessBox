@@ -40,4 +40,15 @@
 
     <!-- 无障碍服务 -->
     <string name="accessibility_service_description">CarLife Wireless Box 需要此权限来将车机的触摸操作传回手机。开启后，您可以在车机屏幕上直接操控手机。</string>
+
+    <!-- 车机兼容模式 -->
+    <string name="car_preset_title">车机兼容模式</string>
+    <string name="car_preset_summary">选择车机型号或屏幕分辨率预设</string>
+    <string name="car_preset_applied">已切换到: %1$s</string>
+    <string name="phone_b_ip">手机 B 的 IP 地址</string>
+
+    <!-- 诊断报告 -->
+    <string name="diag_report_title">诊断报告</string>
+    <string name="diag_report_saved">诊断报告已保存</string>
+    <string name="diag_report_share">分享报告</string>
 </resources>
