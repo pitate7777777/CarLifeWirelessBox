@@ -71,8 +71,32 @@
             android:id="@+id/etPort"
             android:layout_width="match_parent"
             android:layout_height="50dp"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="16dp"
             android:inputType="number" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="手机 B 的 IP 地址"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+        <EditText
+            android:id="@+id/etPhoneBIp"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginBottom="8dp"
+            android:inputType="text"
+            android:hint="例如: 192.168.43.1" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="手机 B 开启热点后的网关地址，通常为 192.168.43.1"
+            android:textSize="12sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:layout_marginBottom="24dp" />
 
     <Button
         android:id="@+id/btnSave"

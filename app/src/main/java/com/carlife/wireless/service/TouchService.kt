@@ -2,12 +2,16 @@ package com.carlife.wireless.service
 
 import android.accessibilityservice.AccessibilityService
 import android.app.Service
+import android.content.Context
 import android.content.Intent
 import android.graphics.Path
 import android.os.Binder
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.DisplayMetrics
+import android.view.Surface
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
@@ -86,6 +90,13 @@ class TouchService : Service() {
     private var carDisplayWidth: Int = DEFAULT_CAR_WIDTH
     private var carDisplayHeight: Int = DEFAULT_CAR_HEIGHT
 
+    // 竖屏模式下的坐标变换因子（参考 CarProjection）
+    private var portraitGestureFactorW: Float = 1.0f
+    private var portraitGestureFactorH: Float = 1.0f
+    private var landscapeGestureFactorW: Float = 1.0f
+    private var landscapeGestureFactorH: Float = 1.0f
+    private var portraitLeftX: Float = 0f // 竖屏时画面左侧偏移
+
     // 触摸注入器（由 AccessibilityService 提供）
     private var touchInjector: TouchInjector? = null
 
@@ -100,10 +111,47 @@ class TouchService : Service() {
 
         // 读取分辨率配置
         val resolution = SettingsManager.getResolution(this)
-        screenWidth = resolution.first
-        screenHeight = resolution.second
+        carDisplayWidth = resolution.first
+        carDisplayHeight = resolution.second
+
+        // 获取手机真实屏幕尺寸
+        refreshScreenSize()
 
         LogUtils.i(TAG, "Screen: ${screenWidth}x${screenHeight}, Car: ${carDisplayWidth}x${carDisplayHeight}")
+    }
+
+    /**
+     * 刷新手机屏幕尺寸并重算坐标变换因子
+     * 参考 CarProjection 的 refreshSize() 逻辑
+     */
+    private fun refreshScreenSize() {
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val metrics = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        wm.defaultDisplay.getRealMetrics(metrics)
+        screenWidth = metrics.widthPixels
+        screenHeight = metrics.heightPixels
+
+        // 允许用户在设置中覆盖手机分辨率
+        val prefs = getSharedPreferences("carlife_settings", MODE_PRIVATE)
+        screenWidth = prefs.getFloat("mobile_w", screenWidth.toFloat()).toInt()
+        screenHeight = prefs.getFloat("mobile_h", screenHeight.toFloat()).toInt()
+
+        // 横屏因子：手机分辨率 / 车机投屏分辨率
+        landscapeGestureFactorW = screenWidth.toFloat() / carDisplayWidth
+        landscapeGestureFactorH = screenHeight.toFloat() / carDisplayHeight
+
+        // 竖屏因子：手机竖屏时，车机画面旋转 90° 映射
+        // 竖屏手机宽 = 手机高，竖屏手机高 = 手机宽
+        // 车机竖屏实际投屏宽度 = 车机宽 * 车机高 / 手机高（保持比例）
+        val portraitCarWidth = carDisplayWidth.toFloat() * carDisplayHeight / screenWidth
+        portraitGestureFactorW = screenHeight.toFloat() / portraitCarWidth
+        portraitGestureFactorH = screenWidth.toFloat() / carDisplayHeight
+        portraitLeftX = (carDisplayWidth - portraitCarWidth) / 2f
+
+        LogUtils.i(TAG, "refreshSize: mobile=${screenWidth}x${screenHeight}, car=${carDisplayWidth}x${carDisplayHeight}")
+        LogUtils.i(TAG, "  landscape factor: W=$landscapeGestureFactorW, H=$landscapeGestureFactorH")
+        LogUtils.i(TAG, "  portrait factor: W=$portraitGestureFactorW, H=$portraitGestureFactorH, leftX=$portraitLeftX")
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -134,6 +182,7 @@ class TouchService : Service() {
     fun setCarDisplaySize(width: Int, height: Int) {
         carDisplayWidth = width
         carDisplayHeight = height
+        refreshScreenSize()
         LogUtils.i(TAG, "Car display size: ${width}x${height}")
     }
 
@@ -143,6 +192,7 @@ class TouchService : Service() {
     fun setScreenSize(width: Int, height: Int) {
         screenWidth = width
         screenHeight = height
+        refreshScreenSize()
         LogUtils.i(TAG, "Screen size: ${width}x${height}")
     }
 
@@ -352,16 +402,43 @@ class TouchService : Service() {
     /**
      * 车机坐标 → 手机坐标
      *
-     * 车机触摸屏分辨率可能与 CarLife 投屏分辨率不同，
-     * 这里按比例映射到手机屏幕坐标。
+     * 根据手机当前屏幕方向（横屏/竖屏）选择不同的映射算法。
+     * 竖屏时车机画面居中显示，两侧有黑边，需要减去偏移量。
+     * 参考 CarProjection 的 genarateGesture() 逻辑。
      */
     private fun convertCoordinates(carX: Float, carY: Float): Pair<Float, Float> {
-        val phoneX = carX * screenWidth / carDisplayWidth
-        val phoneY = carY * screenHeight / carDisplayHeight
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        @Suppress("DEPRECATION")
+        val rotation = wm.defaultDisplay.rotation
+
+        val phoneX: Float
+        val phoneY: Float
+
+        when (rotation) {
+            Surface.ROTATION_0, Surface.ROTATION_180 -> {
+                // 竖屏模式：车机画面旋转 90° 映射到手机
+                // 需要减去画面左侧偏移
+                phoneX = (carX - portraitLeftX) * portraitGestureFactorW
+                phoneY = carY * portraitGestureFactorH
+            }
+            Surface.ROTATION_90, Surface.ROTATION_270 -> {
+                // 横屏模式：直接映射
+                phoneX = carX * landscapeGestureFactorW
+                phoneY = carY * landscapeGestureFactorH
+            }
+            else -> {
+                phoneX = carX * screenWidth / carDisplayWidth
+                phoneY = carY * screenHeight / carDisplayHeight
+            }
+        }
+
         // 边界保护
+        val maxX = if (rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) screenHeight.toFloat() else screenWidth.toFloat()
+        val maxY = if (rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) screenWidth.toFloat() else screenHeight.toFloat()
+
         return Pair(
-            phoneX.coerceIn(0f, (screenWidth - 1).toFloat()),
-            phoneY.coerceIn(0f, (screenHeight - 1).toFloat())
+            phoneX.coerceIn(0f, maxX - 1),
+            phoneY.coerceIn(0f, maxY - 1)
         )
     }
 

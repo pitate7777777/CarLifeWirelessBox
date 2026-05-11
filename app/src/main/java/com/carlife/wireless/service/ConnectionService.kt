@@ -21,6 +21,7 @@ import com.carlife.wireless.role.HuRoleListener
 import com.carlife.wireless.role.HuState
 import com.carlife.wireless.role.MdRole
 import com.carlife.wireless.util.LogUtils
+import com.carlife.wireless.util.SettingsManager
 import java.io.IOException
 
 /**
@@ -241,7 +242,9 @@ class ConnectionService : Service() {
         }
 
         try {
-            huRole = HuRole(this)
+            val phoneBIp = com.carlife.wireless.util.SettingsManager.getPhoneBIp(this)
+            LogUtils.i(TAG, "Phone B IP: $phoneBIp")
+            huRole = HuRole(this, phoneBIp)
             huRole?.listener = object : HuRoleListener {
                 override fun onStateChanged(state: HuState, reason: String?) {
                     LogUtils.i(TAG, "HuRole state: $state ($reason)")
@@ -296,6 +299,20 @@ class ConnectionService : Service() {
 
                 override fun onError(error: String) {
                     LogUtils.e(TAG, "HuRole error: $error")
+                    updateNotification("连接失败: $error")
+                    broadcastState()
+                }
+
+                override fun onPortCheckResult(openPorts: Int, totalPorts: Int, closedPorts: List<String>) {
+                    if (openPorts < totalPorts) {
+                        val msg = "CarWith 端口检测: $openPorts/$totalPorts 已监听"
+                        LogUtils.w(TAG, msg)
+                        if (closedPorts.isNotEmpty()) {
+                            updateNotification("等待 CarWith 开启 (${openPorts}/${totalPorts})")
+                        }
+                    } else {
+                        LogUtils.i(TAG, "All CarWith ports ready")
+                    }
                 }
             }
             huRole?.connect()

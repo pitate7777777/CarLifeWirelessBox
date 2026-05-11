@@ -90,6 +90,11 @@ class SettingsActivity : AppCompatActivity() {
         // 加载端口
         val port = prefs.getInt("port", 8234)
         binding.etPort.setText(port.toString())
+
+        // 加载手机 B IP
+        val phoneBIp = prefs.getString("phone_b_ip", com.carlife.wireless.util.Constants.IpAddress.USB_TETHERING_LOCAL)
+            ?: com.carlife.wireless.util.Constants.IpAddress.USB_TETHERING_LOCAL
+        binding.etPhoneBIp.setText(phoneBIp)
     }
     
     private fun setupListeners() {
@@ -170,19 +175,20 @@ class SettingsActivity : AppCompatActivity() {
     
     private fun saveSettings() {
         LogUtils.d(TAG, "Saving settings...")
-        
+
         val resolution = binding.spinnerResolution.selectedItem.toString()
         val bitrate = binding.seekbarBitrate.progress * 1000L  // 从 kbps 转换为 bps
         val framerate = binding.spinnerFramerate.selectedItem.toString()
         val sampleRate = binding.spinnerSampleRate.selectedItem.toString()
         val port = binding.etPort.text.toString().toIntOrNull() ?: 8234
-        
+        val phoneBIp = binding.etPhoneBIp.text.toString().trim().ifEmpty { com.carlife.wireless.util.Constants.IpAddress.USB_TETHERING_LOCAL }
+
         // 验证端口号范围
         if (port !in 1024..65535) {
             Toast.makeText(this, getString(R.string.toast_port_range_error), Toast.LENGTH_LONG).show()
             return
         }
-        
+
         // 保存到 SharedPreferences
         val prefs = getSharedPreferences("carlife_settings", MODE_PRIVATE)
         prefs.edit().apply {
@@ -191,10 +197,11 @@ class SettingsActivity : AppCompatActivity() {
             putString("framerate", framerate)
             putString("sample_rate", sampleRate)
             putInt("port", port)
+            putString("phone_b_ip", phoneBIp)
             apply()
         }
-        
-        LogUtils.i(TAG, "Settings saved: resolution=$resolution, bitrate=$bitrate, framerate=$framerate, sampleRate=$sampleRate, port=$port")
+
+        LogUtils.i(TAG, "Settings saved: resolution=$resolution, bitrate=$bitrate, framerate=$framerate, sampleRate=$sampleRate, port=$port, phoneBIp=$phoneBIp")
     }
     
     override fun onDestroy() {

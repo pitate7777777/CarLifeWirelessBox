@@ -26,6 +26,7 @@ import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoResolution
 import com.carlife.wireless.proto.CarlifeProtocolVersionProto
 import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.LogUtils
+import com.carlife.wireless.util.NetworkDiagnostics
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -53,6 +54,8 @@ interface HuRoleListener {
     fun onVrFrameReceived(header: ChannelHeader.Media, data: ByteArray)
     fun onControlReceived(header: ChannelHeader.Cmd, payload: ByteArray)
     fun onError(error: String)
+    /** 端口预检结果回调 */
+    fun onPortCheckResult(openPorts: Int, totalPorts: Int, closedPorts: List<String>) {}
 }
 
 /**
@@ -170,6 +173,7 @@ class HuRole(
 
     /**
      * 连接到手机 B
+     * 先检测 CarWith 端口是否已监听，再建立连接
      */
     fun connect() {
         if (state.get() != HuState.IDLE) {
@@ -180,26 +184,79 @@ class HuRole(
         updateState(HuState.CONNECTING)
         connectedChannelCount.set(0)
 
-        try {
-            cmdChannel = createChannel(ChannelType.HU_CMD, autoRead = false) // CMD 通道由 startCmdReadLoop 自行读取
-            videoChannel = createChannel(ChannelType.HU_VIDEO)
-            mediaChannel = createChannel(ChannelType.HU_MEDIA)
-            ttsChannel = createChannel(ChannelType.HU_TTS)
-            vrChannel = createChannel(ChannelType.HU_VR)
-            ctrlChannel = createChannel(ChannelType.HU_CTRL)
+        // 在后台线程执行端口预检 + 连接
+        Thread {
+            try {
+                // ========== 端口预检 ==========
+                LogUtils.i("$TAG: Checking CarWith ports at $phoneBIp ...")
+                val portResults = NetworkDiagnostics.checkCarWithPorts(phoneBIp, 1500)
+                val openCount = portResults.count { it.isOpen }
+                val closedPorts = portResults.filter { !it.isOpen }.map { "${it.port}(${it.name})" }
 
-            cmdChannel?.connect(phoneBIp)
-            videoChannel?.connect(phoneBIp)
-            mediaChannel?.connect(phoneBIp)
-            ttsChannel?.connect(phoneBIp)
-            vrChannel?.connect(phoneBIp)
-            ctrlChannel?.connect(phoneBIp)
+                LogUtils.i("$TAG: Port check: $openCount/${portResults.size} open")
 
-            LogUtils.i("$TAG: Connecting to phone B at $phoneBIp (6 channels)")
-        } catch (e: Exception) {
-            LogUtils.e(e, "$TAG: Failed to initialize connections")
-            listener?.onError("Connection initialization failed: ${e.message}")
-            updateState(HuState.DISCONNECTED, "Initialization failed")
+                // 通知上层端口检测结果
+                listener?.onPortCheckResult(openCount, portResults.size, closedPorts)
+
+                if (openCount == 0) {
+                    // 没有任何端口打开 → CarWith 未进入无线连接模式
+                    val msg = "CarWith 未就绪：手机 B ($phoneBIp) 无端口监听。" +
+                              "请在手机 B 上打开 CarWith → CarLife 连接 → 无线连接"
+                    LogUtils.w("$TAG: $msg")
+                    listener?.onError(msg)
+                    updateState(HuState.DISCONNECTED, "CarWith not ready")
+                    return@Thread
+                }
+
+                if (openCount < portResults.size) {
+                    // 部分端口未打开 → CarWith 可能还在初始化
+                    LogUtils.w("$TAG: Only $openCount/${portResults.size} ports open, waiting 2s for CarWith to initialize...")
+                    Thread.sleep(2000)
+
+                    // 重新检测未打开的端口
+                    val recheck = NetworkDiagnostics.checkCarWithPorts(phoneBIp, 1500)
+                    val recheckOpen = recheck.count { it.isOpen }
+                    val stillClosed = recheck.filter { !it.isOpen }.map { "${it.port}(${it.name})" }
+
+                    LogUtils.i("$TAG: Recheck: $recheckOpen/${recheck.size} open")
+
+                    if (recheckOpen < portResults.size) {
+                        val msg = "CarWith 端口不完整：${stillClosed.joinToString(", ")} 未监听。" +
+                                  "请确认 CarWith 已进入无线连接模式"
+                        LogUtils.w("$TAG: $msg")
+                        listener?.onError(msg)
+                        updateState(HuState.DISCONNECTED, "Incomplete ports: ${stillClosed.joinToString(", ")}")
+                        return@Thread
+                    }
+                }
+
+                // ========== 建立连接 ==========
+                LogUtils.i("$TAG: All CarWith ports ready, establishing connections...")
+
+                cmdChannel = createChannel(ChannelType.HU_CMD, autoRead = false)
+                videoChannel = createChannel(ChannelType.HU_VIDEO)
+                mediaChannel = createChannel(ChannelType.HU_MEDIA)
+                ttsChannel = createChannel(ChannelType.HU_TTS)
+                vrChannel = createChannel(ChannelType.HU_VR)
+                ctrlChannel = createChannel(ChannelType.HU_CTRL)
+
+                cmdChannel?.connect(phoneBIp)
+                videoChannel?.connect(phoneBIp)
+                mediaChannel?.connect(phoneBIp)
+                ttsChannel?.connect(phoneBIp)
+                vrChannel?.connect(phoneBIp)
+                ctrlChannel?.connect(phoneBIp)
+
+                LogUtils.i("$TAG: Connecting to phone B at $phoneBIp (6 channels)")
+            } catch (e: Exception) {
+                LogUtils.e(e, "$TAG: Failed to initialize connections")
+                listener?.onError("Connection initialization failed: ${e.message}")
+                updateState(HuState.DISCONNECTED, "Initialization failed")
+            }
+        }.apply {
+            name = "HuRole-Connect"
+            isDaemon = true
+            start()
         }
     }
 

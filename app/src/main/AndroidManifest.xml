@@ -77,7 +77,7 @@
             android:name=".ui.MainActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:screenOrientation="landscape"
+            android:screenOrientation="unspecified"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:windowSoftInputMode="stateAlwaysHidden">
             <intent-filter>
@@ -137,7 +137,19 @@
         <activity
             android:name=".ui.SettingsActivity"
             android:exported="false"
-            android:screenOrientation="landscape" />
+            android:screenOrientation="unspecified" />
+
+        <!-- ==================== 日志查看 Activity ==================== -->
+        <activity
+            android:name=".ui.LogViewerActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
+        <!-- ==================== 网络诊断 Activity ==================== -->
+        <activity
+            android:name=".ui.NetworkDiagActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
 
         <!-- ==================== Receiver ==================== -->
         <!-- 开机自启 (可选) -->

@@ -185,6 +185,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
+
+        binding.btnDiag.setOnClickListener {
+            startActivity(Intent(this, NetworkDiagActivity::class.java))
+        }
     }
 
     private fun startCarLifeService() {
