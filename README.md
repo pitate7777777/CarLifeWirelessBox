@@ -39,6 +39,8 @@
 | **MD 角色** | `MdRole` 启动 6 端口监听，**完整 CarLife 协议握手**（8 阶段：版本匹配→设备信息→认证→特性协商→编码器初始化），所有通道 CarLife 协议格式专用读取循环 |
 | **数据桥接** | `StreamBridge` 单通道桥接 + `StreamBridgeManager` 管理器，支持协议转换；ConnectionService 直接转发模式（HuRole↔MdRole 端到端） |
 | **USB 连接** | `UsbTetheringManager` — USB 网络共享状态检测、车机 IP 自动扫描（192.168.42.x）、USB 状态广播、网口检测（usb0/rndis0/ncm） |
+| **动态码率** | `DynamicBitrate` — 根据 WiFi RSSI 自动调节视频码率（5 级信号等级），信号下降立即响应，信号改善延迟升级（防抖动） |
+| **连接引导** | `UsbGuideActivity` — 分 4 步引导 USB 连接（数据线→网络共享→等待车机→完成），步骤指示器 + 常见问题提示 |
 | **协议转换** | `ProtocolTranslator`（H.265→H.264 / Opus→AAC 框架）、`VersionDetector` 版本检测 |
 | **视频服务** | `VideoService` — MediaProjection 屏幕采集 + MediaCodec H.264 硬编码，SPS/PPS 缓存 |
 | **音频服务** | `AudioService` — AudioPlaybackCapture 系统音频录制 + MediaCodec AAC 编码 |
@@ -56,9 +58,7 @@
 
 | 模块 | 说明 | 优先级 |
 |------|------|--------|
-| **USB 连接引导** | 引导用户开启 USB 网络共享，自动检测车机 IP，连接流程优化 | P1 |
-| **动态比特率** | 根据 Wi-Fi 信号强度自动调节视频码率 | P2 |
-| **VR 通道端到端** | 框架已就绪，需实际测试车机麦克风→手机B语音识别 | P2 |
+| _(无)_ | 所有 P0/P1/P2 功能已实现 | — |
 
 ## 项目结构
 
