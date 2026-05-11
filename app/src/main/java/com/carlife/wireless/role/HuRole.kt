@@ -181,7 +181,6 @@ class HuRole(
         disconnect("releasing")
     }
 
-    fun setListener(listener: HuRoleListener?) { this.listener = listener }
     fun getState(): HuState = state.get()
     fun isConnected(): Boolean = state.get() == HuState.CONNECTED
 
