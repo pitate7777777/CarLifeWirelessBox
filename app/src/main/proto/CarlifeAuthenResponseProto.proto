@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeAuthenResponseProto";
+
+import "carlife_common.proto";
+
+// Authentication response
+message CarlifeAuthenResponse {
+    bool success = 1;
+    uint32 error_code = 2;
+    string error_msg = 3;
+    string session_id = 4;
+    uint32 heartbeat_interval_ms = 5;
+    repeated string authorized_features = 6;
+    string server_info = 7;
+}

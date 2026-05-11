@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="resolution_options">
+        <item>800x480</item>
+        <item>832x480</item>
+        <item>848x480</item>
+        <item>1024x384</item>
+        <item>1024x576</item>
+        <item>1024x600</item>
+        <item>1024x608</item>
+        <item>1280x480</item>
+        <item>1280x720</item>
+        <item>1280x768</item>
+        <item>1920x720</item>
+        <item>1920x1080</item>
+        <item>1920x1140</item>
+        <item>@string/resolution_custom</item>
+    </string-array>
+    
+    <string-array name="framerate_options">
+        <item>30</item>
+        <item>60</item>
+    </string-array>
+    
+    <string-array name="sample_rate_options">
+        <item>44100</item>
+        <item>48000</item>
+    </string-array>
+</resources>

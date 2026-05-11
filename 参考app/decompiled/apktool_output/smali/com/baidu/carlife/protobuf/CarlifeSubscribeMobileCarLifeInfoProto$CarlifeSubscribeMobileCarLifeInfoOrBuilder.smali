@@ -1,0 +1,43 @@
+.class public interface abstract Lcom/baidu/carlife/protobuf/CarlifeSubscribeMobileCarLifeInfoProto$CarlifeSubscribeMobileCarLifeInfoOrBuilder;
+.super Ljava/lang/Object;
+.source ""
+
+# interfaces
+.implements Le/c/b/y;
+
+
+# annotations
+.annotation system Ldalvik/annotation/EnclosingClass;
+    value = Lcom/baidu/carlife/protobuf/CarlifeSubscribeMobileCarLifeInfoProto;
+.end annotation
+
+.annotation system Ldalvik/annotation/InnerClass;
+    accessFlags = 0x609
+    name = "CarlifeSubscribeMobileCarLifeInfoOrBuilder"
+.end annotation
+
+
+# virtual methods
+.method public abstract synthetic getDefaultInstanceForType()Le/c/b/x;
+.end method
+
+.method public abstract getFrequency()I
+.end method
+
+.method public abstract getModuleID()I
+.end method
+
+.method public abstract getSupportFlag()Z
+.end method
+
+.method public abstract hasFrequency()Z
+.end method
+
+.method public abstract hasModuleID()Z
+.end method
+
+.method public abstract hasSupportFlag()Z
+.end method
+
+.method public abstract synthetic isInitialized()Z
+.end method

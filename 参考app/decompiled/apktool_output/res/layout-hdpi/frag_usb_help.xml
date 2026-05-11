@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:background="@color/cl_bg_c_main" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <include android:id="@id/common_title_bar" layout="@layout/carlife_common_title_bar_new" />
+    <ScrollView android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_below="@id/common_title_bar">
+        <RelativeLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="fill_parent">
+            <TextView android:textSize="18.0sp" android:textColor="@color/cl_text_a5_content" android:id="@id/tips" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="72.0dip" android:layout_marginTop="12.0dip" android:layout_marginRight="16.0dip" android:layout_marginBottom="24.0dip" android:text="@string/usb_help_tips" />
+            <LinearLayout android:orientation="horizontal" android:id="@id/layout_l1" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginLeft="56.0dip" android:layout_marginRight="56.0dip" android:layout_below="@id/tips">
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips_img" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_carlife01" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips_num" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number01" android:layout_below="@id/tips_img" android:layout_alignLeft="@id/tips_img" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips_img" android:layout_toRightOf="@id/tips_num" android:layout_below="@id/tips_img" />
+                </RelativeLayout>
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips_img2" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_carlife02" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips_num2" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number02" android:layout_below="@id/tips_img2" android:layout_alignLeft="@id/tips_img2" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips_img2" android:layout_toRightOf="@id/tips_num2" android:layout_below="@id/tips_img2" />
+                </RelativeLayout>
+            </LinearLayout>
+            <ImageView android:id="@id/arrow1" android:layout_width="56.0dip" android:layout_height="24.0dip" android:layout_marginTop="52.0dip" android:src="@drawable/car_ic_help_arrow" android:layout_below="@id/tips" android:layout_centerHorizontal="true" />
+            <LinearLayout android:orientation="horizontal" android:id="@id/layout_l2" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginLeft="56.0dip" android:layout_marginTop="24.0dip" android:layout_marginRight="56.0dip" android:layout_below="@id/layout_l1">
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips_img3" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_carlife03" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips_num3" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number03" android:layout_below="@id/tips_img3" android:layout_alignLeft="@id/tips_img3" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips_img3" android:layout_toRightOf="@id/tips_num3" android:layout_below="@id/tips_img3" />
+                </RelativeLayout>
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
+            </LinearLayout>
+            <TextView android:textSize="18.0sp" android:textColor="@color/cl_text_a5_content" android:id="@id/tips2" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="72.0dip" android:layout_marginTop="36.0dip" android:layout_marginRight="16.0dip" android:layout_marginBottom="24.0dip" android:text="@string/usb_help_tips2" android:layout_below="@id/layout_l2" />
+            <LinearLayout android:orientation="horizontal" android:id="@id/layout2_l1" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginLeft="56.0dip" android:layout_marginRight="56.0dip" android:layout_below="@id/tips2">
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips2_img" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_usb01" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips2_num" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number01" android:layout_below="@id/tips2_img" android:layout_alignLeft="@id/tips2_img" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips2_img" android:layout_toRightOf="@id/tips2_num" android:layout_below="@id/tips2_img" />
+                </RelativeLayout>
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips2_img2" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_usb02" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips2_num2" android:layout_width="24.0dip" android:layout_height="24.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number02" android:layout_below="@id/tips2_img2" android:layout_alignLeft="@id/tips2_img2" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips2_img2" android:layout_toRightOf="@id/tips2_num2" android:layout_below="@id/tips2_img2" />
+                </RelativeLayout>
+            </LinearLayout>
+            <ImageView android:id="@id/arrow2" android:layout_width="56.0dip" android:layout_height="24.0dip" android:layout_marginTop="52.0dip" android:src="@drawable/car_ic_help_arrow" android:layout_below="@id/tips2" android:layout_centerHorizontal="true" />
+            <LinearLayout android:orientation="horizontal" android:id="@id/layout2_l2" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginLeft="56.0dip" android:layout_marginTop="24.0dip" android:layout_marginRight="56.0dip" android:layout_below="@id/layout2_l1">
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips2_img3" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_usb03" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips2_num3" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number03" android:layout_below="@id/tips2_img3" android:layout_alignLeft="@id/tips2_img3" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips2_img3" android:layout_toRightOf="@id/tips2_num3" android:layout_below="@id/tips2_img3" />
+                </RelativeLayout>
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips2_img4" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_usb04" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips2_num4" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number04" android:layout_below="@id/tips2_img4" android:layout_alignLeft="@id/tips2_img4" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips2_img4" android:layout_toRightOf="@id/tips2_num4" android:layout_below="@id/tips2_img4" />
+                </RelativeLayout>
+            </LinearLayout>
+            <ImageView android:id="@id/arrow3" android:layout_width="56.0dip" android:layout_height="24.0dip" android:layout_marginTop="76.0dip" android:src="@drawable/car_ic_help_arrow" android:layout_below="@id/layout2_l1" android:layout_centerHorizontal="true" />
+            <TextView android:textSize="18.0sp" android:textColor="@color/cl_text_a5_content" android:id="@id/tips3" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="72.0dip" android:layout_marginTop="36.0dip" android:layout_marginRight="16.0dip" android:layout_marginBottom="24.0dip" android:text="@string/usb_help_tips3" android:layout_below="@id/layout2_l2" />
+            <LinearLayout android:orientation="horizontal" android:id="@id/layout3_l1" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginLeft="56.0dip" android:layout_marginRight="56.0dip" android:layout_below="@id/tips3">
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips3_img" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_developer01" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips3_num" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number01" android:layout_below="@id/tips3_img" android:layout_alignLeft="@id/tips3_img" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips3_img" android:layout_toRightOf="@id/tips3_num" android:layout_below="@id/tips3_img" />
+                </RelativeLayout>
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips3_img2" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_developer02" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips3_num2" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number02" android:layout_below="@id/tips3_img2" android:layout_alignLeft="@id/tips3_img2" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips3_img2" android:layout_toRightOf="@id/tips3_num2" android:layout_below="@id/tips3_img2" />
+                </RelativeLayout>
+            </LinearLayout>
+            <ImageView android:id="@id/arrow4" android:layout_width="56.0dip" android:layout_height="24.0dip" android:layout_marginTop="52.0dip" android:src="@drawable/car_ic_help_arrow" android:layout_below="@id/tips3" android:layout_centerHorizontal="true" />
+            <LinearLayout android:orientation="horizontal" android:id="@id/layout3_l2" android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_marginLeft="56.0dip" android:layout_marginTop="24.0dip" android:layout_marginRight="56.0dip" android:layout_below="@id/layout3_l1">
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <ImageView android:id="@id/tips3_img3" android:layout_width="168.0dip" android:layout_height="128.0dip" android:src="@drawable/car_ic_help_android_developer03" android:layout_centerHorizontal="true" />
+                    <ImageView android:id="@id/tips3_num3" android:layout_width="18.0dip" android:layout_height="18.0dip" android:layout_marginLeft="16.0dip" android:layout_marginTop="12.0dip" android:src="@drawable/car_ic_help_number03" android:layout_below="@id/tips3_img3" android:layout_alignLeft="@id/tips3_img3" />
+                    <TextView android:textSize="14.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="8.0dip" android:layout_marginTop="12.0dip" android:text="@string/usb_help_tips3_img3" android:layout_toRightOf="@id/tips3_num3" android:layout_below="@id/tips3_img3" />
+                </RelativeLayout>
+                <RelativeLayout android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0" />
+            </LinearLayout>
+            <View android:layout_width="1.0dip" android:layout_height="1.0dip" android:layout_marginTop="54.0dip" android:layout_below="@id/layout3_l2" />
+        </RelativeLayout>
+    </ScrollView>
+</RelativeLayout>

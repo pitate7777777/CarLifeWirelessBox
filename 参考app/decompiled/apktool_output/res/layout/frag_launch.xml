@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:background="@color/cl_bg_c_main" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <ImageView android:id="@id/launch_iv_brand_logo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/cailife_logo" android:scaleType="center" android:layout_centerInParent="true" />
+    <ImageView android:id="@id/launch_iv_copyright" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginBottom="8.0dip" android:src="@drawable/logo_copyright" android:scaleType="center" android:layout_alignParentBottom="true" android:layout_centerHorizontal="true" />
+</RelativeLayout>

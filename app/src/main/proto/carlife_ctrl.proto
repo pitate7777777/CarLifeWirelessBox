@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeCtrlProto";
+
+// Control messages
+message CarlifeTouchEvent {
+    uint32 action = 1;  // DOWN, MOVE, UP
+    uint32 x = 2;
+    uint32 y = 3;
+    uint32 pointer_id = 4;
+    uint64 event_time_ms = 5;
+}
+
+message CarlifeKeyEvent {
+    uint32 key_code = 1;
+    uint32 action = 2;  // DOWN, UP, LONG_PRESS
+    uint32 repeat_count = 3;
+    uint64 event_time_ms = 4;
+}
+
+message CarlifeGestureEvent {
+    string gesture_type = 1;  // SWIPE_LEFT, SWIPE_RIGHT, PINCH, ZOOM
+    uint32 start_x = 2;
+    uint32 start_y = 3;
+    uint32 end_x = 4;
+    uint32 end_y = 5;
+    float scale_factor = 6;
+}
+
+message CarlifeScreenInfo {
+    uint32 width = 1;
+    uint32 height = 2;
+    uint32 dpi = 3;
+    float density = 4;
+    string orientation = 5;  // PORTRAIT, LANDSCAPE
+}

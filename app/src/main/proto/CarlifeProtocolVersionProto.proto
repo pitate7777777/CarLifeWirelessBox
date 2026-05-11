@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeProtocolVersionProto";
+option optimize_for = LITE_RUNTIME;
+
+// CarLife protocol version negotiation message
+message CarlifeProtocolVersion {
+    // Major version number
+    uint32 major_version = 1;
+    // Minor version number
+    uint32 minor_version = 2;
+    // Patch version number
+    uint32 patch_version = 3;
+    // Supported feature bitmap
+    uint64 feature_bitmap = 4;
+}

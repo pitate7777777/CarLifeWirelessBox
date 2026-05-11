@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="permissionx_default_dialog_bg">#ff3c4043</color>
+    <color name="permissionx_split_line">#ff55565a</color>
+    <color name="permissionx_text_color">#ffffffff</color>
+    <color name="permissionx_tint_color">#ff8ab6f5</color>
+</resources>

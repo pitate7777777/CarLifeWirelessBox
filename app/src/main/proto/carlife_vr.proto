@@ -1,0 +1,44 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeVrProto";
+
+import "carlife_common.proto";
+
+// VR related messages
+message CarlifeVrStart {
+    string language = 1;
+    bool semantic_enabled = 2;
+    repeated string recognition_modes = 3;
+}
+
+message CarlifeVrStop {
+    string reason = 1;
+}
+
+message CarlifeVrAudioData {
+    bytes audio_data = 1;
+    uint32 sequence_number = 2;
+    bool is_last = 3;
+}
+
+message CarlifeVrResult {
+    CarlifeStatus status = 1;
+    string recognized_text = 2;
+    string semantic_result = 3;
+    float confidence = 4;
+    repeated VrCandidate candidates = 5;
+}
+
+message VrCandidate {
+    string text = 1;
+    float confidence = 2;
+}
+
+message CarlifeVrFeedback {
+    string session_id = 1;
+    string feedback_type = 2;  // ACCEPT, REJECT, CORRECT
+    string correct_text = 3;
+}

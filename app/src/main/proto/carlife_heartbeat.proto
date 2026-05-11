@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeHeartbeatProto";
+
+import "carlife_common.proto";
+
+// Heartbeat message
+message CarlifeHeartbeat {
+    string device_id = 1;
+    int64 timestamp_ms = 2;
+    int32 sequence = 3;
+    int32 connection_state = 4;  // 0=disconnected, 1=connected
+    bytes payload = 5;
+}
+
+message CarlifeHeartbeatRequest {
+    CarlifeTimestamp timestamp = 1;
+    uint32 sequence_number = 2;
+    string device_status = 3;
+}
+
+message CarlifeHeartbeatResponse {
+    CarlifeStatus status = 1;
+    CarlifeTimestamp timestamp = 2;
+    uint32 sequence_number = 3;
+    uint32 next_interval_ms = 4;
+}
+
+message CarlifeConnectionStats {
+    uint64 bytes_sent = 1;
+    uint64 bytes_received = 2;
+    uint32 packets_sent = 3;
+    uint32 packets_received = 4;
+    uint32 packet_loss_count = 5;
+    uint32 latency_ms = 6;
+}

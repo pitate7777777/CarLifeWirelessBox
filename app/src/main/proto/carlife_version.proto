@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeVersionProto";
+
+import "carlife_common.proto";
+
+// Version negotiation
+message CarlifeVersionRequest {
+    CarlifeVersion client_version = 1;
+    repeated CarlifeVersion supported_protocol_versions = 2;
+}
+
+message CarlifeVersionResponse {
+    CarlifeStatus status = 1;
+    CarlifeVersion server_version = 2;
+    CarlifeVersion selected_protocol_version = 3;
+    repeated string compatibility_notes = 4;
+}
+
+// Protocol capability query
+message CarlifeCapabilityQuery {
+    repeated string capability_names = 1;
+}
+
+message CarlifeCapabilityResponse {
+    CarlifeStatus status = 1;
+    repeated CapabilityInfo capabilities = 2;
+}
+
+message CapabilityInfo {
+    string name = 1;
+    string version = 2;
+    bool is_supported = 3;
+    string description = 4;
+}

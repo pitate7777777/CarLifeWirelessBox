@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:orientation="vertical" android:background="@color/cl_bg_c_main" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <RelativeLayout android:layout_width="432.0dip" android:layout_height="300.0dip" android:layout_centerInParent="true">
+        <ImageView android:id="@id/exception_display_img_view" android:layout_width="fill_parent" android:layout_height="144.0dip" android:layout_marginTop="70.0dip" android:src="@drawable/car_ic_click" android:scaleType="centerInside" />
+        <TextView android:textSize="18.0sp" android:textColor="@color/cp_cont_d" android:gravity="center" android:id="@id/exception_display_text_view" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="4.0dip" android:text="@string/connect_screenoff_hint" android:layout_below="@id/exception_display_img_view" android:layout_centerHorizontal="true" />
+        <Button android:textSize="16.0dip" android:textColor="@color/cl_text_a4_bgtext" android:id="@id/exception_start_app_btn" android:background="@drawable/selector_btn_retry" android:layout_width="136.0dip" android:layout_height="44.0dip" android:layout_marginTop="12.0dip" android:text="@string/connect_start_carlife" android:layout_below="@id/exception_display_text_view" android:layout_centerHorizontal="true" />
+    </RelativeLayout>
+</RelativeLayout>

@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeAudioFrameProto";
+
+import "carlife_common.proto";
+
+// Audio frame data
+message CarlifeAudioFrame {
+    uint32 session_id = 1;
+    uint32 frame_number = 2;
+    CarlifeTimestamp timestamp = 3;
+    AudioFrameData frame_data = 4;
+    AudioFrameMetadata metadata = 5;
+}
+
+message AudioFrameData {
+    bytes encoded_data = 1;
+    string codec = 2;  // PCM, AAC, MP3
+    uint32 data_length = 3;
+    bool is_silence = 4;
+}
+
+message AudioFrameMetadata {
+    uint32 sample_rate = 1;
+    uint32 channels = 2;
+    uint32 bits_per_sample = 3;
+    uint32 bitrate_kbps = 4;
+    string audio_source = 5;  // MUSIC, NAVIGATION, TTS, PHONE
+}
+
+// Audio frame stats
+message CarlifeAudioFrameStats {
+    uint32 total_frames = 1;
+    uint32 dropped_frames = 2;
+    uint32 decoded_frames = 3;
+    uint32 average_bitrate_kbps = 4;
+    float packet_loss_rate = 5;
+}

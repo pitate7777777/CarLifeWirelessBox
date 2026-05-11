@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:background="@color/cl_bg_c_main" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <include android:id="@id/common_title_bar" layout="@layout/carlife_common_title_bar_new" />
+    <ScrollView android:layout_width="fill_parent" android:layout_height="fill_parent" android:layout_below="@id/common_title_bar">
+        <RelativeLayout android:orientation="vertical" android:layout_width="fill_parent" android:layout_height="fill_parent">
+            <TextView android:textSize="27.0sp" android:textColor="@color/cl_text_a5_content" android:id="@id/tips" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="108.0dip" android:layout_marginTop="18.0dip" android:layout_marginRight="24.0dip" android:layout_marginBottom="36.0dip" android:text="@string/ncm_tips" />
+            <ImageView android:id="@id/tips_img" android:layout_width="252.0dip" android:layout_height="192.0dip" android:layout_marginLeft="160.0dip" android:layout_marginRight="84.0dip" android:src="@drawable/car_ic_help_aoa_ios" android:layout_below="@id/tips" />
+            <ImageView android:id="@id/tips_num" android:layout_width="27.0dip" android:layout_height="27.0dip" android:layout_marginLeft="183.0dip" android:layout_marginTop="18.0dip" android:src="@drawable/car_ic_help_number01" android:layout_below="@id/tips_img" />
+            <TextView android:textSize="21.0sp" android:textColor="@color/cl_text_a5_content" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginLeft="12.0dip" android:layout_marginTop="18.0dip" android:text="@string/ncm_tips_img" android:layout_toRightOf="@id/tips_num" android:layout_below="@id/tips_img" />
+        </RelativeLayout>
+    </ScrollView>
+</RelativeLayout>

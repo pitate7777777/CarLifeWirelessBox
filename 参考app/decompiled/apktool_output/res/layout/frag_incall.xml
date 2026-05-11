@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:orientation="vertical" android:background="@color/cl_bg_c_main" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <RelativeLayout android:id="@id/incall_layout_incoming" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerInParent="true">
+        <TextView android:textSize="@dimen/phone_name" android:textColor="@color/cl_text_a5_content" android:id="@id/incall_tv_incoming_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:singleLine="true" android:layout_centerHorizontal="true" />
+        <TextView android:textSize="@dimen/phone_desc" android:textColor="@color/cl_text_a2_content" android:id="@id/incall_tv_incoming_desc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10.0dip" android:text="@string/phone_state_incoming" android:layout_below="@id/incall_tv_incoming_name" android:layout_centerHorizontal="true" />
+        <RelativeLayout android:layout_width="@dimen/phone_btn_layout_width" android:layout_height="@dimen/phone_btn_layout_height" android:layout_marginTop="@dimen/phone_btn_top" android:layout_below="@id/incall_tv_incoming_desc" android:layout_centerHorizontal="true">
+            <ImageButton android:id="@id/incall_ib_incoming_answer" android:background="@drawable/com_bg_btn_d_selector" android:layout_width="@dimen/phone_btn_width" android:layout_height="fill_parent" android:src="@drawable/ic_phone_call" />
+            <ImageButton android:id="@id/incall_ib_incoming_break" android:background="@drawable/com_bg_btn_c_selector" android:layout_width="@dimen/phone_btn_width" android:layout_height="fill_parent" android:src="@drawable/ic_phone_hangup" android:layout_alignParentRight="true" />
+        </RelativeLayout>
+    </RelativeLayout>
+    <RelativeLayout android:id="@id/incall_layout_offhook" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_centerInParent="true">
+        <TextView android:textSize="@dimen/phone_name" android:textColor="@color/cl_text_a5_content" android:id="@id/incall_tv_offhook_name" android:layout_width="wrap_content" android:layout_height="wrap_content" android:maxWidth="400.0dip" android:singleLine="true" android:layout_centerHorizontal="true" />
+        <TextView android:textSize="@dimen/phone_desc" android:textColor="@color/cl_text_a2_content" android:id="@id/incall_tv_offhook_desc" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10.0dip" android:text="@string/phone_state_calling" android:layout_below="@id/incall_tv_offhook_name" android:layout_centerHorizontal="true" />
+        <ImageButton android:id="@id/incall_ib_offhook_break" android:background="@drawable/com_bg_btn_c_selector" android:layout_width="@dimen/phone_btn_width1" android:layout_height="@dimen/phone_btn_layout_height" android:layout_marginTop="@dimen/phone_btn_top" android:src="@drawable/ic_phone_hangup" android:layout_below="@id/incall_tv_offhook_desc" android:layout_centerHorizontal="true" />
+    </RelativeLayout>
+</RelativeLayout>

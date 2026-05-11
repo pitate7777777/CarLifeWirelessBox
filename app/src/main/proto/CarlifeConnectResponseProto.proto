@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeConnectResponseProto";
+option optimize_for = LITE_RUNTIME;
+
+// Connection result enumeration
+enum ConnectResultCode {
+    CONNECT_RESULT_UNKNOWN = 0;
+    CONNECT_RESULT_SUCCESS = 1;
+    CONNECT_RESULT_FAILED = 2;
+    CONNECT_RESULT_TIMEOUT = 3;
+    CONNECT_RESULT_REJECTED = 4;
+    CONNECT_RESULT_NO_CAPACITY = 5;
+    CONNECT_RESULT_PROTOCOL_ERROR = 6;
+}
+
+// Connection response message
+message CarlifeConnectResponse {
+    // Connection result
+    ConnectResultCode result = 1;
+    // Error code
+    uint32 error_code = 2;
+    // Error description
+    string description = 3;
+    // Video channel port
+    uint32 video_port = 4;
+    // Audio channel port
+    uint32 audio_port = 5;
+    // Control channel port
+    uint32 control_port = 6;
+    // Negotiated protocol version
+    string negotiated_version = 7;
+    // Heartbeat interval (ms)
+    uint32 heartbeat_interval = 8;
+}

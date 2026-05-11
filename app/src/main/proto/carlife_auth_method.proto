@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeAuthMethodProto";
+
+// Authentication method enumeration
+enum AuthMethod {
+    AUTH_METHOD_NONE = 0;
+    AUTH_METHOD_TOKEN = 1;
+    AUTH_METHOD_CERTIFICATE = 2;
+}

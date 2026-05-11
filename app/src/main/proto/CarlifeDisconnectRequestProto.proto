@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeDisconnectRequestProto";
+option optimize_for = LITE_RUNTIME;
+
+// Disconnect reason enumeration
+enum DisconnectReason {
+    DISCONNECT_REASON_UNKNOWN = 0;
+    DISCONNECT_REASON_USER = 1;
+    DISCONNECT_REASON_TIMEOUT = 2;
+    DISCONNECT_REASON_ERROR = 3;
+    DISCONNECT_REASON_SHUTDOWN = 4;
+    DISCONNECT_REASON_REPLACED = 5;
+}
+
+// Disconnect request message
+message CarlifeDisconnectRequest {
+    // Disconnect reason
+    DisconnectReason reason = 1;
+    // Requesting device ID
+    string device_id = 2;
+    // Session ID
+    string session_id = 3;
+    // Whether to graceful disconnect (wait for data transmission to complete)
+    bool graceful = 4;
+    // Extra info message
+    string extra_info = 5;
+}

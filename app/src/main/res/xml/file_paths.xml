@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 允许共享外部存储的 app-specific 目录（API 19+） -->
+    <external-files-path name="logs" path="logs" />
+    
+    <!-- 允许共享内部存储的 files 目录 -->
+    <files-path name="internal_files" path="." />
+    
+    <!-- 允许共享外部存储的 cache 目录 -->
+    <external-cache-path name="external_cache" path="." />
+    
+    <!-- 允许共享内部存储的 cache 目录 -->
+    <cache-path name="internal_cache" path="." />
+</paths>

@@ -1,0 +1,25 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- 蓝色圆角矩形背景 -->
+    <path
+        android:fillColor="#2196F3"
+        android:pathData="M8,8h92v92h-92z"/>
+    
+    <!-- 白色文字 "C" -->
+    <group android:translateX="30" android:translateY="54">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M0,-20 A20,20 0 1,1 0,20 A20,20 0 1,1 0,-20 M-5,-15 L-5,15 L5,15 L5,-15 Z"/>
+    </group>
+    
+    <!-- 白色文字 "L" -->
+    <group android:translateX="65" android:translateY="54">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M-10,-20 L10,-20 L10,20 L-10,20 L-10,0 L5,0 L5,20 L-10,20 Z"/>
+    </group>
+</vector>

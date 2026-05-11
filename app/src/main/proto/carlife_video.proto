@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeVideoProto";
+
+// Video stream control
+message CarlifeVideoStart {
+    uint32 session_id = 1;
+    string codec = 2;
+    uint32 width = 3;
+    uint32 height = 4;
+    uint32 frame_rate = 5;
+    uint32 bitrate_kbps = 6;
+}
+
+message CarlifeVideoStop {
+    uint32 session_id = 1;
+    string reason = 2;
+}
+
+message CarlifeVideoPause {
+    uint32 session_id = 1;
+}
+
+message CarlifeVideoResume {
+    uint32 session_id = 1;
+}
+
+// Video parameter negotiation
+message CarlifeVideoNegotiate {
+    repeated VideoCapability capabilities = 1;
+}
+
+message VideoCapability {
+    string codec = 1;
+    uint32 min_width = 2;
+    uint32 max_width = 3;
+    uint32 min_height = 4;
+    uint32 max_height = 5;
+    uint32 min_frame_rate = 6;
+    uint32 max_frame_rate = 7;
+    uint32 min_bitrate_kbps = 8;
+    uint32 max_bitrate_kbps = 9;
+}

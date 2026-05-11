@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeStatusProto";
+
+import "carlife_common.proto";
+
+// Status message
+message CarlifeConnectionStatus {
+    enum ConnectionState {
+        DISCONNECTED = 0;
+        CONNECTING = 1;
+        CONNECTED = 2;
+        AUTHENTICATED = 3;
+        REGISTERED = 4;
+        ERROR = 5;
+    }
+    ConnectionState state = 1;
+    string error_message = 2;
+    uint32 error_code = 3;
+    CarlifeTimestamp timestamp = 4;
+}
+
+message CarlifeModuleStatus {
+    string module_name = 1;
+    bool is_running = 2;
+    uint32 error_count = 3;
+    string status_message = 4;
+    CarlifeTimestamp last_update = 5;
+}
+
+message CarlifeSystemStatus {
+    repeated CarlifeModuleStatus modules = 1;
+    uint32 cpu_usage_percent = 2;
+    uint32 memory_usage_mb = 3;
+    uint32 battery_level_percent = 4;
+    bool is_charging = 5;
+    uint32 temperature_celsius = 6;
+}
+
+// Error report
+message CarlifeErrorReport {
+    uint32 error_code = 1;
+    string error_message = 2;
+    string error_details = 3;
+    string stack_trace = 4;
+    CarlifeTimestamp timestamp = 5;
+    string component = 6;
+}

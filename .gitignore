@@ -57,3 +57,4 @@ google-services.json
 
 # Android Profiling
 *.hprof
+/.workbuddy/memory/2026-05-11.md

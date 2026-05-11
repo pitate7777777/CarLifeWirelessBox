@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeMusicInitProto";
+option optimize_for = LITE_RUNTIME;
+
+// Music initialization action enumeration
+enum MusicAction {
+    MUSIC_ACTION_UNKNOWN = 0;
+    MUSIC_ACTION_PLAY = 1;
+    MUSIC_ACTION_PAUSE = 2;
+    MUSIC_ACTION_STOP = 3;
+    MUSIC_ACTION_NEXT = 4;
+    MUSIC_ACTION_PREV = 5;
+    MUSIC_ACTION_SEEK = 6;
+}
+
+// Music playback state enumeration
+enum MusicPlayState {
+    MUSIC_STATE_UNKNOWN = 0;
+    MUSIC_STATE_PLAYING = 1;
+    MUSIC_STATE_PAUSED = 2;
+    MUSIC_STATE_STOPPED = 3;
+    MUSIC_STATE_LOADING = 4;
+    MUSIC_STATE_ERROR = 5;
+}
+
+// Music initialization message
+message CarlifeMusicInit {
+    // Current playback state
+    MusicPlayState play_state = 1;
+    // Current action
+    MusicAction current_action = 2;
+    // Song ID
+    string song_id = 3;
+    // Song name
+    string song_name = 4;
+    // Artist name
+    string artist = 5;
+    // Album name
+    string album = 6;
+    // Song duration (milliseconds)
+    uint64 duration_ms = 7;
+    // Current playback position (milliseconds)
+    uint64 position_ms = 8;
+    // Whether has cover image
+    bool has_cover = 9;
+}

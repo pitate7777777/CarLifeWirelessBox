@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeVideoFrameProto";
+
+import "carlife_common.proto";
+
+// Video frame data
+message CarlifeVideoFrame {
+    uint32 session_id = 1;
+    uint32 frame_number = 2;
+    CarlifeTimestamp timestamp = 3;
+    VideoFrameData frame_data = 4;
+    VideoFrameMetadata metadata = 5;
+}
+
+message VideoFrameData {
+    bytes encoded_data = 1;
+    string codec = 2;  // H264, H265
+    bool is_key_frame = 3;
+    uint32 data_length = 4;
+}
+
+message VideoFrameMetadata {
+    uint32 width = 1;
+    uint32 height = 2;
+    uint32 frame_rate = 3;
+    uint32 bitrate_kbps = 4;
+    string aspect_ratio = 5;
+    uint32 rotation = 6;  // 0, 90, 180, 270
+}
+
+// Video frame stats
+message CarlifeVideoFrameStats {
+    uint32 total_frames = 1;
+    uint32 dropped_frames = 2;
+    uint32 decoded_frames = 3;
+    float average_fps = 4;
+    uint32 average_bitrate_kbps = 5;
+}

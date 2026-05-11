@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeAuthenResultProto";
+option optimize_for = LITE_RUNTIME;
+
+// Authentication result enumeration
+enum AuthenResultCode {
+    AUTHEN_RESULT_UNKNOWN = 0;
+    AUTHEN_RESULT_SUCCESS = 1;
+    AUTHEN_RESULT_FAILED = 2;
+    AUTHEN_RESULT_TIMEOUT = 3;
+    AUTHEN_RESULT_CANCELED = 4;
+    AUTHEN_RESULT_UNSUPPORTED = 5;
+}
+
+// Authentication result message
+message CarlifeAuthenResult {
+    // Authentication result
+    AuthenResultCode result = 1;
+    // Error code
+    uint32 error_code = 2;
+    // Error description
+    string description = 3;
+    // Whether user confirmation is needed
+    bool need_user_confirm = 4;
+    // Authorized device list (valid only for query)
+    repeated string authorized_devices = 5;
+}

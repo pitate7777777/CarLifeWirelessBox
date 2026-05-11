@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeConnectRequestProto";
+option optimize_for = LITE_RUNTIME;
+
+// Connection type enumeration
+enum ConnectType {
+    CONNECT_TYPE_UNKNOWN = 0;
+    CONNECT_TYPE_WIFI = 1;
+    CONNECT_TYPE_USB = 2;
+    CONNECT_TYPE_BT = 3;
+}
+
+// Connection request message
+message CarlifeConnectRequest {
+    // Connection type
+    ConnectType connect_type = 1;
+    // Device ID
+    string device_id = 2;
+    // Session ID
+    string session_id = 3;
+    // Target IP address (for WiFi connection)
+    string target_ip = 4;
+    // Target port
+    uint32 target_port = 5;
+    // Whether audio channel is needed
+    bool need_audio = 6;
+    // Whether video channel is needed
+    bool need_video = 7;
+    // Whether control channel is needed
+    bool need_control = 8;
+}

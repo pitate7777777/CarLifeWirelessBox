@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeCmdProto";
+
+import "carlife_common.proto";
+
+// Command message
+message CarlifeCmd {
+    uint32 command_id = 1;
+    string command_name = 2;
+    bytes command_data = 3;
+    CarlifeTimestamp timestamp = 4;
+}
+
+// Command response
+message CarlifeCmdResponse {
+    uint32 command_id = 1;
+    CarlifeStatus status = 2;
+    bytes response_data = 3;
+}
+
+// Supported commands list
+message CarlifeSupportedCommands {
+    repeated CommandInfo commands = 1;
+}
+
+message CommandInfo {
+    uint32 command_id = 1;
+    string command_name = 2;
+    string description = 3;
+    bool is_asynchronous = 4;
+}

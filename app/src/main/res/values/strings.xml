@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CarLife Wireless Box</string>
+    <string name="start_service">启动 CarLife 服务</string>
+    <string name="stop_service">停止 CarLife 服务</string>
+    <string name="settings">设置</string>
+    <string name="connection_status">连接状态</string>
+    <string name="status_connecting">连接中...</string>
+    <string name="status_connected">已连接</string>
+    <string name="status_disconnected">未连接</string>
+    <string name="video_resolution">视频分辨率</string>
+    <string name="video_bitrate">视频码率</string>
+    <string name="audio_sample_rate">音频采样率</string>
+    <string name="video_framerate">视频帧率</string>
+    <string name="tcp_port">TCP 端口</string>
+    <string name="save">保存</string>
+
+    <!-- 对话框相关 -->
+    <string name="dialog_custom_resolution_title">自定义分辨率</string>
+    <string name="dialog_confirm">确定</string>
+    <string name="dialog_cancel">取消</string>
+    <string name="dialog_width_label">宽度 (480-2560，偶数)</string>
+    <string name="dialog_height_label">高度 (480-2560，偶数)</string>
+    <string name="dialog_width_hint">例如: 1280</string>
+    <string name="dialog_height_hint">例如: 720</string>
+
+    <!-- Toast 消息 -->
+    <string name="toast_custom_resolution_set">自定义分辨率: %1$s</string>
+    <string name="toast_resolution_range_error">宽高必须在 480~2560 范围内且为偶数</string>
+    <string name="toast_invalid_input">请输入有效的宽高值</string>
+    <string name="toast_port_range_error">端口号必须在 1024-65535 范围内</string>
+    <string name="toast_ip_empty">请输入 IP 地址</string>
+    <string name="toast_connect_success">连接成功（延迟: %1$s）</string>
+    <string name="toast_connect_failed">连接失败: %1$s:%2$d 不可达</string>
+    <string name="toast_service_started">CarLife 服务已启动</string>
+    <string name="toast_service_stopped">CarLife 服务已停止</string>
+
+    <!-- 分辨率选项 -->
+    <string name="resolution_custom">自定义...</string>
+</resources>

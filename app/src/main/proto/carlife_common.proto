@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeCommonProto";
+
+// Common message header
+message CarlifeMessageHeader {
+    uint32 message_id = 1;
+    uint32 payload_length = 2;
+    uint32 channel_id = 3;
+    uint32 reserved = 4;
+}
+
+// Common response status
+message CarlifeStatus {
+    enum StatusCode {
+        SUCCESS = 0;
+        FAILED = 1;
+        PENDING = 2;
+        UNSUPPORTED = 3;
+    }
+    StatusCode status_code = 1;
+    string status_message = 2;
+}
+
+// Timestamp
+message CarlifeTimestamp {
+    uint64 timestamp_ms = 1;
+}
+
+// Version info
+message CarlifeVersion {
+    uint32 major = 1;
+    uint32 minor = 2;
+    uint32 patch = 3;
+    string build_info = 4;
+}

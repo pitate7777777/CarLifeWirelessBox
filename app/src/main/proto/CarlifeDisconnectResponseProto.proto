@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeDisconnectResponseProto";
+option optimize_for = LITE_RUNTIME;
+
+// Disconnect response message
+message CarlifeDisconnectResponse {
+    // Whether successful
+    bool success = 1;
+    // Error code
+    uint32 error_code = 2;
+    // Error description
+    string description = 3;
+    // Actual disconnect time (milliseconds timestamp)
+    uint64 disconnect_time_ms = 4;
+    // Whether to suggest reconnect
+    bool suggest_reconnect = 5;
+    // Reconnect delay (ms)
+    uint32 reconnect_delay = 6;
+}

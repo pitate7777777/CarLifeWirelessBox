@@ -1,0 +1,25 @@
+version: 2.9.3
+apkFileName: Carlife4.0-车机.apk
+isFrameworkApk: false
+usesFramework:
+  ids:
+  - 1
+  tag: null
+sdkInfo:
+  minSdkVersion: 21
+  targetSdkVersion: 30
+packageInfo:
+  forcedPackageId: 127
+  renameManifestPackage: null
+versionInfo:
+  versionCode: 16
+  versionName: 4.0.0
+resourcesAreCompressed: false
+sharedLibrary: false
+sparseResources: false
+unknownFiles:
+  DebugProbesKt.bin: 8
+doNotCompress:
+- resources.arsc
+- assets/bdspeech_recognition_start.pcm
+- png

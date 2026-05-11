@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeRegisterTypeProto";
+
+// Registration type enumeration
+enum RegisterType {
+    REGISTER_TYPE_NEW = 0;
+    REGISTER_TYPE_UPDATE = 1;
+    REGISTER_TYPE_DELETE = 2;
+}
+
+// Registration result code enumeration
+enum RegisterResultCode {
+    REGISTER_RESULT_SUCCESS = 0;
+    REGISTER_RESULT_DEVICE_NOT_FOUND = 1;
+    REGISTER_RESULT_PROTOCOL_MISMATCH = 2;
+    REGISTER_RESULT_AUTH_FAILED = 3;
+    REGISTER_RESULT_INTERNAL_ERROR = 99;
+}

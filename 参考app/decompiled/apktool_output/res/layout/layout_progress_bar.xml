@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <RelativeLayout android:id="@id/progress_rellayout_loading" android:layout_width="fill_parent" android:layout_height="wrap_content" android:layout_centerInParent="true">
+        <ImageView android:id="@id/progress_iv_logo" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/car_ic_loading_logo" android:layout_centerHorizontal="true" />
+        <ImageView android:id="@id/progress_bar" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/car_ic_loading_1" android:layout_centerHorizontal="true" />
+    </RelativeLayout>
+    <TextView android:textSize="@dimen/font_size_rate" android:textColor="@color/cp_other_c" android:gravity="center" android:id="@id/pregress_progress_rate" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="8.0dip" android:text="@string/progress_bar_rate" android:layout_below="@id/progress_rellayout_loading" android:layout_centerHorizontal="true" />
+    <ImageView android:id="@id/progress_iv_logo_name" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:src="@drawable/car_ic_loading_2" android:layout_below="@id/progress_rellayout_loading" android:layout_centerHorizontal="true" />
+</RelativeLayout>

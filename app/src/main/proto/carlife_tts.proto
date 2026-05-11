@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeTtsProto";
+
+import "carlife_common.proto";
+
+// TTS related messages
+message CarlifeTtsRequest {
+    string text = 1;
+    string language = 2;
+    uint32 speech_rate = 3;
+    uint32 pitch = 4;
+    uint32 volume = 5;
+    string voice_name = 6;
+}
+
+message CarlifeTtsResponse {
+    CarlifeStatus status = 1;
+    uint32 request_id = 2;
+    uint32 audio_length_ms = 3;
+}
+
+message CarlifeTtsData {
+    uint32 request_id = 1;
+    bytes audio_data = 2;
+    bool is_last = 3;
+    uint32 sequence_number = 4;
+}
+
+message CarlifeTtsStop {
+    uint32 request_id = 1;
+}

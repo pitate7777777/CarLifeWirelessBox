@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeAuthenRequestProto";
+
+import "carlife_common.proto";
+import "carlife_auth_method.proto";
+
+// Authentication request
+message CarlifeAuthenRequest {
+    AuthMethod method = 1;
+    string device_id = 2;
+    string auth_token = 3;
+    string device_name = 4;
+    string device_model = 5;
+    bytes version = 6;  // Serialized CarlifeVersion
+    repeated string supported_features = 7;
+}

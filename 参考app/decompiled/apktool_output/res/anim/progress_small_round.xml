@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<animation-list android:oneshot="false"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:duration="200">
+        <clip android:gravity="center" android:drawable="@drawable/progress_1" android:clipOrientation="horizontal" />
+    </item>
+    <item android:duration="200">
+        <clip android:gravity="center" android:drawable="@drawable/progress_2" android:clipOrientation="horizontal" />
+    </item>
+    <item android:duration="200">
+        <clip android:gravity="center" android:drawable="@drawable/progress_3" android:clipOrientation="horizontal" />
+    </item>
+    <item android:duration="200">
+        <clip android:gravity="center" android:drawable="@drawable/progress_4" android:clipOrientation="horizontal" />
+    </item>
+    <item android:duration="200">
+        <clip android:gravity="center" android:drawable="@drawable/progress_5" android:clipOrientation="horizontal" />
+    </item>
+    <item android:duration="200">
+        <clip android:gravity="center" android:drawable="@drawable/progress_6" android:clipOrientation="horizontal" />
+    </item>
+    <item android:duration="200">
+        <clip android:gravity="center" android:drawable="@drawable/progress_7" android:clipOrientation="horizontal" />
+    </item>
+    <item android:duration="200">
+        <clip android:gravity="center" android:drawable="@drawable/progress_8" android:clipOrientation="horizontal" />
+    </item>
+</animation-list>

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package carlife;
+
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeRegisterRequestProto";
+
+import "carlife_common.proto";
+import "carlife_register_type.proto";
+
+// Register request
+message CarlifeRegisterRequest {
+    string device_id = 1;
+    string device_name = 2;
+    string device_manufacturer = 3;
+    string device_model = 4;
+    RegisterType register_type = 5;
+    bytes device_info = 6;  // Serialized CarlifeDeviceInfo
+    string protocol_version = 7;
+    repeated string capabilities = 8;
+}
