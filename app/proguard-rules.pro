@@ -13,9 +13,8 @@
     <fields>;
 }
 
-# 保留日志注解
+# 保留注解
 -keepattributes *Annotation*
--keep class com.orhanobut.logger.** { *; }
 
 # 保留 Parcelable
 -keep class * implements android.os.Parcelable {
@@ -47,11 +46,7 @@
 -allowaccessmodification
 -repackageclasses ''
 
-# 移除日志（Release 版本）
--assumenosideeffects class com.orhanobut.logger.Logger {
-    public static boolean d(...);
-    public static boolean e(...);
-    public static boolean w(...);
-    public static boolean i(...);
-    public static boolean v(...);
+# Release 版本移除 debug 日志
+-assumenosideeffects class com.carlife.wireless.util.LogUtils {
+    public static void d(...);
 }

@@ -17,8 +17,8 @@ object LogUtils {
     private const val TAG = "CarLifeWireless"
     
     // 上下文（用于保存日志到文件）
-    private var context: Context? = null
-    private var saveToFileEnabled = true // 默认启用文件日志
+    @Volatile private var context: Context? = null
+    @Volatile private var saveToFileEnabled = true
     
     /**
      * 初始化（在 Application 中调用）

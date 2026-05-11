@@ -201,11 +201,9 @@ class TcpServer(
 
         LogUtils.i("$TAG: Stopping on port $boundPort...")
 
-        // 关闭所有客户端连接
         clients.values.forEach { it.disconnect("server stopped") }
         clients.clear()
 
-        // 关闭 ServerSocket（会唤醒 accept() 的阻塞）
         try {
             serverSocket?.close()
         } catch (e: Exception) {
@@ -218,7 +216,7 @@ class TcpServer(
     }
 
     /**
-     * 释放资源
+     * 释放资源（stop + 取消协程作用域）
      */
     fun release() {
         stop()

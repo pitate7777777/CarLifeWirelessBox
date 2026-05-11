@@ -440,27 +440,27 @@ class ConnectionService : Service() {
                     LogUtils.i(TAG, "HuRole state changed: $state, reason: $reason")
                     onHuRoleStateChanged(state)
                 }
-                
-                override fun onVideoFrameReceived(frame: ByteArray) {
-                    LogUtils.d(TAG, "HuRole video frame received: ${frame.size} bytes")
+
+                override fun onVideoFrameReceived(header: com.carlife.wireless.model.ChannelHeader.Media, frame: ByteArray) {
+                    LogUtils.d(TAG, "HuRole video frame: ${frame.size} bytes, type=${header.payloadType}")
                 }
-                
-                override fun onAudioFrameReceived(frame: ByteArray) {
-                    LogUtils.d(TAG, "HuRole audio frame received: ${frame.size} bytes")
+
+                override fun onAudioFrameReceived(header: com.carlife.wireless.model.ChannelHeader.Media, frame: ByteArray) {
+                    LogUtils.d(TAG, "HuRole audio frame: ${frame.size} bytes, type=${header.payloadType}")
                 }
-                
-                override fun onTtsFrameReceived(data: ByteArray) {
-                    LogUtils.d(TAG, "HuRole TTS received: ${data.size} bytes")
+
+                override fun onTtsFrameReceived(header: com.carlife.wireless.model.ChannelHeader.Media, data: ByteArray) {
+                    LogUtils.d(TAG, "HuRole TTS: ${data.size} bytes")
                 }
-                
-                override fun onVrFrameReceived(data: ByteArray) {
-                    LogUtils.d(TAG, "HuRole VR received: ${data.size} bytes")
+
+                override fun onVrFrameReceived(header: com.carlife.wireless.model.ChannelHeader.Media, data: ByteArray) {
+                    LogUtils.d(TAG, "HuRole VR: ${data.size} bytes")
                 }
-                
-                override fun onControlReceived(payloadType: Int, payload: ByteArray) {
-                    LogUtils.d(TAG, "HuRole control received: type=$payloadType, len=${payload.size}")
+
+                override fun onControlReceived(header: com.carlife.wireless.model.ChannelHeader.Cmd, payload: ByteArray) {
+                    LogUtils.d(TAG, "HuRole control: type=${header.payloadType}, len=${payload.size}")
                 }
-                
+
                 override fun onError(error: String) {
                     LogUtils.e(TAG, "HuRole error: $error")
                 }
