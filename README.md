@@ -39,8 +39,12 @@
 | **MD 角色** | `MdRole` 启动 6 端口监听，车机连接管理，简化握手流程 |
 | **数据桥接** | `StreamBridge` 单通道桥接 + `StreamBridgeManager` 管理器，支持协议转换 |
 | **协议转换** | `ProtocolTranslator`（H.265→H.264 / Opus→AAC 框架）、`VersionDetector` 版本检测 |
-| **连接服务** | `ConnectionService` 前台服务，协调 MdRole/HuRole 生命周期，mDNS 服务广播 |
-| **UI 界面** | `MainActivity` 状态监控、`SettingsActivity` 参数配置、`LogViewerActivity` 日志查看 |
+| **视频服务** | `VideoService` — MediaProjection 屏幕采集 + MediaCodec H.264 硬编码，SPS/PPS 缓存 |
+| **音频服务** | `AudioService` — AudioPlaybackCapture 系统音频录制 + MediaCodec AAC 编码 |
+| **触摸服务** | `TouchService` — 解析 CarLife 8 种触摸事件，坐标转换，手势模拟 |
+| **无障碍服务** | `CarAccessibilityService` — 通过 dispatchGesture() 注入触摸，无需 root |
+| **连接服务** | `ConnectionService` 前台服务，协调 MdRole/HuRole/Video/Audio/Touch 生命周期 |
+| **UI 界面** | `MainActivity` 状态监控 + MediaProjection 授权、`SettingsActivity` 参数配置、`LogViewerActivity` 日志查看 |
 | **Protobuf** | 28 个 `.proto` 文件，覆盖认证/注册/心跳/视频/音频/控制等全部 CarLife 消息 |
 | **工具类** | 日志（文件保存 + 7 天轮转）、网络检测、设置管理、字节操作 |
 
@@ -48,13 +52,11 @@
 
 | 模块 | 说明 | 优先级 |
 |------|------|--------|
-| **视频采集** | `VideoService` — MediaProjection 屏幕采集 + MediaCodec H.264 编码 | P0 |
-| **音频采集** | `AudioService` — AudioPlaybackCapture / AudioRecord + AAC 编码 | P1 |
-| **触摸注入** | `TouchService` — 车机触摸事件坐标转换 + AccessibilityService 注入 | P1 |
-| **StreamBridge 集成** | 将桥接器接入 ConnectionService，实现端到端数据转发 | P0 |
+| **StreamBridge 集成** | 将桥接器接入 ConnectionService，实现 HuRole↔MdRole 端到端数据转发 | P0 |
 | **协议握手完善** | MdRole 侧完整 CarLife 协议握手（当前为简化版） | P0 |
 | **断线重连** | Wi-Fi / USB 双端自动重连机制 | P1 |
 | **动态比特率** | 根据 Wi-Fi 信号强度自动调节视频码率 | P2 |
+| **VR 通道透传** | 车机麦克风数据转发到手机 B，支持语音识别 | P2 |
 
 ## 项目结构
 
