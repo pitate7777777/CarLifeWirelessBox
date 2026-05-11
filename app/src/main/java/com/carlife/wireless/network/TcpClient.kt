@@ -144,84 +144,83 @@ class TcpClient(
      */
     private fun startReading() {
         scope.launch {
-            while (isConnected.get()) {
-                try {
-                    val input = inputStream ?: break
+            readLoop()
+        }
+    }
 
-                    // 读取协议包头（先读 2 字节 magic + 1 字节 payloadType）
-                    val magicAndType = readExact(input, 3) ?: run {
-                        LogUtils.w("$TAG: Connection closed by server (header)")
-                        disconnect()
-                        break
-                    }
+    /**
+     * 读取循环（独立函数，避免 break/continue 在 inline lambda 中的实验性问题）
+     */
+    private suspend fun readLoop() {
+        while (isConnected.get()) {
+            try {
+                val input = inputStream ?: return
 
-                    val magic = ((magicAndType[0].toInt() and 0xFF) shl 8) or
-                                (magicAndType[1].toInt() and 0xFF)
-                    if (magic != 0x434C) {
-                        LogUtils.e("$TAG: Invalid magic: 0x${Integer.toHexString(magic)}, skipping byte")
-                        // 回退：丢弃第一个字节，尝试从第二个字节重新同步
-                        continue
-                    }
-
-                    val payloadType = magicAndType[2].toInt() and 0xFF
-
-                    // 读取剩余包头字段
-                    // CMD: payloadLength(4) + crc(1) = 5 bytes
-                    // Media: timestamp(4) + payloadLength(4) = 8 bytes
-                    val isMedia = isMediaChannel()
-                    val remainingHeaderSize = if (isMedia) 8 else 5
-                    val remainingHeader = readExact(input, remainingHeaderSize) ?: run {
-                        LogUtils.w("$TAG: Connection closed by server (header body)")
-                        disconnect()
-                        break
-                    }
-
-                    val header: ChannelHeader
-                    val payloadLength: Int
-
-                    if (isMedia) {
-                        val timestamp = bytesToIntBE(remainingHeader, 0)
-                        payloadLength = bytesToIntBE(remainingHeader, 4)
-                        header = ChannelHeader.Media(payloadType, timestamp, payloadLength)
-                    } else {
-                        payloadLength = bytesToIntBE(remainingHeader, 0)
-                        val crc = remainingHeader[4]
-                        header = ChannelHeader.Cmd(payloadType, payloadLength, crc)
-                    }
-
-                    // 读取载荷
-                    val payload = if (payloadLength > 0) {
-                        readExact(input, payloadLength) ?: run {
-                            LogUtils.w("$TAG: Connection closed by server (payload)")
-                            disconnect()
-                            break
-                        }
-                    } else {
-                        ByteArray(0)
-                    }
-
-                    // 更新心跳时间
-                    lastHeartbeatTime.set(System.currentTimeMillis())
-
-                    // 回调完整消息
-                    listener?.onDataReceived(header, payload)
-
-                } catch (e: SocketTimeoutException) {
-                    continue
-                } catch (e: IOException) {
-                    if (isConnected.get()) {
-                        LogUtils.e(e, "$TAG: Read error")
-                        listener?.onError("Read error: ${e.message}")
-                        disconnect()
-                    }
-                    break
-                } catch (e: Exception) {
-                    if (isConnected.get()) {
-                        LogUtils.e(e, "$TAG: Unexpected read error")
-                        listener?.onError("Unexpected error: ${e.message}")
-                    }
-                    break
+                // 读取协议包头（先读 2 字节 magic + 1 字节 payloadType）
+                val magicAndType = readExact(input, 3) ?: run {
+                    LogUtils.w("$TAG: Connection closed by server (header)")
+                    disconnect()
+                    return
                 }
+
+                val magic = ((magicAndType[0].toInt() and 0xFF) shl 8) or
+                            (magicAndType[1].toInt() and 0xFF)
+                if (magic != 0x434C) {
+                    LogUtils.e("$TAG: Invalid magic: 0x${Integer.toHexString(magic)}, skipping byte")
+                    continue
+                }
+
+                val payloadType = magicAndType[2].toInt() and 0xFF
+
+                val isMedia = isMediaChannel()
+                val remainingHeaderSize = if (isMedia) 8 else 5
+                val remainingHeader = readExact(input, remainingHeaderSize) ?: run {
+                    LogUtils.w("$TAG: Connection closed by server (header body)")
+                    disconnect()
+                    return
+                }
+
+                val header: ChannelHeader
+                val payloadLength: Int
+
+                if (isMedia) {
+                    val timestamp = bytesToIntBE(remainingHeader, 0)
+                    payloadLength = bytesToIntBE(remainingHeader, 4)
+                    header = ChannelHeader.Media(payloadType, timestamp, payloadLength)
+                } else {
+                    payloadLength = bytesToIntBE(remainingHeader, 0)
+                    val crc = remainingHeader[4]
+                    header = ChannelHeader.Cmd(payloadType, payloadLength, crc)
+                }
+
+                val payload = if (payloadLength > 0) {
+                    readExact(input, payloadLength) ?: run {
+                        LogUtils.w("$TAG: Connection closed by server (payload)")
+                        disconnect()
+                        return
+                    }
+                } else {
+                    ByteArray(0)
+                }
+
+                lastHeartbeatTime.set(System.currentTimeMillis())
+                listener?.onDataReceived(header, payload)
+
+            } catch (e: SocketTimeoutException) {
+                // 读取超时，继续读取
+            } catch (e: IOException) {
+                if (isConnected.get()) {
+                    LogUtils.e(e, "$TAG: Read error")
+                    listener?.onError("Read error: ${e.message}")
+                    disconnect()
+                }
+                return
+            } catch (e: Exception) {
+                if (isConnected.get()) {
+                    LogUtils.e(e, "$TAG: Unexpected read error")
+                    listener?.onError("Unexpected error: ${e.message}")
+                }
+                return
             }
         }
     }
@@ -269,17 +268,21 @@ class TcpClient(
         }
 
         heartbeatMonitorJob = scope.launch {
-            while (isConnected.get()) {
-                delay(1000)
-                val lastTime = lastHeartbeatTime.get()
-                if (lastTime > 0) {
-                    val elapsed = System.currentTimeMillis() - lastTime
-                    if (elapsed > Constants.Heartbeat.TIMEOUT_MS) {
-                        LogUtils.e("$TAG: Heartbeat timeout")
-                        listener?.onError("Heartbeat timeout")
-                        disconnect()
-                        break
-                    }
+            heartbeatMonitorLoop()
+        }
+    }
+
+    private suspend fun heartbeatMonitorLoop() {
+        while (isConnected.get()) {
+            delay(1000)
+            val lastTime = lastHeartbeatTime.get()
+            if (lastTime > 0) {
+                val elapsed = System.currentTimeMillis() - lastTime
+                if (elapsed > Constants.Heartbeat.TIMEOUT_MS) {
+                    LogUtils.e("$TAG: Heartbeat timeout")
+                    listener?.onError("Heartbeat timeout")
+                    disconnect()
+                    return
                 }
             }
         }

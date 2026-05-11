@@ -28,6 +28,9 @@ sealed class ChannelHeader {
         const val MEDIA_HEADER_SIZE = 11
     }
 
+    /** 序列化为字节数组 */
+    abstract fun toBytes(): ByteArray
+
     /**
      * CMD 通道包头（8字节）
      */
@@ -69,7 +72,7 @@ sealed class ChannelHeader {
             }
         }
 
-        fun toBytes(): ByteArray {
+        override fun toBytes(): ByteArray {
             val buffer = ByteBuffer.allocate(CMD_HEADER_SIZE).order(ByteOrder.BIG_ENDIAN)
             buffer.putShort(MAGIC)
             buffer.put(payloadType.toByte())
@@ -116,7 +119,7 @@ sealed class ChannelHeader {
             }
         }
 
-        fun toBytes(): ByteArray {
+        override fun toBytes(): ByteArray {
             val buffer = ByteBuffer.allocate(MEDIA_HEADER_SIZE).order(ByteOrder.BIG_ENDIAN)
             buffer.putShort(MAGIC)
             buffer.put(payloadType.toByte())
