@@ -259,7 +259,7 @@ class ConnectionService : Service() {
                     }
                     // 广播给 MainActivity 用于本地预览（每 3 帧取 1 帧，减少开销）
                     previewFrameCounter++
-                    if (previewFrameCounter % 3 == 0) {
+                    if (previewFrameCounter % 3 == 0.toLong()) {
                         broadcastVideoFrame(frame, false)
                     }
                 }
