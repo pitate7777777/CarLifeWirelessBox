@@ -26,6 +26,7 @@ import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import java.io.IOException
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * 连接服务：负责 WiFi AP/热点启动、mDNS 广播、TCP 监听
@@ -88,7 +89,7 @@ class ConnectionService : Service() {
     private var touchService: TouchService? = null
 
     // 预览帧计数器（每 N 帧广播 1 帧给 MainActivity）
-    private var previewFrameCounter = 0L
+    private val previewFrameCounter = AtomicLong(0)
 
     // 自动重连
     private val huReconnectCount = AtomicInteger(0)
@@ -369,8 +370,7 @@ class ConnectionService : Service() {
                         )
                     }
                     // 广播给 MainActivity 用于本地预览（每 3 帧取 1 帧，减少开销）
-                    previewFrameCounter++
-                    if (previewFrameCounter % 3 == 0.toLong()) {
+                    if (previewFrameCounter.incrementAndGet() % 3 == 0L) {
                         broadcastVideoFrame(frame, false)
                     }
                 }

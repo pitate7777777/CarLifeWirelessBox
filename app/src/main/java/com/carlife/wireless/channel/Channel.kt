@@ -68,6 +68,7 @@ abstract class Channel(
     /** 是否自动启动读取循环。CMD 通道设为 false 由上层协议自行读取 */
     val autoRead: Boolean = true
 ) {
+    @Volatile
     var state: KConnectionState = KConnectionState.IDLE
         protected set
 
@@ -161,6 +162,7 @@ abstract class Channel(
      *
      * @return Pair(serviceType, protobufData) 或 null（连接断开）
      */
+    @Synchronized
     fun readCarLifeMsg(): Pair<Int, ByteArray>? {
         if (state != KConnectionState.CONNECTED) return null
 
@@ -209,6 +211,7 @@ abstract class Channel(
      *
      * @return Triple(serviceType, timestamp, rawData) 或 null（连接断开）
      */
+    @Synchronized
     fun readCarLifeMediaMsg(): Triple<Int, Int, ByteArray>? {
         if (state != KConnectionState.CONNECTED) return null
 
@@ -546,7 +549,7 @@ class TcpServerChannel(
 
             updateState(KConnectionState.CONNECTED)
             LogUtils.i("[$name] attached server socket: ${connectedSocket.inetAddress.hostAddress}:${connectedSocket.port}")
-            startReadLoop()
+            if (autoRead) startReadLoop()
         } catch (e: Exception) {
             LogUtils.e(e, "[$name] attach socket failed")
             callback?.onError(this, e)

@@ -209,10 +209,7 @@ class AudioService : Service() {
         } catch (_: Exception) {}
         drainThread = null
 
-        // 释放 MediaProjection
-        try {
-            mediaProjection?.stop()
-        } catch (_: Exception) {}
+        // 释放 MediaProjection 引用（不 stop，由 ConnectionService 管理生命周期）
         mediaProjection = null
 
         LogUtils.i(TAG, "Audio capture stopped")
@@ -309,8 +306,8 @@ class AudioService : Service() {
 
     private fun createEncoder(): MediaCodec? {
         return try {
-            // AAC 编码器通常只支持特定采样率，使用 44100Hz
-            val encodeSampleRate = AAC_SAMPLE_RATE
+            // 使用与 AudioRecord 相同的采样率，避免变速变调
+            val encodeSampleRate = sampleRate
 
             val format = MediaFormat.createAudioFormat(MIME_TYPE, encodeSampleRate, channelCount).apply {
                 setInteger(MediaFormat.KEY_BIT_RATE, bitrate)

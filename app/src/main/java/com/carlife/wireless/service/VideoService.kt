@@ -227,10 +227,7 @@ class VideoService : Service() {
         } catch (_: Exception) {}
         drainThread = null
 
-        // 释放 MediaProjection
-        try {
-            mediaProjection?.stop()
-        } catch (_: Exception) {}
+        // 释放 MediaProjection 引用（不 stop，由 ConnectionService 管理生命周期）
         mediaProjection = null
 
         cachedSps = null

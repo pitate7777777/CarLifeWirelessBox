@@ -4,6 +4,7 @@ import android.content.Context
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -57,7 +58,7 @@ object ErrorTracker {
     private val recentErrors = ConcurrentLinkedQueue<ErrorEvent>()
 
     // 错误计数器（按类型）
-    private val errorCounts = mutableMapOf<ErrorType, AtomicInteger>()
+    private val errorCounts = ConcurrentHashMap<ErrorType, AtomicInteger>()
 
     // 总错误计数
     private val totalErrors = AtomicInteger(0)

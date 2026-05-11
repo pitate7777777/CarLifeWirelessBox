@@ -9,6 +9,7 @@ import com.carlife.wireless.channel.DeviceRole
 import com.carlife.wireless.model.ChannelHeader
 import com.carlife.wireless.network.TcpServer
 import com.carlife.wireless.network.TcpServerListener
+import com.carlife.wireless.proto.CarlifeAuthenRequestProto
 import com.carlife.wireless.proto.CarlifeAuthenResponseProto
 import com.carlife.wireless.proto.CarlifeAuthenResultProto
 import com.carlife.wireless.proto.CarlifeDeviceInfoProto
@@ -172,6 +173,8 @@ class MdRole(private val context: Context) {
         channels.values.forEach { it.disconnect("MdRole stopped") }
         channels.clear()
 
+        executor.shutdown()
+
         connectedCount.set(0)
         handshakeCompleted.set(false)
         connectionStartTime.set(0L)
@@ -202,8 +205,11 @@ class MdRole(private val context: Context) {
         if (count == ChannelType.entries.size) {
             LogUtils.i(TAG, "All 6 channels connected, waiting for car handshake...")
             connectionStartTime.set(System.currentTimeMillis())
-            updateState(MdState.ALL_CONNECTED)
-            updateState(MdState.HANDSHAKING)
+            // 使用 compareAndSet 防止多线程重复触发
+            if (state.compareAndSet(MdState.CONNECTED, MdState.ALL_CONNECTED) ||
+                state.compareAndSet(MdState.WAITING_CONNECTION, MdState.ALL_CONNECTED)) {
+                updateState(MdState.HANDSHAKING)
+            }
         }
     }
 

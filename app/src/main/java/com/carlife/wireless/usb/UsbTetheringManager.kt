@@ -59,8 +59,8 @@ class UsbTetheringManager(private val context: Context) {
 
     private val handler = Handler(Looper.getMainLooper())
     private var listener: UsbStateListener? = null
-    private var currentState = UsbState.DISCONNECTED
-    private var carIp: String? = null
+    @Volatile private var currentState = UsbState.DISCONNECTED
+    @Volatile private var carIp: String? = null
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     private var usbReceiver: BroadcastReceiver? = null
     private var isMonitoring = false

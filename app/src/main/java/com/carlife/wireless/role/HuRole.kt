@@ -162,15 +162,15 @@ class HuRole(
     private val connectedChannelCount = AtomicInteger(0)
 
     // 6 个通道
-    private var cmdChannel: Channel? = null
-    private var videoChannel: Channel? = null
-    private var mediaChannel: Channel? = null
-    private var ttsChannel: Channel? = null
-    private var vrChannel: Channel? = null
-    private var ctrlChannel: Channel? = null
+    @Volatile private var cmdChannel: Channel? = null
+    @Volatile private var videoChannel: Channel? = null
+    @Volatile private var mediaChannel: Channel? = null
+    @Volatile private var ttsChannel: Channel? = null
+    @Volatile private var vrChannel: Channel? = null
+    @Volatile private var ctrlChannel: Channel? = null
 
     // CMD 通道读取线程
-    private var cmdReadThread: Thread? = null
+    @Volatile private var cmdReadThread: Thread? = null
 
     /**
      * 连接到手机 B
