@@ -10,6 +10,7 @@ import com.carlife.wireless.model.ChannelHeader
 import com.carlife.wireless.model.KConnectionState
 import com.carlife.wireless.proto.CarlifeAuthenRequestProto
 import com.carlife.wireless.proto.CarlifeAuthenResponseProto
+import com.carlife.wireless.proto.CarlifeAuthenResultProto
 import com.carlife.wireless.proto.CarlifeAuthMethodProto.AuthMethod
 import com.carlife.wireless.proto.CarlifeDeviceInfoProto
 import com.carlife.wireless.proto.CarlifeDeviceInfoProto.DeviceType
@@ -22,6 +23,7 @@ import com.carlife.wireless.proto.CarlifeRegisterTypeProto.RegisterResultCode
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoCodecType
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoResolution
+import com.carlife.wireless.proto.CarlifeProtocolVersionProto
 import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.LogUtils
 import java.util.concurrent.atomic.AtomicInteger
@@ -179,7 +181,7 @@ class HuRole(
         connectedChannelCount.set(0)
 
         try {
-            cmdChannel = createChannel(ChannelType.HU_CMD)
+            cmdChannel = createChannel(ChannelType.HU_CMD, autoRead = false) // CMD 通道由 startCmdReadLoop 自行读取
             videoChannel = createChannel(ChannelType.HU_VIDEO)
             mediaChannel = createChannel(ChannelType.HU_MEDIA)
             ttsChannel = createChannel(ChannelType.HU_TTS)
@@ -204,8 +206,8 @@ class HuRole(
     /**
      * 创建通道并设置回调
      */
-    private fun createChannel(type: ChannelType): Channel {
-        val channel = Channel.create(type, DeviceRole.HU)
+    private fun createChannel(type: ChannelType, autoRead: Boolean = true): Channel {
+        val channel = Channel.create(type, DeviceRole.HU, autoRead)
         channel.callback = object : ChannelCallback {
             override fun onConnected(ch: Channel) {
                 LogUtils.i("$TAG: ${ch.name} connected")
@@ -371,16 +373,13 @@ class HuRole(
         updateState(HuState.AUTHENTICATING)
 
         try {
-            // 构造 CarlifeProtocolVersion protobuf
-            // 使用简单的二进制格式：majorVersion(4B) + minorVersion(4B)
-            val data = ByteArray(8)
-            // majorVersion = 1
-            data[0] = 0; data[1] = 0; data[2] = 0; data[3] = 1
-            // minorVersion = 0
-            data[4] = 0; data[5] = 0; data[6] = 0; data[7] = 0
+            val version = CarlifeProtocolVersionProto.CarlifeProtocolVersion.newBuilder()
+                .setMajorVersion(Constants.PROTOCOL_MAJOR_VERSION)
+                .setMinorVersion(Constants.PROTOCOL_MINOR_VERSION)
+                .build()
 
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_PROTOCOL_VERSION, data)
-            LogUtils.i("$TAG: [Phase 1] HU_PROTOCOL_VERSION sent (1.0)")
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_PROTOCOL_VERSION, version.toByteArray())
+            LogUtils.i("$TAG: [Phase 1] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 1] Failed to send protocol version")
             disconnect("Protocol version failed")
@@ -457,11 +456,14 @@ class HuRole(
         updateState(HuState.REGISTERING)
 
         try {
-            // CarlifeAuthenResult: authenResult(bool)
-            val data = ByteArray(1)
-            data[0] = if (success) 1 else 0
+            val result = CarlifeAuthenResultProto.CarlifeAuthenResult.newBuilder()
+                .setResult(
+                    if (success) CarlifeAuthenResultProto.AuthenResultCode.AUTHEN_RESULT_SUCCESS
+                    else CarlifeAuthenResultProto.AuthenResultCode.AUTHEN_RESULT_FAILED
+                )
+                .build()
 
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_AUTHEN_RESULT, data)
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_AUTHEN_RESULT, result.toByteArray())
             LogUtils.i("$TAG: [Phase 4] HU_AUTHEN_RESULT sent (result=$success)")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 4] Failed to send authen result")

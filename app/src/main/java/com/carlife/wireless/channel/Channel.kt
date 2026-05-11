@@ -64,7 +64,9 @@ interface ChannelCallback {
  */
 abstract class Channel(
     val type: ChannelType,
-    val role: DeviceRole
+    val role: DeviceRole,
+    /** 是否自动启动读取循环。CMD 通道设为 false 由上层协议自行读取 */
+    val autoRead: Boolean = true
 ) {
     var state: KConnectionState = KConnectionState.IDLE
         protected set
@@ -343,8 +345,8 @@ abstract class Channel(
     }
 
     companion object {
-        fun create(type: ChannelType, role: DeviceRole): Channel {
-            return TcpChannel(type, role)
+        fun create(type: ChannelType, role: DeviceRole, autoRead: Boolean = true): Channel {
+            return TcpChannel(type, role, autoRead)
         }
 
         fun wrap(type: ChannelType, role: DeviceRole, socket: Socket): Channel {
@@ -358,8 +360,9 @@ abstract class Channel(
  */
 private class TcpChannel(
     type: ChannelType,
-    role: DeviceRole
-) : Channel(type, role) {
+    role: DeviceRole,
+    autoRead: Boolean = true
+) : Channel(type, role, autoRead) {
 
     override fun connect(host: String, port: Int) {
         if (state != KConnectionState.IDLE && state != KConnectionState.DISCONNECTED) {
@@ -382,7 +385,7 @@ private class TcpChannel(
                 updateState(KConnectionState.CONNECTED)
                 LogUtils.i("[$name] connected to $host:$port")
 
-                startReadLoop()
+                if (autoRead) startReadLoop()
             } catch (e: Exception) {
                 LogUtils.e(e, "[$name] connect failed to $host:$port")
                 callback?.onError(this, e)
