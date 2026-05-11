@@ -202,6 +202,109 @@ abstract class Channel(
     }
 
     /**
+     * 读取一条 CarLife 媒体消息（阻塞）
+     *
+     * CarLife 媒体通道格式（12 字节）：
+     * [data_len(4B)][timestamp(4B)][service_type(4B)] + [raw_data]
+     *
+     * @return Triple(serviceType, timestamp, rawData) 或 null（连接断开）
+     */
+    fun readCarLifeMediaMsg(): Triple<Int, Int, ByteArray>? {
+        if (state != KConnectionState.CONNECTED) return null
+
+        return try {
+            // 读取 12 字节媒体头
+            val header = readExact(12) ?: run {
+                disconnect("connection closed by peer")
+                return null
+            }
+
+            // 解析 data_len (4B, Big-Endian)
+            val dataLen = ((header[0].toInt() and 0xFF) shl 24) or
+                          ((header[1].toInt() and 0xFF) shl 16) or
+                          ((header[2].toInt() and 0xFF) shl 8) or
+                          (header[3].toInt() and 0xFF)
+
+            // 解析 timestamp (4B, Big-Endian)
+            val timestamp = ((header[4].toInt() and 0xFF) shl 24) or
+                            ((header[5].toInt() and 0xFF) shl 16) or
+                            ((header[6].toInt() and 0xFF) shl 8) or
+                            (header[7].toInt() and 0xFF)
+
+            // 解析 service_type (4B, Big-Endian)
+            val serviceType = ((header[8].toInt() and 0xFF) shl 24) or
+                              ((header[9].toInt() and 0xFF) shl 16) or
+                              ((header[10].toInt() and 0xFF) shl 8) or
+                              (header[11].toInt() and 0xFF)
+
+            // 读取原始数据
+            val data = if (dataLen > 0) {
+                readExact(dataLen) ?: run {
+                    disconnect("connection closed while reading payload")
+                    return null
+                }
+            } else {
+                ByteArray(0)
+            }
+
+            LogUtils.d("[$name] CarLife media received: 0x${Integer.toHexString(serviceType)}, ts=$timestamp, len=${data.size}")
+            Triple(serviceType, timestamp, data)
+        } catch (e: Exception) {
+            LogUtils.e(e, "[$name] readCarLifeMediaMsg failed")
+            callback?.onError(this, e)
+            disconnect("read error: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * 发送 CarLife 媒体消息
+     *
+     * @param serviceType 4 字节消息 ID
+     * @param timestamp 时间戳（毫秒）
+     * @param rawData 原始数据（H.264 帧 / PCM 音频等）
+     */
+    fun sendCarLifeMediaMsg(serviceType: Int, timestamp: Int, rawData: ByteArray): Boolean {
+        if (state != KConnectionState.CONNECTED) {
+            LogUtils.w("[$name] sendCarLifeMediaMsg failed: not connected")
+            return false
+        }
+        return try {
+            val dataLen = rawData.size
+            val header = ByteArray(12)
+            // data_len (4B, Big-Endian)
+            header[0] = ((dataLen shr 24) and 0xFF).toByte()
+            header[1] = ((dataLen shr 16) and 0xFF).toByte()
+            header[2] = ((dataLen shr 8) and 0xFF).toByte()
+            header[3] = (dataLen and 0xFF).toByte()
+            // timestamp (4B, Big-Endian)
+            header[4] = ((timestamp shr 24) and 0xFF).toByte()
+            header[5] = ((timestamp shr 16) and 0xFF).toByte()
+            header[6] = ((timestamp shr 8) and 0xFF).toByte()
+            header[7] = (timestamp and 0xFF).toByte()
+            // service_type (4B, Big-Endian)
+            header[8] = ((serviceType shr 24) and 0xFF).toByte()
+            header[9] = ((serviceType shr 16) and 0xFF).toByte()
+            header[10] = ((serviceType shr 8) and 0xFF).toByte()
+            header[11] = (serviceType and 0xFF).toByte()
+
+            synchronized(this) {
+                val out = outputStream ?: throw IllegalStateException("outputStream is null")
+                out.write(header)
+                out.write(rawData)
+                out.flush()
+            }
+            LogUtils.d("[$name] CarLife media sent: 0x${Integer.toHexString(serviceType)}, len=${rawData.size}")
+            true
+        } catch (e: Exception) {
+            LogUtils.e(e, "[$name] sendCarLifeMediaMsg failed")
+            callback?.onError(this, e)
+            disconnect("send error: ${e.message}")
+            false
+        }
+    }
+
+    /**
      * 发送一帧数据（自动添加协议包头）
      */
     @Synchronized

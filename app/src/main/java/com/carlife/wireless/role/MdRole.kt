@@ -95,6 +95,7 @@ class MdRole(private val context: Context) {
     private val connectionStartTime = AtomicLong(0L)
     private val lastErrorMessage = AtomicReference("")
     private var cmdReadThread: Thread? = null
+    private val mediaReadThreads: MutableMap<Int, Thread> = ConcurrentHashMap()
 
     fun setStateListener(listener: (MdState) -> Unit) { this.stateListener = listener }
     fun setHuRole(huRole: HuRole) { this.huRole = huRole }
@@ -118,8 +119,7 @@ class MdRole(private val context: Context) {
 
         try {
             MD_PORTS.forEach { port ->
-                // CMD 通道使用 CarLife 格式解析，禁用默认的 ChannelHeader 读取循环
-                val isCmdPort = (port == Constants.PortMD.MD_CMD)
+                // 所有通道禁用默认 ChannelHeader 读取，使用 CarLife 格式专用读取循环
                 val server = TcpServer(port, object : TcpServerListener {
                     override fun onStarted(port: Int) {
                         LogUtils.i(TAG, "TcpServer started on port $port (${PORT_NAMES[port]})")
@@ -134,14 +134,14 @@ class MdRole(private val context: Context) {
                         handleClientDisconnected(port, reason)
                     }
                     override fun onDataReceived(port: Int, channel: Channel, header: ChannelHeader, payload: ByteArray) {
-                        handleDataReceived(port, header, payload)
+                        // 不使用此回调，由专用读取循环处理
                     }
                     override fun onError(port: Int, error: String) {
                         LogUtils.e(TAG, "Error on port $port (${PORT_NAMES[port]}): $error")
                         lastErrorMessage.set("Port ${PORT_NAMES[port]}: $error")
                         updateState(MdState.ERROR)
                     }
-                }, autoRead = !isCmdPort)
+                }, autoRead = false)
 
                 tcpServers[port] = server
                 server.start()
@@ -161,6 +161,9 @@ class MdRole(private val context: Context) {
 
         cmdReadThread?.interrupt()
         cmdReadThread = null
+
+        mediaReadThreads.values.forEach { it.interrupt() }
+        mediaReadThreads.clear()
 
         tcpServers.values.forEach { it.release() }
         tcpServers.clear()
@@ -188,9 +191,11 @@ class MdRole(private val context: Context) {
             updateState(MdState.CONNECTED)
         }
 
-        // CMD 通道：启动 CarLife 格式读取循环
+        // 启动 CarLife 格式读取循环
         if (port == Constants.PortMD.MD_CMD) {
             startCmdReadLoop(channel)
+        } else {
+            startMediaReadLoop(port, channel)
         }
 
         if (count == ChannelType.entries.size) {
@@ -198,8 +203,6 @@ class MdRole(private val context: Context) {
             connectionStartTime.set(System.currentTimeMillis())
             updateState(MdState.ALL_CONNECTED)
             updateState(MdState.HANDSHAKING)
-            // 握手由车机发起，MdRole 通过 handleDataReceived 被动响应
-            // 不需要主动发送任何消息，等待车机发送 HU_PROTOCOL_VERSION
         }
     }
 
@@ -224,6 +227,64 @@ class MdRole(private val context: Context) {
         }
     }
 
+    /**
+     * 媒体通道 CarLife 格式读取循环
+     * 使用 readCarLifeMediaMsg() 读取 CarLife 媒体格式消息
+     * 格式：[data_len(4B)][timestamp(4B)][service_type(4B)] + [raw_data]
+     */
+    private fun startMediaReadLoop(port: Int, channel: Channel) {
+        val existingThread = mediaReadThreads[port]
+        existingThread?.interrupt()
+
+        val thread = Thread({
+            LogUtils.i(TAG, "Media CarLife read loop started on port $port (${PORT_NAMES[port]})")
+            while (channel.isConnected) {
+                val msg = channel.readCarLifeMediaMsg() ?: break
+                val (serviceType, timestamp, data) = msg
+                handleMediaMessage(port, serviceType, timestamp, data)
+            }
+            LogUtils.i(TAG, "Media CarLife read loop ended on port $port")
+        }, "MdRole-Media-$port").apply {
+            isDaemon = true
+            start()
+        }
+        mediaReadThreads[port] = thread
+    }
+
+    /**
+     * 处理媒体通道消息
+     * 握手完成后直接转发到 HuRole
+     */
+    private fun handleMediaMessage(port: Int, serviceType: Int, timestamp: Int, data: ByteArray) {
+        if (!handshakeCompleted.get()) {
+            LogUtils.d(TAG, "Handshake not completed, ignoring media from port $port")
+            return
+        }
+
+        val hu = huRole
+        if (hu == null) {
+            LogUtils.w(TAG, "HU role not set, cannot forward media")
+            return
+        }
+
+        // 构造 ChannelHeader.Media 用于 HuRole 发送
+        val header = ChannelHeader.Media(serviceType, timestamp, data.size)
+
+        when (port) {
+            Constants.PortMD.MD_VIDEO -> hu.sendVideoData(header, data)
+            Constants.PortMD.MD_MEDIA -> hu.sendMediaData(header, data)
+            Constants.PortMD.MD_TTS -> hu.sendTtsData(header, data)
+            Constants.PortMD.MD_VR -> hu.sendVrData(header, data)
+            Constants.PortMD.MD_CTRL -> {
+                // CTRL 通道使用 CMD 格式（8字节），不是媒体格式
+                // 但车机可能通过媒体格式发送，这里也处理
+                val cmdHeader = ChannelHeader.Cmd(serviceType, data.size, 0)
+                hu.sendControlData(cmdHeader, data)
+            }
+            else -> LogUtils.w(TAG, "Unknown port $port for media forwarding")
+        }
+    }
+
     private fun handleClientDisconnected(port: Int, reason: String?) {
         LogUtils.w(TAG, "Client disconnected from port $port (${PORT_NAMES[port]}): $reason")
 
@@ -243,28 +304,6 @@ class MdRole(private val context: Context) {
         } else if (state.get() == MdState.ALL_CONNECTED || state.get() == MdState.READY) {
             updateState(MdState.CONNECTED)
         }
-    }
-
-    private fun handleDataReceived(port: Int, header: ChannelHeader, payload: ByteArray) {
-        val payloadType = when (header) {
-            is ChannelHeader.Cmd -> header.payloadType
-            is ChannelHeader.Media -> header.payloadType
-        }
-        LogUtils.d(TAG, "Data received on port $port (${PORT_NAMES[port]}), type=0x${Integer.toHexString(payloadType)}, len=${payload.size}")
-
-        // CMD 通道：处理 CarLife 协议握手消息
-        if (port == Constants.PortMD.MD_CMD) {
-            handleCarLifeCmdMessage(payloadType, payload)
-            return
-        }
-
-        // 非 CMD 通道：握手完成后直接转发到 HuRole
-        if (!handshakeCompleted.get()) {
-            LogUtils.d(TAG, "Handshake not completed, ignoring data from port $port")
-            return
-        }
-
-        forwardDataToHu(port, header, payload)
     }
 
     // ==================== CarLife CMD 消息处理 ====================
@@ -517,55 +556,6 @@ class MdRole(private val context: Context) {
             return false
         }
         return cmdChannel.sendCarLifeMsg(serviceType, data)
-    }
-
-    private fun forwardDataToHu(port: Int, header: ChannelHeader, data: ByteArray) {
-        val hu = huRole
-        if (hu == null) {
-            LogUtils.w(TAG, "HU role not set, cannot forward data")
-            return
-        }
-
-        // 根据端口类型转发到 HU 对应通道
-        when (port) {
-            Constants.PortMD.MD_CMD -> {
-                // CMD 通道：已在 handleCarLifeCmdMessage 处理
-                LogUtils.d(TAG, "CMD data should be handled by handleCarLifeCmdMessage")
-            }
-            Constants.PortMD.MD_VIDEO -> {
-                // 视频数据：车机发来的视频（不太常见，但保留转发能力）
-                if (header is ChannelHeader.Media) {
-                    hu.sendVideoData(header, data)
-                }
-            }
-            Constants.PortMD.MD_MEDIA -> {
-                // 音频数据：车机发来的音频
-                if (header is ChannelHeader.Media) {
-                    hu.sendMediaData(header, data)
-                }
-            }
-            Constants.PortMD.MD_TTS -> {
-                // TTS 数据
-                if (header is ChannelHeader.Media) {
-                    hu.sendTtsData(header, data)
-                }
-            }
-            Constants.PortMD.MD_VR -> {
-                // VR 数据：车机麦克风数据 → 转发到手机 B（语音识别）
-                if (header is ChannelHeader.Media) {
-                    hu.sendVrData(header, data)
-                }
-            }
-            Constants.PortMD.MD_CTRL -> {
-                // 控制指令：车机触摸事件 → 转发到手机 B
-                if (header is ChannelHeader.Cmd) {
-                    hu.sendControlData(header, data)
-                }
-            }
-            else -> {
-                LogUtils.w(TAG, "Unknown port $port for forwarding")
-            }
-        }
     }
 
     fun sendData(port: Int, payloadType: Int, data: ByteArray): Boolean {
