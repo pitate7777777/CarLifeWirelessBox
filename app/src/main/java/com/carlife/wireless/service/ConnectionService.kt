@@ -65,9 +65,13 @@ class ConnectionService : Service() {
 
         /** 当前运行的 ConnectionService 实例（供 MainActivity 传递 MediaProjection） */
         private var instanceRef: WeakReference<ConnectionService>? = null
+
+        @JvmStatic
+        fun getInstance(): ConnectionService? = instanceRef?.get()
+
+        // 保持向后兼容的属性访问
         val instance: ConnectionService?
             get() = instanceRef?.get()
-            private set
     }
 
     private var mdRole: MdRole? = null

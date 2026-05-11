@@ -269,7 +269,7 @@ class UsbTetheringManager(private val context: Context) {
                         LogUtils.d(TAG, "USB 状态广播: connected=$connected, tethered=$tethered")
                         handler.post { checkUsbState() }
                     }
-                    ConnectivityManager.ACTION_TETHER_STATE_CHANGED -> {
+                    "android.net.conn.TETHER_STATE_CHANGED" -> {
                         LogUtils.d(TAG, "Tether 状态变化")
                         handler.post { checkUsbState() }
                     }
@@ -279,7 +279,7 @@ class UsbTetheringManager(private val context: Context) {
 
         val filter = IntentFilter().apply {
             addAction("android.hardware.usb.action.USB_STATE")
-            addAction(ConnectivityManager.ACTION_TETHER_STATE_CHANGED)
+            addAction("android.net.conn.TETHER_STATE_CHANGED")
         }
         try {
             context.registerReceiver(usbReceiver, filter)

@@ -83,16 +83,18 @@ class TcpServer(
 ) {
 
     /**
-     * 便捷构造函数 - 仅指定端口
+     * 便捷构造函数 - 仅指定端口，支持 autoRead
      * 使用 CMD 通道类型和 HU 设备角色
      *
      * @param port 监听的端口号
      * @param listener 事件监听器
+     * @param autoRead 是否自动启动读取循环
      */
-    constructor(port: Int, listener: TcpServerListener?) : this(
+    constructor(port: Int, listener: TcpServerListener?, autoRead: Boolean = true) : this(
         ChannelType.HU_CMD,
         DeviceRole.HU,
-        listener
+        listener,
+        autoRead
     ) {
         this._customPort = port
     }
