@@ -33,17 +33,18 @@
 
 | 模块 | 说明 |
 |------|------|
-| **通道抽象层** | `Channel` 统一客户端/服务端通道，6 种 `ChannelType`，协议分帧（CMD 8 字节 / Media 11 字节包头） |
-| **网络层** | `TcpServer`（多客户端管理、协程）/ `TcpClient`（心跳、重连、协议分帧） |
-| **HU 角色** | `HuRole` 连接手机 B，完整 CarLife 协议握手（版本→设备信息→认证→特性协商→编码器初始化），端口预检 |
-| **MD 角色** | `MdRole` 启动 6 端口监听，车机连接管理，简化握手流程 |
-| **数据桥接** | `StreamBridge` 单通道桥接 + `StreamBridgeManager` 管理器，支持协议转换 |
+| **通道抽象层** | `Channel` 统一客户端/服务端通道，6 种 `ChannelType`，协议分帧（CMD 8 字节 / Media 11 字节包头），支持 CarLife CMD 格式读写 |
+| **网络层** | `TcpServer`（多客户端管理、协程、支持 autoRead 控制）/ `TcpClient`（心跳、重连、协议分帧） |
+| **HU 角色** | `HuRole` 连接手机 B，完整 CarLife 协议握手（版本→设备信息→认证→特性协商→编码器初始化），端口预检，支持数据转发方法 |
+| **MD 角色** | `MdRole` 启动 6 端口监听，**完整 CarLife 协议握手**（8 阶段：版本匹配→设备信息→认证→特性协商→编码器初始化），CMD 通道 CarLife 格式专用读取循环 |
+| **数据桥接** | `StreamBridge` 单通道桥接 + `StreamBridgeManager` 管理器，支持协议转换；ConnectionService 直接转发模式（HuRole↔MdRole 端到端） |
 | **协议转换** | `ProtocolTranslator`（H.265→H.264 / Opus→AAC 框架）、`VersionDetector` 版本检测 |
 | **视频服务** | `VideoService` — MediaProjection 屏幕采集 + MediaCodec H.264 硬编码，SPS/PPS 缓存 |
 | **音频服务** | `AudioService` — AudioPlaybackCapture 系统音频录制 + MediaCodec AAC 编码 |
 | **触摸服务** | `TouchService` — 解析 CarLife 8 种触摸事件，横屏/竖屏坐标变换，手势模拟 |
 | **无障碍服务** | `CarAccessibilityService` — 通过 dispatchGesture() 注入触摸，无需 root |
-| **连接服务** | `ConnectionService` 前台服务，协调 MdRole/HuRole/Video/Audio/Touch 生命周期 |
+| **连接服务** | `ConnectionService` 前台服务，协调 MdRole/HuRole/Video/Audio/Touch 生命周期，**HuRole 自动重连（指数退避）** |
+| **断线重连** | HuRole 断线后自动重连（5s→10s→20s→40s→80s 指数退避，最多 5 次）；MdRole 断线自动回到等待状态 |
 | **网络诊断** | `NetworkDiagnostics` — WiFi 状态、热点检测、Ping、CarWith 端口监听检测，一键生成诊断报告 |
 | **UI 界面** | `MainActivity` 状态监控 + MediaProjection 授权、`SettingsActivity` 参数配置、`LogViewerActivity` 日志查看、`NetworkDiagActivity` 网络诊断 |
 | **竖屏支持** | 支持横屏/竖屏自适应显示，触摸坐标自动变换（参考 CarProjection 实现） |
@@ -54,12 +55,10 @@
 
 | 模块 | 说明 | 优先级 |
 |------|------|--------|
-| **StreamBridge 集成** | 将桥接器接入 ConnectionService，实现 HuRole↔MdRole 端到端数据转发 | P0 |
-| **USB 有线连接** | 参考 CarProjection，实现 USB Accessory 通道连接 WinCE 车机 | P0 |
-| **MdRole 协议握手** | MdRole 侧完整 CarLife 协议握手（当前为简化版） | P0 |
-| **断线重连** | Wi-Fi / USB 双端自动重连机制 | P1 |
+| **USB 有线连接** | 参考 CarProjection，实现 USB Accessory 通道连接 WinCE 车机（当前仅支持 WiFi 热点模式） | P0 |
+| **MdRole 媒体通道协议** | 验证车机媒体通道（VIDEO/MEDIA/CTRL）是否使用 ChannelHeader 格式，必要时适配 CarLife 格式 | P1 |
 | **动态比特率** | 根据 Wi-Fi 信号强度自动调节视频码率 | P2 |
-| **VR 通道透传** | 车机麦克风数据转发到手机 B，支持语音识别 | P2 |
+| **VR 通道透传** | 车机麦克风数据转发到手机 B，支持语音识别（框架已就绪，需端到端测试） | P2 |
 
 ## 项目结构
 

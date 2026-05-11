@@ -78,7 +78,8 @@ interface TcpServerListener {
 class TcpServer(
     private val type: ChannelType,
     private val role: DeviceRole,
-    private val listener: TcpServerListener?
+    private val listener: TcpServerListener?,
+    private val autoRead: Boolean = true
 ) {
 
     /**
@@ -144,7 +145,7 @@ class TcpServer(
                     LogUtils.i("$TAG: Client connected: ${socket.inetAddress.hostAddress}:${socket.port}")
 
                     // 创建 Channel 并管理
-                    val channel = Channel.wrap(type, role, socket)
+                    val channel = Channel.wrap(type, role, socket, autoRead)
                     val clientId = clientIdCounter.incrementAndGet()
 
                     channel.callback = object : ChannelCallback {

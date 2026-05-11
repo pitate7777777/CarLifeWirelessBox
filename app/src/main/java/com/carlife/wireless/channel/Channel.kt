@@ -349,8 +349,8 @@ abstract class Channel(
             return TcpChannel(type, role, autoRead)
         }
 
-        fun wrap(type: ChannelType, role: DeviceRole, socket: Socket): Channel {
-            return TcpServerChannel(type, role, socket)
+        fun wrap(type: ChannelType, role: DeviceRole, socket: Socket, autoRead: Boolean = true): Channel {
+            return TcpServerChannel(type, role, socket, autoRead)
         }
     }
 }
@@ -423,8 +423,9 @@ private class TcpChannel(
 class TcpServerChannel(
     type: ChannelType,
     role: DeviceRole,
-    private val connectedSocket: Socket
-) : Channel(type, role) {
+    private val connectedSocket: Socket,
+    autoRead: Boolean = true
+) : Channel(type, role, autoRead) {
 
     override fun connect(host: String, port: Int) {
         if (state != KConnectionState.IDLE && state != KConnectionState.DISCONNECTED) {

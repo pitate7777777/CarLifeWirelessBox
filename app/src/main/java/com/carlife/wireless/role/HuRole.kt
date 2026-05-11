@@ -327,6 +327,43 @@ class HuRole(
     fun getState(): HuState = state.get()
     fun isConnected(): Boolean = state.get() == HuState.CONNECTED
 
+    // ==================== 数据转发方法（MdRole → HuRole → 手机B） ====================
+
+    /**
+     * 转发视频数据到手机 B
+     */
+    fun sendVideoData(header: ChannelHeader.Media, data: ByteArray): Boolean {
+        return videoChannel?.send(header.payloadType, data, header.timestamp) ?: false
+    }
+
+    /**
+     * 转发音频数据到手机 B
+     */
+    fun sendMediaData(header: ChannelHeader.Media, data: ByteArray): Boolean {
+        return mediaChannel?.send(header.payloadType, data, header.timestamp) ?: false
+    }
+
+    /**
+     * 转发 TTS 数据到手机 B
+     */
+    fun sendTtsData(header: ChannelHeader.Media, data: ByteArray): Boolean {
+        return ttsChannel?.send(header.payloadType, data, header.timestamp) ?: false
+    }
+
+    /**
+     * 转发 VR 数据到手机 B（车机麦克风 → 手机 B 语音识别）
+     */
+    fun sendVrData(header: ChannelHeader.Media, data: ByteArray): Boolean {
+        return vrChannel?.send(header.payloadType, data, header.timestamp) ?: false
+    }
+
+    /**
+     * 转发控制指令到手机 B（触摸事件等）
+     */
+    fun sendControlData(header: ChannelHeader.Cmd, data: ByteArray): Boolean {
+        return ctrlChannel?.send(header.payloadType, data) ?: false
+    }
+
     // ==================== 通道连接管理 ====================
 
     private fun onChannelConnected() {

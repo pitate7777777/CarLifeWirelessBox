@@ -23,6 +23,7 @@ import com.carlife.wireless.role.MdRole
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import java.io.IOException
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * 连接服务：负责 WiFi AP/热点启动、mDNS 广播、TCP 监听
@@ -76,6 +77,12 @@ class ConnectionService : Service() {
 
     // 预览帧计数器（每 N 帧广播 1 帧给 MainActivity）
     private var previewFrameCounter = 0L
+
+    // 自动重连
+    private val huReconnectCount = AtomicInteger(0)
+    private val maxHuReconnect = 5
+    private var huReconnectRunnable: Runnable? = null
+    private val reconnectHandler = android.os.Handler(android.os.Looper.getMainLooper())
 
     override fun onCreate() {
         super.onCreate()
@@ -245,6 +252,8 @@ class ConnectionService : Service() {
             val phoneBIp = com.carlife.wireless.util.SettingsManager.getPhoneBIp(this)
             LogUtils.i(TAG, "Phone B IP: $phoneBIp")
             huRole = HuRole(this, phoneBIp)
+            // 将 HuRole 注入 MdRole，实现车机→手机B的数据转发
+            mdRole?.setHuRole(huRole!!)
             huRole?.listener = object : HuRoleListener {
                 override fun onStateChanged(state: HuState, reason: String?) {
                     LogUtils.i(TAG, "HuRole state: $state ($reason)")
@@ -454,6 +463,7 @@ class ConnectionService : Service() {
     }
 
     private fun stopAllServices() {
+        cancelHuReconnect()
         stopVideoAndAudioServices()
 
         touchService?.stopTouchListener()
@@ -498,14 +508,57 @@ class ConnectionService : Service() {
         when (newState) {
             HuState.CONNECTED -> {
                 LogUtils.i(TAG, "HuRole CONNECTED，启动音视频服务")
+                huReconnectCount.set(0) // 连接成功，重置重试计数
+                cancelHuReconnect()
                 startVideoAndAudioServices()
             }
             HuState.DISCONNECTED -> {
                 LogUtils.i(TAG, "HuRole DISCONNECTED")
                 stopVideoAndAudioServices()
+                // 清除旧的 HuRole 引用，以便重连时创建新实例
+                try {
+                    huRole?.disconnect("preparing for reconnect")
+                } catch (_: Exception) {}
+                huRole = null
+                // 尝试自动重连
+                scheduleHuReconnect()
             }
             else -> {}
         }
+    }
+
+    /**
+     * 调度 HuRole 自动重连
+     * 指数退避：5s, 10s, 20s, 40s, 80s
+     */
+    private fun scheduleHuReconnect() {
+        if (!isRunning) return
+
+        val attempt = huReconnectCount.incrementAndGet()
+        if (attempt > maxHuReconnect) {
+            LogUtils.w(TAG, "HuRole 重连失败，已达最大重试次数 ($maxHuReconnect)")
+            updateNotification("连接手机 B 失败，请检查热点")
+            broadcastState()
+            return
+        }
+
+        val delayMs = com.carlife.wireless.util.Constants.Reconnect.DELAY_MS * (1L shl (attempt - 1))
+        LogUtils.i(TAG, "HuRole 将在 ${delayMs}ms 后重连 (第 $attempt 次)")
+        updateNotification("连接中断，${delayMs / 1000}秒后重连 (第 $attempt 次)")
+
+        cancelHuReconnect()
+        huReconnectRunnable = Runnable {
+            if (isRunning && huRole == null) {
+                LogUtils.i(TAG, "HuRole 自动重连: 第 $attempt 次")
+                startHuRole()
+            }
+        }
+        reconnectHandler.postDelayed(huReconnectRunnable!!, delayMs)
+    }
+
+    private fun cancelHuReconnect() {
+        huReconnectRunnable?.let { reconnectHandler.removeCallbacks(it) }
+        huReconnectRunnable = null
     }
 
     // ==================== 广播状态 ====================
