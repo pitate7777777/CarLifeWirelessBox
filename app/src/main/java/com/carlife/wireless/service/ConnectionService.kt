@@ -20,6 +20,7 @@ import com.carlife.wireless.role.HuRole
 import com.carlife.wireless.role.HuRoleListener
 import com.carlife.wireless.role.HuState
 import com.carlife.wireless.role.MdRole
+import com.carlife.wireless.usb.UsbTetheringManager
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import java.io.IOException
@@ -46,6 +47,8 @@ class ConnectionService : Service() {
         const val EXTRA_LOCAL_IP = "local_ip"
         const val EXTRA_CONNECTION_DURATION = "connection_duration"
         const val EXTRA_ERROR_MESSAGE = "error_message"
+        const val EXTRA_USB_STATE = "usb_state"
+        const val EXTRA_CAR_IP = "car_ip"
 
         /** 请求 MediaProjection 授权的 action */
         const val ACTION_REQUEST_PROJECTION = "com.carlife.wireless.REQUEST_PROJECTION"
@@ -69,6 +72,9 @@ class ConnectionService : Service() {
 
     // MediaProjection
     private var mediaProjection: MediaProjection? = null
+
+    // USB 网络共享
+    private var usbTetheringManager: UsbTetheringManager? = null
 
     // 子服务引用
     private var videoService: VideoService? = null
@@ -96,6 +102,7 @@ class ConnectionService : Service() {
         startForegroundService()
         startMdRole()
         startTouchService()
+        startUsbMonitoring()
         isRunning = true
         return START_STICKY
     }
@@ -108,6 +115,7 @@ class ConnectionService : Service() {
         LogUtils.i(TAG, "ConnectionService destroyed")
         stopAllServices()
         stopMdRole()
+        stopUsbMonitoring()
         isRunning = false
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
@@ -199,6 +207,58 @@ class ConnectionService : Service() {
     }
 
     // ==================== mDNS ====================
+
+    // ==================== USB 网络共享 ====================
+
+    private fun startUsbMonitoring() {
+        if (usbTetheringManager != null) return
+
+        usbTetheringManager = UsbTetheringManager(this).apply {
+            setListener(object : UsbTetheringManager.UsbStateListener {
+                override fun onUsbStateChanged(state: UsbTetheringManager.UsbState, carIp: String?) {
+                    LogUtils.i(TAG, "USB 状态: $state, 车机 IP: ${carIp ?: "无"}")
+                    when (state) {
+                        UsbTetheringManager.UsbState.TETHERING -> {
+                            updateNotification("USB 网络共享已开启，等待车机连接...")
+                            // 自动扫描车机设备
+                            scanForCarDevice { ip ->
+                                if (ip != null) {
+                                    LogUtils.i(TAG, "发现车机: $ip")
+                                    updateNotification("车机已连接: $ip")
+                                }
+                            }
+                        }
+                        UsbTetheringManager.UsbState.CAR_CONNECTED -> {
+                            updateNotification("车机已通过 USB 连接: $carIp")
+                        }
+                        UsbTetheringManager.UsbState.DISCONNECTED -> {
+                            updateNotification("USB 未连接")
+                        }
+                        UsbTetheringManager.UsbState.CONNECTED -> {
+                            updateNotification("USB 已连接，请开启网络共享")
+                        }
+                    }
+                    broadcastState()
+                }
+
+                override fun onCarDeviceFound(carIp: String) {
+                    LogUtils.i(TAG, "车机设备发现: $carIp")
+                }
+            })
+            startMonitoring()
+        }
+
+        // 初始检测
+        val state = usbTetheringManager!!.checkUsbState()
+        LogUtils.i(TAG, "USB 初始状态: $state")
+    }
+
+    private fun stopUsbMonitoring() {
+        usbTetheringManager?.stopMonitoring()
+        usbTetheringManager = null
+    }
+
+    fun getUsbTetheringManager(): UsbTetheringManager? = usbTetheringManager
 
     private fun startMdnsService() {
         try {
@@ -571,6 +631,8 @@ class ConnectionService : Service() {
             putExtra(EXTRA_LOCAL_IP, getLocalIpAddress())
             putExtra(EXTRA_CONNECTION_DURATION, getConnectionDuration())
             putExtra(EXTRA_ERROR_MESSAGE, getLastErrorMessage())
+            putExtra(EXTRA_USB_STATE, usbTetheringManager?.getState()?.name ?: "UNKNOWN")
+            putExtra(EXTRA_CAR_IP, usbTetheringManager?.getCarIp() ?: "")
         }
         sendBroadcast(intent)
     }

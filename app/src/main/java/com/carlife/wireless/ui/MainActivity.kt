@@ -90,10 +90,15 @@ class MainActivity : AppCompatActivity() {
                     val ip = intent.getStringExtra(ConnectionService.EXTRA_LOCAL_IP) ?: "--"
                     val duration = intent.getLongExtra(ConnectionService.EXTRA_CONNECTION_DURATION, 0L)
                     val error = intent.getStringExtra(ConnectionService.EXTRA_ERROR_MESSAGE) ?: ""
+                    val usbState = intent.getStringExtra(ConnectionService.EXTRA_USB_STATE) ?: "UNKNOWN"
+                    val carIp = intent.getStringExtra(ConnectionService.EXTRA_CAR_IP) ?: ""
 
                     binding.tvConnectionState.text = state
                     binding.tvChannels.text = "通道: $channels/6"
                     binding.tvIpAddress.text = "IP: $ip"
+
+                    // USB 状态显示
+                    updateUsbStatus(usbState, carIp)
 
                     if (error.isNotEmpty()) addLog("错误: $error")
                     val durText = if (duration > 0) " ${duration / 1000}秒" else ""
@@ -285,6 +290,28 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (_: Exception) {}
         return "--"
+    }
+
+    // ==================== USB 状态 ====================
+
+    private fun updateUsbStatus(usbState: String, carIp: String) {
+        val (text, colorRes) = when (usbState) {
+            "DISCONNECTED" -> "USB: 未连接" to android.R.color.darker_gray
+            "CONNECTED" -> "USB: 已连接（请开启网络共享）" to android.R.color.holo_orange_dark
+            "TETHERING" -> "USB: 网络共享已开启" to android.R.color.holo_green_dark
+            "CAR_CONNECTED" -> "USB: 车机已连接" to android.R.color.holo_green_dark
+            else -> "USB: 未知" to android.R.color.darker_gray
+        }
+        binding.tvUsbState.text = text
+        binding.usbStatusDot.backgroundTintList =
+            android.content.res.ColorStateList.valueOf(getColor(colorRes))
+
+        if (carIp.isNotEmpty()) {
+            binding.tvCarIp.text = "车机 IP: $carIp"
+            binding.tvCarIp.visibility = android.view.View.VISIBLE
+        } else {
+            binding.tvCarIp.visibility = android.view.View.GONE
+        }
     }
 
     // ==================== 日志 ====================
