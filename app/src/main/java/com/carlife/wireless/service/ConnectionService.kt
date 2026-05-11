@@ -67,9 +67,6 @@ class ConnectionService : Service() {
         private var instanceRef: WeakReference<ConnectionService>? = null
 
         @JvmStatic
-        fun getInstance(): ConnectionService? = instanceRef?.get()
-
-        // 保持向后兼容的属性访问
         val instance: ConnectionService?
             get() = instanceRef?.get()
     }
