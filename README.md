@@ -5,14 +5,14 @@
 ## 项目简介
 
 将旧 Android 手机改造为无线 CarLife 转接盒，实现：
-- 接收手机 B（发射端）的无线 CarLife 连接
+- 接收手机 B（CarWith 发射端）的无线 CarLife 连接
 - 通过 USB 数据线将投屏内容转发到 WinCE 车机
 - 兼容百度 CarLife WinCE 版（最后一个支持版本 3.1.0.0）
 
 ## 技术架构
 
 ```
-[手机B - CarLife 6.7.2] ← WiFi → [旧手机 APP] ← USB → [WinCE 车机]
+[手机B - CarWith] ← WiFi → [旧手机 APP] ← USB → [WinCE 车机]
 ```
 
 **双角色设计**：
@@ -22,9 +22,10 @@
 
 ## CarLife 版本兼容性
 
-| 版本 | 状态 | 说明 |
+| 手机 B 端 APP | 状态 | 说明 |
 |------|------|------|
-| CarLife 6.7.2 及之前 | ✅ 可用 | 必须使用此版本 |
+| **CarWith** | ✅ 推荐 | 无线 CarLife 投屏，本项目支持 |
+| CarLife 6.7.2 及之前 | ✅ 可用 | 旧版有线 CarLife |
 | CarLife 7.2 及之后 | ❌ 不兼容 | 连接黑屏 |
 
 ## 开发进度
