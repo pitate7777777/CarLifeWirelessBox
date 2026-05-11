@@ -108,6 +108,97 @@ abstract class Channel(
     abstract fun connect(host: String, port: Int = type.getPort(role))
     abstract fun disconnect(reason: String? = null)
 
+    // ==================== CarLife CMD 协议读写 ====================
+    // CarLife CMD 通道使用 8 字节消息头：
+    // [data_len(2B)][reserved(2B)][service_type(4B)] + [protobuf_data]
+    // 与 Channel 自有的 8 字节包头格式不同，需要独立处理。
+
+    /**
+     * 发送 CarLife CMD 消息
+     *
+     * @param serviceType 4 字节消息 ID（如 0x00018001）
+     * @param protobufData Protobuf 序列化数据
+     */
+    fun sendCarLifeMsg(serviceType: Int, protobufData: ByteArray): Boolean {
+        if (state != KConnectionState.CONNECTED) {
+            LogUtils.w("[$name] sendCarLifeMsg failed: not connected")
+            return false
+        }
+        return try {
+            val dataLen = protobufData.size
+            val header = ByteArray(8)
+            // data_len (2B, Big-Endian)
+            header[0] = ((dataLen shr 8) and 0xFF).toByte()
+            header[1] = (dataLen and 0xFF).toByte()
+            // reserved (2B) = 0
+            header[2] = 0; header[3] = 0
+            // service_type (4B, Big-Endian)
+            header[4] = ((serviceType shr 24) and 0xFF).toByte()
+            header[5] = ((serviceType shr 16) and 0xFF).toByte()
+            header[6] = ((serviceType shr 8) and 0xFF).toByte()
+            header[7] = (serviceType and 0xFF).toByte()
+
+            synchronized(this) {
+                val out = outputStream ?: throw IllegalStateException("outputStream is null")
+                out.write(header)
+                out.write(protobufData)
+                out.flush()
+            }
+            LogUtils.d("[$name] CarLife sent: 0x${Integer.toHexString(serviceType)}, len=${protobufData.size}")
+            true
+        } catch (e: Exception) {
+            LogUtils.e(e, "[$name] sendCarLifeMsg failed")
+            callback?.onError(this, e)
+            disconnect("send error: ${e.message}")
+            false
+        }
+    }
+
+    /**
+     * 读取一条 CarLife CMD 消息（阻塞）
+     *
+     * @return Pair(serviceType, protobufData) 或 null（连接断开）
+     */
+    fun readCarLifeMsg(): Pair<Int, ByteArray>? {
+        if (state != KConnectionState.CONNECTED) return null
+
+        return try {
+            // 读取 8 字节消息头
+            val header = readExact(8) ?: run {
+                disconnect("connection closed by peer")
+                return null
+            }
+
+            // 解析 data_len (2B)
+            val dataLen = ((header[0].toInt() and 0xFF) shl 8) or
+                          (header[1].toInt() and 0xFF)
+
+            // 解析 service_type (4B)
+            val serviceType = ((header[4].toInt() and 0xFF) shl 24) or
+                              ((header[5].toInt() and 0xFF) shl 16) or
+                              ((header[6].toInt() and 0xFF) shl 8) or
+                              (header[7].toInt() and 0xFF)
+
+            // 读取 protobuf 数据
+            val data = if (dataLen > 0) {
+                readExact(dataLen) ?: run {
+                    disconnect("connection closed while reading payload")
+                    return null
+                }
+            } else {
+                ByteArray(0)
+            }
+
+            LogUtils.d("[$name] CarLife received: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+            Pair(serviceType, data)
+        } catch (e: Exception) {
+            LogUtils.e(e, "[$name] readCarLifeMsg failed")
+            callback?.onError(this, e)
+            disconnect("read error: ${e.message}")
+            null
+        }
+    }
+
     /**
      * 发送一帧数据（自动添加协议包头）
      */
