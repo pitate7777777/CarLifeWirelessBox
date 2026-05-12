@@ -1,12 +1,55 @@
 # CarLifeWirelessBox 源码审查报告
 
-**审查日期**: 2026-05-12（第六轮）  
-**审查范围**: HuRole 编译错误 + 端口连接错误  
+**审查日期**: 2026-05-13（第七轮）  
+**审查范围**: 端口泄漏修复 (EADDRINUSE) + 资源清理竞态 + 代码清理  
 **修复状态**: ✅ 已修复 | 🔧 本次新增 | ⬜ 建议改进
 
 ---
 
-## 本次修复（第六轮）
+## 本次修复（第七轮）— 基于 logcat 日志分析
+
+### 🔧 Critical-1: TcpServer 端口泄漏 — EADDRINUSE 根因
+
+- **文件**: `TcpServer.kt` — `stop()` + `start()`
+- **日志证据**: 
+  ```
+  TcpServer: Failed to start server on port 7240: bind failed: EADDRINUSE (Address already in use)
+  TcpServer: Failed to start server on port 8240: bind failed: EADDRINUSE (Address already in use)
+  TcpServer: Failed to start server on port 9240: bind failed: EADDRINUSE (Address already in use)
+  TcpServer: Failed to start server on port 9340: bind failed: EADDRINUSE (Address already in use)
+  HuRole: TcpServer startup failed! 0 servers not ready
+  ```
+  所有 4 个 HU 端口 (7240/8240/9240/9340) 反复绑定失败，导致 HuRole 完全无法启动。
+- **根因分析**:
+  1. `stop()` 方法有 early return：`if (!isRunning.getAndSet(false)) return`。当 `isRunning` 已经为 false 时（例如 `release()` 调用后），`stop()` 跳过 `serverSocket.close()`，端口永远不释放。
+  2. `release()` 调用 `scope.cancel()` 取消协程作用域，可能中断 `finally` 块中的 `serverSocket.close()`。
+  3. `ServerSocket` 构造函数 `new ServerSocket(port)` 不设置 `SO_REUSEADDR`，端口处于 TIME_WAIT 状态时无法重新绑定。
+- **修复**:
+  1. `stop()` 移除 early return，**始终**关闭 `serverSocket` 释放端口（幂等安全）
+  2. `start()` 使用 `ServerSocket()` + `reuseAddress = true` + `bind(port)` 替代 `ServerSocket(port)`
+  3. `release()` 确保先 `stop()`（关闭 socket）再 `scope.cancel()`（取消协程）
+
+### 🔧 Critical-2: Channel.disconnect() 资源清理顺序错误
+
+- **文件**: `Channel.kt` — `TcpChannel.disconnect()` + `TcpServerChannel.disconnect()`
+- **问题**: `scope.cancel()` 在 socket 关闭之前调用。如果读循环协程正阻塞在 `inputStream.read()`，cancel 无法中断它（cancel 只影响挂起点），导致读循环永远不退出，socket 不释放。
+- **修复**: 将 socket 关闭（`inputStream.close()` / `outputStream.close()` / `socket.close()`）移到 `scope.cancel()` 之前。socket.close() 会中断阻塞的 read，使读循环正常退出。
+
+### 🔧 Critical-3: MdRole.stop() 资源清理顺序错误
+
+- **文件**: `MdRole.kt` — `stop()`
+- **问题**: `scope.cancel()` 在 `tcpServers.forEach { it.release() }` 之前调用。TcpServer 的 `release()` 依赖内部协程正常完成，但 scope 已被取消。
+- **修复**: 将 `tcpServers.forEach { it.release() }` 移到 `scope.cancel()` 之前。
+
+### 🔧 Low-1: HuRole.kt 未使用的 import
+
+- **文件**: `HuRole.kt`
+- **问题**: `NetworkDiagnostics` 和 `NetworkUtils` 已导入但未在代码中使用（重构残留）。
+- **修复**: 删除未使用的 import。
+
+---
+
+## 第六轮修复
 
 ### 🔧 Critical-1: 反转连接方向 — Android 热点阻止入站 TCP（根本解决方案）
 
@@ -69,11 +112,11 @@
 
 | 严重程度 | 历史总计 | 已修复 | 本次新增 | 剩余建议 |
 |---------|---------|--------|---------|---------|
-| Critical | 5 | 5 | 0 | 0 |
-| High | 14 | 14 | **1** | 0 |
-| Medium | 20 | 13 | **2** | 5 |
-| Low | 10 | 1 | **2** | 7 |
-| **总计** | **49** | **33** | **5** | **12** |
+| Critical | 8 | 8 | **3** | 0 |
+| High | 14 | 14 | 0 | 0 |
+| Medium | 20 | 13 | 0 | 5 |
+| Low | 11 | 2 | **1** | 7 |
+| **总计** | **53** | **37** | **4** | **12** |
 
 ---
 

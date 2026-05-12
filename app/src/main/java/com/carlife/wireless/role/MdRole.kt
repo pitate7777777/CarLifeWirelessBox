@@ -195,6 +195,11 @@ class MdRole(private val context: Context) {
         channels.values.forEach { it.disconnect("MdRole stopped") }
         channels.clear()
 
+        // 先释放 TcpServer（关闭 ServerSocket 释放端口），再取消协程
+        // 顺序不能反：如果先 cancel scope，TcpServer 的 finally 块可能不执行
+        tcpServers.values.forEach { it.release() }
+        tcpServers.clear()
+
         // 取消所有协程（包括读取循环）
         scope.cancel()
         cmdReadJob = null
@@ -202,9 +207,6 @@ class MdRole(private val context: Context) {
 
         // 重建 scope 以支持后续 start()
         scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
-
-        tcpServers.values.forEach { it.release() }
-        tcpServers.clear()
 
         connectedCount.set(0)
         handshakeCompleted.set(false)

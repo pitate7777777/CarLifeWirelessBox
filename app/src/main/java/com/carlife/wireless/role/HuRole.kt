@@ -24,8 +24,6 @@ import com.carlife.wireless.network.TcpServerListener
 import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
-import com.carlife.wireless.util.NetworkDiagnostics
-import com.carlife.wireless.util.NetworkUtils
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch

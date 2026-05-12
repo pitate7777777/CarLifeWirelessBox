@@ -525,6 +525,8 @@ private class TcpChannel(
 
         LogUtils.i("[$name] disconnecting: ${reason ?: "unknown"}")
 
+        // 先关闭 socket（中断阻塞的 read），再 cancel scope
+        // 顺序不能反：如果先 cancel scope，读循环可能永远不退出
         try { inputStream?.close() } catch (_: Exception) {}
         try { outputStream?.close() } catch (_: Exception) {}
         try { socket?.close() } catch (_: Exception) {}
@@ -580,6 +582,7 @@ class TcpServerChannel(
 
         LogUtils.i("[$name] disconnecting: ${reason ?: "unknown"}")
 
+        // 先关闭 socket（中断阻塞的 read），再 cancel scope
         try { inputStream?.close() } catch (_: Exception) {}
         try { outputStream?.close() } catch (_: Exception) {}
         try { connectedSocket.close() } catch (_: Exception) {}

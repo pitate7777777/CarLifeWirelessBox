@@ -125,7 +125,9 @@ class TcpServer(
 
         scope.launch {
             try {
-                val ss = ServerSocket(port)
+                val ss = ServerSocket()
+                ss.reuseAddress = true
+                ss.bind(port)
                 serverSocket = ss
                 boundPort = port
 
@@ -205,17 +207,23 @@ class TcpServer(
 
     /**
      * 停止服务端
+     *
+     * 无论 isRunning 状态如何，都会关闭 ServerSocket 释放端口。
+     * 多次调用安全（幂等）。
      */
     fun stop() {
-        if (!isRunning.getAndSet(false)) {
-            return
+        val wasRunning = isRunning.getAndSet(false)
+
+        if (wasRunning) {
+            LogUtils.i("$TAG: Stopping on port $boundPort...")
         }
 
-        LogUtils.i("$TAG: Stopping on port $boundPort...")
-
+        // 关闭所有客户端连接
         clients.values.forEach { it.disconnect("server stopped") }
         clients.clear()
 
+        // 无论是否 wasRunning，都关闭 ServerSocket 释放端口
+        // 防止端口泄漏导致 EADDRINUSE
         try {
             serverSocket?.close()
         } catch (e: Exception) {
@@ -223,15 +231,20 @@ class TcpServer(
         }
         serverSocket = null
 
-        LogUtils.i("$TAG: Stopped on port $boundPort")
-        listener?.onStopped(boundPort)
+        if (wasRunning) {
+            LogUtils.i("$TAG: Stopped on port $boundPort")
+            listener?.onStopped(boundPort)
+        }
     }
 
     /**
      * 释放资源（stop + 取消协程作用域）
+     *
+     * 必须先 stop()（关闭 ServerSocket 释放端口），再 cancel scope。
+     * 因为 scope.cancel() 会中断协程，可能导致 finally 块中的 close() 不执行。
      */
     fun release() {
-        stop()
+        stop()  // 先关闭 ServerSocket 和所有客户端
         scope.cancel("TcpServer released")
         LogUtils.d("$TAG: Released")
     }

@@ -167,3 +167,20 @@ app/src/main/java/com/carlife/wireless/
 ## 许可证
 
 MIT License
+
+## 更新日志
+
+### 2026-05-13 — 端口泄漏修复 (EADDRINUSE)
+
+**问题**: TcpServer 端口泄漏导致 HuRole 反复连接失败。日志显示所有 HU 端口 (7240/8240/9240/9340) 绑定失败 `EADDRINUSE`，手机 B 完全无法连接。
+
+**根因**:
+1. `TcpServer.stop()` 在 `isRunning=false` 时提前返回，跳过 `serverSocket.close()`，端口永远不释放
+2. `ServerSocket` 未设置 `SO_REUSEADDR`，TIME_WAIT 状态无法重绑
+3. `scope.cancel()` 与 `finally` 块竞态，可能导致 socket 不被关闭
+
+**修复**:
+- `TcpServer.stop()` 移除 early return，始终关闭 ServerSocket（幂等安全）
+- `ServerSocket` 改用 `reuseAddress = true` + `bind(port)` 模式
+- 资源清理顺序统一为：关闭 socket → cancel scope（防止读循环泄漏）
+- 涉及文件：`TcpServer.kt`、`Channel.kt`、`MdRole.kt`、`HuRole.kt`
