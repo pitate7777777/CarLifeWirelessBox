@@ -1,0 +1,757 @@
+package com.carlife.wireless.role
+
+import android.content.Context
+import android.os.Build
+import com.carlife.wireless.channel.Channel
+import com.carlife.wireless.channel.ChannelCallback
+import com.carlife.wireless.channel.ChannelType
+import com.carlife.wireless.channel.DeviceRole
+import com.carlife.wireless.model.ChannelHeader
+import com.carlife.wireless.model.KConnectionState
+import com.carlife.wireless.proto.CarlifeAuthenRequestProto
+import com.carlife.wireless.proto.CarlifeAuthenResponseProto
+import com.carlife.wireless.proto.CarlifeAuthenResultProto
+import com.carlife.wireless.proto.CarlifeAuthMethodProto.AuthMethod
+import com.carlife.wireless.proto.CarlifeDeviceInfoProto
+import com.carlife.wireless.proto.CarlifeDeviceInfoProto.DeviceType
+import com.carlife.wireless.proto.CarlifeDeviceInfoProto.OsType
+import com.carlife.wireless.proto.CarlifeFeatureConfigProto
+import com.carlife.wireless.proto.CarlifeRegisterRequestProto
+import com.carlife.wireless.proto.CarlifeRegisterResponseProto
+import com.carlife.wireless.proto.CarlifeRegisterTypeProto.RegisterType
+import com.carlife.wireless.proto.CarlifeRegisterTypeProto.RegisterResultCode
+import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto
+import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoCodecType
+import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoResolution
+import com.carlife.wireless.proto.CarlifeProtocolVersionProto
+import com.carlife.wireless.protocol.VersionDetector
+import com.carlife.wireless.util.Constants
+import com.carlife.wireless.util.ErrorTracker
+import com.carlife.wireless.util.LogUtils
+import com.carlife.wireless.util.NetworkDiagnostics
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
+
+/**
+ * HU 角色状态枚举
+ */
+enum class HuState {
+    IDLE,
+    CONNECTING,
+    AUTHENTICATING,
+    REGISTERING,
+    NEGOTIATING,
+    CONNECTED,
+    DISCONNECTED
+}
+
+/**
+ * HU 角色回调接口
+ */
+interface HuRoleListener {
+    fun onStateChanged(state: HuState, reason: String?)
+    fun onVideoFrameReceived(header: ChannelHeader.Media, frame: ByteArray)
+    fun onAudioFrameReceived(header: ChannelHeader.Media, frame: ByteArray)
+    fun onTtsFrameReceived(header: ChannelHeader.Media, data: ByteArray)
+    fun onVrFrameReceived(header: ChannelHeader.Media, data: ByteArray)
+    fun onControlReceived(header: ChannelHeader.Cmd, payload: ByteArray)
+    fun onError(error: String)
+    /** 端口预检结果回调 */
+    fun onPortCheckResult(openPorts: Int, totalPorts: Int, closedPorts: List<String>) {}
+}
+
+/**
+ * CarLife 协议消息 ID 常量
+ *
+ * 消息 ID 编码规则：
+ * - 0x0001xxxx = CMD 通道消息
+ * - 0x000180xx = HU(车机) → MD(手机)
+ * - 0x000100xx = MD(手机) → HU(车机)
+ * - 0x0002xxxx = VIDEO 通道
+ * - 0x0003xxxx = MEDIA 通道
+ * - 0x0005xxxx = VR 通道
+ * - 0x0006xxxx = CTRL 通道
+ */
+object CarLifeMsg {
+    // CMD 通道 — HU 发送
+    const val HU_PROTOCOL_VERSION         = 0x00018001
+    const val HU_INFO                     = 0x00018003
+    const val VIDEO_ENCODER_INIT          = 0x00018007
+    const val VIDEO_ENCODER_START         = 0x00018009
+    const val VIDEO_ENCODER_PAUSE         = 0x0001800A
+    const val VIDEO_ENCODER_RESET         = 0x0001800B
+    const val HU_AUTHEN_REQUEST           = 0x00018048
+    const val HU_AUTHEN_RESULT            = 0x0001804A
+    const val HU_FEATURE_CONFIG_RESPONSE  = 0x00018052
+
+    // CMD 通道 — MD 发送
+    const val VERSION_MATCH_STATUS        = 0x00010002
+    const val MD_INFO                     = 0x00010004
+    const val VIDEO_ENCODER_INIT_DONE     = 0x00010008
+    const val MD_AUTHEN_RESPONSE          = 0x00010049
+    const val MD_AUTHEN_RESULT            = 0x0001004B
+    const val MD_FEATURE_CONFIG_REQUEST   = 0x00010051
+
+    // VIDEO 通道
+    const val VIDEO_DATA                  = 0x00020001
+    const val VIDEO_HEARTBEAT             = 0x00020002
+
+    // MEDIA 通道
+    const val MEDIA_INIT                  = 0x00030001
+    const val MEDIA_STOP                  = 0x00030002
+    const val MEDIA_PAUSE                 = 0x00030003
+    const val MEDIA_RESUME                = 0x00030004
+    const val MEDIA_SEEK_TO               = 0x00030005
+    const val MEDIA_DATA                  = 0x00030006
+
+    // TTS 通道
+    const val TTS_INIT                    = 0x00040001
+    const val TTS_STOP                    = 0x00040002
+    const val TTS_DATA                    = 0x00040003
+
+    // VR 通道
+    const val VR_MIC_DATA                 = 0x00058001
+    const val VR_INIT                     = 0x00050002
+    const val VR_DATA                     = 0x00050003
+    const val VR_STOP                     = 0x00050004
+
+    // CTRL 通道
+    const val TOUCH_ACTION                = 0x00068001
+    const val TOUCH_ACTION_DOWN           = 0x00068002
+    const val TOUCH_ACTION_UP             = 0x00068003
+    const val TOUCH_ACTION_MOVE           = 0x00068004
+    const val TOUCH_SINGLE_CLICK          = 0x00068005
+    const val TOUCH_DOUBLE_CLICK          = 0x00068006
+    const val TOUCH_LONG_PRESS            = 0x00068007
+    const val TOUCH_CAR_HARD_KEY_CODE     = 0x00068008
+}
+
+/**
+ * HU 角色（车机/盒子侧）
+ *
+ * 作为客户端主动连接手机 B，完成 CarLife 协议握手，并接收音视频流。
+ *
+ * 握手流程（标准 CarLife 协议）：
+ * 1. HU → MD: HU_PROTOCOL_VERSION (0x00018001) — 协议版本
+ * 2. MD → HU: VERSION_MATCH_STATUS (0x00010002) — 版本匹配
+ * 3. HU → MD: HU_INFO (0x00018003) — 车机设备信息
+ * 4. MD → HU: MD_INFO (0x00010004) — 手机设备信息
+ * 5. HU → MD: HU_AUTHEN_REQUEST (0x00018048) — 认证请求
+ * 6. MD → HU: MD_AUTHEN_RESPONSE (0x00010049) — 认证响应
+ * 7. HU → MD: HU_AUTHEN_RESULT (0x0001804A) — 认证结果 (result=true)
+ * 8. MD → HU: MD_AUTHEN_RESULT (0x0001004B) — MD 认证结果
+ * 9. MD → HU: MD_FEATURE_CONFIG_REQUEST (0x00010051) — 特性配置请求
+ * 10. HU → MD: HU_FEATURE_CONFIG_RESPONSE (0x00018052) — 特性配置响应
+ * 11. HU → MD: VIDEO_ENCODER_INIT (0x00018007) — 视频编码器初始化
+ * 12. MD → HU: VIDEO_ENCODER_INIT_DONE (0x00010008)
+ * 13. HU → MD: VIDEO_ENCODER_START (0x00018009) — 开始投屏
+ */
+class HuRole(
+    val context: Context,
+    val phoneBIp: String = Constants.IpAddress.USB_TETHERING_LOCAL,
+    var listener: HuRoleListener? = null
+) {
+    companion object {
+        private const val TAG = "HuRole"
+        private val DEVICE_ID: String = Build.SERIAL ?: "unknown"
+        private val DEVICE_NAME: String = Build.MODEL ?: "Android Box"
+        private val MANUFACTURER: String = Build.MANUFACTURER ?: "Unknown"
+        private val OS_VERSION: String = Build.VERSION.RELEASE ?: "unknown"
+    }
+
+    private val state = AtomicReference(HuState.IDLE)
+    private val connectedChannelCount = AtomicInteger(0)
+
+    // 6 个通道
+    @Volatile private var cmdChannel: Channel? = null
+    @Volatile private var videoChannel: Channel? = null
+    @Volatile private var mediaChannel: Channel? = null
+    @Volatile private var ttsChannel: Channel? = null
+    @Volatile private var vrChannel: Channel? = null
+    @Volatile private var ctrlChannel: Channel? = null
+
+    // CMD 通道读取线程
+    @Volatile private var cmdReadThread: Thread? = null
+
+    /**
+     * 连接到手机 B
+     * 先检测 CarWith 端口是否已监听，再建立连接
+     */
+    fun connect() {
+        if (state.get() != HuState.IDLE) {
+            LogUtils.w("$TAG: Cannot connect, current state: ${state.get()}")
+            return
+        }
+
+        updateState(HuState.CONNECTING)
+        connectedChannelCount.set(0)
+
+        // 清理可能残留的旧 Channel（如快速重连场景）
+        disconnect("preparing new connection")
+        state.set(HuState.CONNECTING)
+
+        // 在后台线程执行端口预检 + 连接
+        Thread {
+            try {
+                // ========== 端口预检 ==========
+                LogUtils.i("$TAG: Checking CarWith ports at $phoneBIp ...")
+                val portResults = NetworkDiagnostics.checkCarWithPorts(phoneBIp, 1500)
+                val openCount = portResults.count { it.isOpen }
+                val closedPorts = portResults.filter { !it.isOpen }.map { "${it.port}(${it.name})" }
+
+                LogUtils.i("$TAG: Port check: $openCount/${portResults.size} open")
+
+                // 通知上层端口检测结果
+                listener?.onPortCheckResult(openCount, portResults.size, closedPorts)
+
+                if (openCount == 0) {
+                    // 没有任何端口打开 → CarWith 未进入无线连接模式
+                    val msg = "CarWith 未就绪：手机 B ($phoneBIp) 无端口监听。" +
+                              "请在手机 B 上打开 CarWith → CarLife 连接 → 无线连接"
+                    LogUtils.w("$TAG: $msg")
+                    listener?.onError(msg)
+                    ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, 0)
+                    updateState(HuState.DISCONNECTED, "CarWith not ready")
+                    return@Thread
+                }
+
+                if (openCount < portResults.size) {
+                    // 部分端口未打开 → CarWith 可能还在初始化
+                    LogUtils.w("$TAG: Only $openCount/${portResults.size} ports open, waiting 2s for CarWith to initialize...")
+                    Thread.sleep(2000)
+
+                    // 重新检测未打开的端口
+                    val recheck = NetworkDiagnostics.checkCarWithPorts(phoneBIp, 1500)
+                    val recheckOpen = recheck.count { it.isOpen }
+                    val stillClosed = recheck.filter { !it.isOpen }.map { "${it.port}(${it.name})" }
+
+                    LogUtils.i("$TAG: Recheck: $recheckOpen/${recheck.size} open")
+
+                    if (recheckOpen < portResults.size) {
+                        val msg = "CarWith 端口不完整：${stillClosed.joinToString(", ")} 未监听。" +
+                                  "请确认 CarWith 已进入无线连接模式"
+                        LogUtils.w("$TAG: $msg")
+                        listener?.onError(msg)
+                        updateState(HuState.DISCONNECTED, "Incomplete ports: ${stillClosed.joinToString(", ")}")
+                        return@Thread
+                    }
+                }
+
+                // ========== 建立连接 ==========
+                LogUtils.i("$TAG: All CarWith ports ready, establishing connections...")
+
+                cmdChannel = createChannel(ChannelType.HU_CMD, autoRead = false)
+                videoChannel = createChannel(ChannelType.HU_VIDEO)
+                mediaChannel = createChannel(ChannelType.HU_MEDIA)
+                ttsChannel = createChannel(ChannelType.HU_TTS)
+                vrChannel = createChannel(ChannelType.HU_VR)
+                ctrlChannel = createChannel(ChannelType.HU_CTRL)
+
+                cmdChannel?.connect(phoneBIp)
+                videoChannel?.connect(phoneBIp)
+                mediaChannel?.connect(phoneBIp)
+                ttsChannel?.connect(phoneBIp)
+                vrChannel?.connect(phoneBIp)
+                ctrlChannel?.connect(phoneBIp)
+
+                LogUtils.i("$TAG: Connecting to phone B at $phoneBIp (6 channels)")
+            } catch (e: Exception) {
+                LogUtils.e(e, "$TAG: Failed to initialize connections")
+                listener?.onError("Connection initialization failed: ${e.message}")
+                ErrorTracker.recordConnectionLost("HuRole", "初始化失败: ${e.message}")
+                updateState(HuState.DISCONNECTED, "Initialization failed")
+            }
+        }.apply {
+            name = "HuRole-Connect"
+            isDaemon = true
+            start()
+        }
+    }
+
+    /**
+     * 创建通道并设置回调
+     */
+    private fun createChannel(type: ChannelType, autoRead: Boolean = true): Channel {
+        val channel = Channel.create(type, DeviceRole.HU, autoRead)
+        channel.callback = object : ChannelCallback {
+            override fun onConnected(ch: Channel) {
+                LogUtils.i("$TAG: ${ch.name} connected")
+                onChannelConnected()
+            }
+
+            override fun onDisconnected(ch: Channel, reason: String?) {
+                LogUtils.w("$TAG: ${ch.name} disconnected: $reason")
+                if (state.get() != HuState.DISCONNECTED) {
+                    disconnect("${ch.name} disconnected")
+                }
+            }
+
+            override fun onDataReceived(ch: Channel, header: ChannelHeader, payload: ByteArray) {
+                handleChannelData(ch, header, payload)
+            }
+
+            override fun onError(ch: Channel, error: Throwable) {
+                LogUtils.e("$TAG: ${ch.name} error: ${error.message}")
+                listener?.onError("${ch.name}: ${error.message}")
+            }
+        }
+        return channel
+    }
+
+    fun disconnect(reason: String? = null) {
+        if (state.get() == HuState.DISCONNECTED) return
+
+        updateState(HuState.DISCONNECTED, reason)
+
+        // 先关闭通道（关闭 socket 会中断阻塞的 read）
+        try {
+            cmdChannel?.disconnect("HuRole disconnect")
+            videoChannel?.disconnect("HuRole disconnect")
+            mediaChannel?.disconnect("HuRole disconnect")
+            ttsChannel?.disconnect("HuRole disconnect")
+            vrChannel?.disconnect("HuRole disconnect")
+            ctrlChannel?.disconnect("HuRole disconnect")
+        } catch (e: Exception) {
+            LogUtils.e(e, "$TAG: Error during disconnect")
+        }
+
+        // socket 关闭后 join 读取线程
+        cmdReadThread?.interrupt()
+        cmdReadThread?.join(2000)
+        cmdReadThread = null
+
+        cmdChannel = null
+        videoChannel = null
+        mediaChannel = null
+        ttsChannel = null
+        vrChannel = null
+        ctrlChannel = null
+
+        connectedChannelCount.set(0)
+        LogUtils.i("$TAG: Disconnected: ${reason ?: "unknown"}")
+    }
+
+    fun release() {
+        disconnect("releasing")
+    }
+
+    fun getState(): HuState = state.get()
+    fun isConnected(): Boolean = state.get() == HuState.CONNECTED
+
+    // ==================== 数据转发方法（MdRole → HuRole → 手机B） ====================
+
+    /**
+     * 转发视频数据到手机 B
+     */
+    fun sendVideoData(header: ChannelHeader.Media, data: ByteArray): Boolean {
+        return videoChannel?.send(header.payloadType, data, header.timestamp) ?: false
+    }
+
+    /**
+     * 转发音频数据到手机 B
+     */
+    fun sendMediaData(header: ChannelHeader.Media, data: ByteArray): Boolean {
+        return mediaChannel?.send(header.payloadType, data, header.timestamp) ?: false
+    }
+
+    /**
+     * 转发 TTS 数据到手机 B
+     */
+    fun sendTtsData(header: ChannelHeader.Media, data: ByteArray): Boolean {
+        return ttsChannel?.send(header.payloadType, data, header.timestamp) ?: false
+    }
+
+    /**
+     * 转发 VR 数据到手机 B（车机麦克风 → 手机 B 语音识别）
+     */
+    fun sendVrData(header: ChannelHeader.Media, data: ByteArray): Boolean {
+        return vrChannel?.send(header.payloadType, data, header.timestamp) ?: false
+    }
+
+    /**
+     * 转发控制指令到手机 B（触摸事件等）
+     */
+    fun sendControlData(header: ChannelHeader.Cmd, data: ByteArray): Boolean {
+        return ctrlChannel?.send(header.payloadType, data) ?: false
+    }
+
+    // ==================== 通道连接管理 ====================
+
+    private fun onChannelConnected() {
+        val count = connectedChannelCount.incrementAndGet()
+        LogUtils.d("$TAG: Channel connected, count=$count/6")
+
+        if (count >= 6) {
+            LogUtils.i("$TAG: All 6 channels connected, starting CarLife handshake...")
+            // 启动 CMD 通道独立读取线程（使用 CarLife 消息格式）
+            startCmdReadLoop()
+            // 发送协议版本
+            Thread {
+                Thread.sleep(100)
+                sendProtocolVersion()
+            }.apply {
+                name = "HuRole-Handshake"
+                isDaemon = true
+                start()
+            }
+        }
+    }
+
+    // ==================== CMD 通道读取循环 ====================
+
+    /**
+     * CMD 通道使用 CarLife 消息格式独立读取
+     * 格式：[data_len(2B)][reserved(2B)][service_type(4B)] + [protobuf_data]
+     */
+    private fun startCmdReadLoop() {
+        val ch = cmdChannel ?: return
+        cmdReadThread = Thread({
+            LogUtils.i("$TAG: CMD read loop started (CarLife protocol)")
+            while (ch.isConnected && state.get() != HuState.DISCONNECTED) {
+                val msg = ch.readCarLifeMsg() ?: break
+                val (serviceType, data) = msg
+                handleCarLifeCmdMessage(serviceType, data)
+            }
+            LogUtils.i("$TAG: CMD read loop ended")
+        }, "HuRole-CMD-Read").apply {
+            isDaemon = true
+            start()
+        }
+    }
+
+    // ==================== CarLife 消息处理 ====================
+
+    /**
+     * 处理 CarLife CMD 消息
+     */
+    private fun handleCarLifeCmdMessage(serviceType: Int, data: ByteArray) {
+        when (serviceType) {
+            CarLifeMsg.VERSION_MATCH_STATUS -> {
+                // Phase 1 响应：版本匹配
+                LogUtils.i("$TAG: [Phase 1] VERSION_MATCH_STATUS received")
+                // 发送车机设备信息
+                sendHuInfo()
+            }
+            CarLifeMsg.MD_INFO -> {
+                // Phase 2 响应：手机设备信息
+                LogUtils.i("$TAG: [Phase 2] MD_INFO received")
+                // 检查 CarWith 版本兼容性
+                checkCarWithCompatibility(data)
+                // 发送认证请求
+                sendAuthenRequest()
+            }
+            CarLifeMsg.MD_AUTHEN_RESPONSE -> {
+                // Phase 3 响应：认证响应
+                handleAuthenResponse(data)
+            }
+            CarLifeMsg.MD_AUTHEN_RESULT -> {
+                // Phase 4：MD 认证结果
+                LogUtils.i("$TAG: [Phase 4] MD_AUTHEN_RESULT received")
+                // 发送 HU 认证结果（直接成功）
+                sendAuthenResult(true)
+            }
+            CarLifeMsg.MD_FEATURE_CONFIG_REQUEST -> {
+                // Phase 5：特性配置请求
+                LogUtils.i("$TAG: [Phase 5] FEATURE_CONFIG_REQUEST received")
+                sendFeatureConfigResponse()
+            }
+            CarLifeMsg.VIDEO_ENCODER_INIT_DONE -> {
+                // Phase 6 响应：编码器初始化完成
+                LogUtils.i("$TAG: [Phase 6] VIDEO_ENCODER_INIT_DONE received")
+                // 发送 VIDEO_ENCODER_START
+                sendVideoEncoderStart()
+            }
+            else -> {
+                LogUtils.d("$TAG: Unhandled CMD: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+                // 其他 CMD 消息通知上层
+                val header = ChannelHeader.Cmd(serviceType, data.size, 0)
+                listener?.onControlReceived(header, data)
+            }
+        }
+    }
+
+    // ==================== CarLife 握手消息发送 ====================
+
+    /**
+     * Phase 1: 发送协议版本
+     * HU_PROTOCOL_VERSION (0x00018001)
+     */
+    private fun sendProtocolVersion() {
+        updateState(HuState.AUTHENTICATING)
+
+        try {
+            val version = CarlifeProtocolVersionProto.CarlifeProtocolVersion.newBuilder()
+                .setMajorVersion(Constants.PROTOCOL_MAJOR_VERSION)
+                .setMinorVersion(Constants.PROTOCOL_MINOR_VERSION)
+                .build()
+
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_PROTOCOL_VERSION, version.toByteArray())
+            LogUtils.i("$TAG: [Phase 1] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
+        } catch (e: Exception) {
+            LogUtils.e(e, "$TAG: [Phase 1] Failed to send protocol version")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase1-ProtocolVersion")
+            disconnect("Protocol version failed")
+        }
+    }
+
+    /**
+     * Phase 2: 发送车机设备信息
+     * HU_INFO (0x00018003)
+     */
+    private fun sendHuInfo() {
+        try {
+            // 使用 Protobuf 构建设备信息
+            val deviceInfo = CarlifeDeviceInfoProto.CarlifeDeviceInfo.newBuilder()
+                .setDeviceType(DeviceType.DEVICE_TYPE_HEAD_UNIT)
+                .setOsType(OsType.OS_ANDROID)
+                .setOsVersion(OS_VERSION)
+                .setManufacturer(MANUFACTURER)
+                .setModel(DEVICE_NAME)
+                .setDeviceId(DEVICE_ID)
+                .setDeviceName(DEVICE_NAME)
+                .build()
+
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_INFO, deviceInfo.toByteArray())
+            LogUtils.i("$TAG: [Phase 2] HU_INFO sent")
+        } catch (e: Exception) {
+            LogUtils.e(e, "$TAG: [Phase 2] Failed to send HU_INFO")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase2-HuInfo")
+            disconnect("HU_INFO failed")
+        }
+    }
+
+    /**
+     * 检查 CarWith 版本兼容性
+     * 从 MD_INFO 消息中提取 CarWith 版本，判断是否与 WinCE 车机兼容
+     */
+    private fun checkCarWithCompatibility(data: ByteArray) {
+        try {
+            val mdInfo = CarlifeDeviceInfoProto.CarlifeDeviceInfo.parseFrom(data)
+            val versionStr = mdInfo.osVersion ?: "unknown"
+            val deviceModel = mdInfo.model ?: "unknown"
+
+            LogUtils.i("$TAG: [Phase 2] CarWith 设备: $deviceModel, 版本: $versionStr")
+
+            // 解析 CarWith 版本
+            val carWithVersion = VersionDetector.parseCarWithVersion(versionStr)
+            val compatibility = carWithVersion.compatibilityLevel
+
+            LogUtils.i("$TAG: [Phase 2] CarWith 版本: ${carWithVersion.versionString}, 兼容性: ${compatibility.label}")
+
+            // 根据兼容性等级处理
+            when (compatibility) {
+                VersionDetector.CompatibilityLevel.COMPATIBLE -> {
+                    LogUtils.i("$TAG: CarWith 版本兼容 WinCE 车机")
+                }
+                VersionDetector.CompatibilityLevel.WARNING -> {
+                    LogUtils.w("$TAG: CarWith 版本可能存在兼容性问题，建议降级到 6.7.2")
+                    listener?.onError("CarWith ${carWithVersion.versionString} 可能不兼容 WinCE 车机，建议降级到 6.7.2")
+                }
+                VersionDetector.CompatibilityLevel.INCOMPATIBLE -> {
+                    val diagnosis = VersionDetector.getCompatibilityDiagnosis(carWithVersion)
+                    LogUtils.e("$TAG: CarWith 版本不兼容 WinCE 车机！\n$diagnosis")
+                    listener?.onError("CarWith ${carWithVersion.versionString} 不兼容 WinCE 车机！请降级到 6.7.2")
+                    // 不断开连接，让用户看到错误信息
+                }
+                VersionDetector.CompatibilityLevel.UNKNOWN -> {
+                    LogUtils.w("$TAG: 无法确定 CarWith 版本兼容性")
+                }
+            }
+        } catch (e: Exception) {
+            LogUtils.w("$TAG: 解析 MD_INFO 失败: ${e.message}")
+        }
+    }
+
+    /**
+     * Phase 3: 发送认证请求
+     * HU_AUTHEN_REQUEST (0x00018048)
+     */
+    private fun sendAuthenRequest() {
+        updateState(HuState.AUTHENTICATING)
+
+        try {
+            val request = CarlifeAuthenRequestProto.CarlifeAuthenRequest.newBuilder()
+                .setMethod(AuthMethod.AUTH_METHOD_NONE)
+                .setDeviceId(DEVICE_ID)
+                .setDeviceName(DEVICE_NAME)
+                .setDeviceModel(DEVICE_NAME)
+                .build()
+
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_AUTHEN_REQUEST, request.toByteArray())
+            LogUtils.i("$TAG: [Phase 3] HU_AUTHEN_REQUEST sent")
+        } catch (e: Exception) {
+            LogUtils.e(e, "$TAG: [Phase 3] Failed to send authen request")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase3-AuthenRequest")
+            disconnect("Authen request failed")
+        }
+    }
+
+    /**
+     * Phase 3 响应处理：MD_AUTHEN_RESPONSE
+     */
+    private fun handleAuthenResponse(data: ByteArray) {
+        try {
+            val response = CarlifeAuthenResponseProto.CarlifeAuthenResponse.parseFrom(data)
+            LogUtils.i("$TAG: [Phase 3] MD_AUTHEN_RESPONSE: success=${response.success}")
+        } catch (e: Exception) {
+            LogUtils.w("$TAG: [Phase 3] Failed to parse MD_AUTHEN_RESPONSE: ${e.message}")
+        }
+        // 无论认证结果如何，都发送 HU_AUTHEN_RESULT (result=true) 绕过认证
+        sendAuthenResult(true)
+    }
+
+    /**
+     * Phase 4: 发送认证结果
+     * HU_AUTHEN_RESULT (0x0001804A)
+     */
+    private fun sendAuthenResult(success: Boolean) {
+        updateState(HuState.REGISTERING)
+
+        try {
+            val result = CarlifeAuthenResultProto.CarlifeAuthenResult.newBuilder()
+                .setResult(
+                    if (success) CarlifeAuthenResultProto.AuthenResultCode.AUTHEN_RESULT_SUCCESS
+                    else CarlifeAuthenResultProto.AuthenResultCode.AUTHEN_RESULT_FAILED
+                )
+                .build()
+
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_AUTHEN_RESULT, result.toByteArray())
+            LogUtils.i("$TAG: [Phase 4] HU_AUTHEN_RESULT sent (result=$success)")
+        } catch (e: Exception) {
+            LogUtils.e(e, "$TAG: [Phase 4] Failed to send authen result")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase4-AuthenResult")
+            disconnect("Authen result failed")
+        }
+    }
+
+    /**
+     * Phase 5: 发送特性配置响应
+     * HU_FEATURE_CONFIG_RESPONSE (0x00018052)
+     */
+    private fun sendFeatureConfigResponse() {
+        updateState(HuState.NEGOTIATING)
+
+        try {
+            val config = CarlifeFeatureConfigProto.CarlifeFeatureConfig.newBuilder()
+                .setVideoEnabled(true)
+                .setAudioEnabled(true)
+                .setTouchEnabled(true)
+                .setMusicEnabled(true)
+                .setNavigationEnabled(true)
+                .setVoiceEnabled(true)
+                .setMaxVideoBitrate(5000)
+                .setMaxAudioBitrate(256)
+                .setConnectionTimeout(30)
+                .build()
+
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_FEATURE_CONFIG_RESPONSE, config.toByteArray())
+            LogUtils.i("$TAG: [Phase 5] FEATURE_CONFIG_RESPONSE sent")
+
+            // 发送视频编码器初始化
+            sendVideoEncoderInit()
+        } catch (e: Exception) {
+            LogUtils.e(e, "$TAG: [Phase 5] Failed to send feature config")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase5-FeatureConfig")
+            disconnect("Feature config failed")
+        }
+    }
+
+    /**
+     * Phase 6: 发送视频编码器初始化
+     * VIDEO_ENCODER_INIT (0x00018007)
+     */
+    private fun sendVideoEncoderInit() {
+        try {
+            val info = CarlifeVideoEncoderInfoProto.CarlifeVideoEncoderInfo.newBuilder()
+                .setSupportedCodecs(
+                    (1 shl VideoCodecType.VIDEO_CODEC_H264.number) or
+                    (1 shl VideoCodecType.VIDEO_CODEC_H265.number)
+                )
+                .setPreferredCodec(VideoCodecType.VIDEO_CODEC_H264)
+                .setCurrentResolution(
+                    (1 shl VideoResolution.RES_480P.number) or
+                    (1 shl VideoResolution.RES_720P.number) or
+                    (1 shl VideoResolution.RES_1080P.number)
+                )
+                .setCurrentResolutionEnum(VideoResolution.RES_480P)
+                .addSupportedResolutions(VideoResolution.RES_480P)
+                .addSupportedResolutions(VideoResolution.RES_720P)
+                .addSupportedResolutions(VideoResolution.RES_1080P)
+                .setCurrentFps(Constants.Video.DEFAULT_FPS)
+                .setBitrateKbps(2000)
+                .setIFrameInterval(2)
+                .setHardwareEncoder(true)
+                .build()
+
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.VIDEO_ENCODER_INIT, info.toByteArray())
+            LogUtils.i("$TAG: [Phase 6] VIDEO_ENCODER_INIT sent")
+        } catch (e: Exception) {
+            LogUtils.e(e, "$TAG: [Phase 6] Failed to send VIDEO_ENCODER_INIT")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase6-VideoEncoderInit")
+            disconnect("Video encoder init failed")
+        }
+    }
+
+    /**
+     * Phase 7: 发送视频编码器启动
+     * VIDEO_ENCODER_START (0x00018009)
+     */
+    private fun sendVideoEncoderStart() {
+        try {
+            cmdChannel?.sendCarLifeMsg(CarLifeMsg.VIDEO_ENCODER_START, ByteArray(0))
+            LogUtils.i("$TAG: [Phase 7] VIDEO_ENCODER_START sent")
+
+            updateState(HuState.CONNECTED)
+            LogUtils.i("$TAG: ===== Screen projection started =====")
+        } catch (e: Exception) {
+            LogUtils.e(e, "$TAG: [Phase 7] Failed to send VIDEO_ENCODER_START")
+            ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase7-VideoEncoderStart")
+            disconnect("Video encoder start failed")
+        }
+    }
+
+    // ==================== 通道数据分发 ====================
+
+    private fun handleChannelData(channel: Channel, header: ChannelHeader, payload: ByteArray) {
+        when (channel.type) {
+            ChannelType.HU_CMD -> {
+                // CMD 通道由 startCmdReadLoop 独立处理，这里忽略
+            }
+            ChannelType.HU_VIDEO -> {
+                if (header is ChannelHeader.Media) {
+                    listener?.onVideoFrameReceived(header, payload)
+                }
+            }
+            ChannelType.HU_MEDIA -> {
+                if (header is ChannelHeader.Media) {
+                    listener?.onAudioFrameReceived(header, payload)
+                }
+            }
+            ChannelType.HU_TTS -> {
+                if (header is ChannelHeader.Media) {
+                    listener?.onTtsFrameReceived(header, payload)
+                }
+            }
+            ChannelType.HU_VR -> {
+                if (header is ChannelHeader.Media) {
+                    listener?.onVrFrameReceived(header, payload)
+                }
+            }
+            ChannelType.HU_CTRL -> {
+                if (header is ChannelHeader.Cmd) {
+                    listener?.onControlReceived(header, payload)
+                }
+            }
+        }
+    }
+
+    // ==================== 状态管理 ====================
+
+    private fun updateState(newState: HuState, reason: String? = null) {
+        val oldState = state.getAndSet(newState)
+        if (oldState != newState) {
+            LogUtils.i("$TAG: State: $oldState -> $newState${if (reason != null) " ($reason)" else ""}")
+            listener?.onStateChanged(newState, reason)
+        }
+    }
+}
