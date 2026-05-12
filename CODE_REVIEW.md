@@ -1,12 +1,43 @@
 # CarLifeWirelessBox 源码审查报告
 
-**审查日期**: 2026-05-13（第七轮）  
-**审查范围**: 端口泄漏根因 (EADDRINUSE) + ConnectionService 竞态 + 资源清理  
+**审查日期**: 2026-05-13（第八轮）  
+**审查范围**: HuRole 连接方向修正 + 端口修正 + 通道容错 + 代码审查  
 **修复状态**: ✅ 已修复 | 🔧 本次新增 | ⬜ 建议改进
 
 ---
 
-## 本次修复（第七轮）— 基于 logcat 日志深度分析
+## 本次修复（第八轮）— 连接方向与端口修复
+
+### 🔧 Critical-1: HuRole 连接方向错误 — TcpServer vs TcpClient
+
+- **文件**: `HuRole.kt` — `connect()`
+- **问题**: HuRole 启动 TcpServer 等待手机B连接，但 CarWith 是客户端，它主动连接 HU。方向反了。
+- **日志证据**: TcpServer 全部启动成功，但 15 秒内无任何客户端连接 → 0/4 超时
+- **修复**: 改为 TcpClient 模式，`Channel.create()` + `connect(phoneBIp, huPort)` 主动连接 CarWith
+
+### 🔧 Critical-2: 连接端口错误 — MD 端口 vs HU 端口
+
+- **文件**: `HuRole.kt` — `connect()`
+- **问题**: 使用 `type.mdPort` (7200/8200/9200/9300) 连接 CarWith，但 CarWith 监听在 HU 端口 (7240/8240/9240/9340)
+- **日志证据**: `ECONNREFUSED (Connection refused)` on all 4 MD ports
+- **PRD 确认**: P0-01 明确 HU 连接 CarWith 使用端口 7240/8240/9240/9241/9242/9340
+- **修复**: `type.mdPort` → `type.huPort`
+
+### 🔧 Medium-1: 单通道失败导致全部断开
+
+- **文件**: `HuRole.kt` — `createChannel()` → `onDisconnected` 回调
+- **问题**: 任一通道断开（如 ECONNREFUSED）立即调 `disconnect()` 杀死所有通道。如果 CMD 成功但 VIDEO 暂时失败，整个连接被放弃。
+- **修复**: 只有 CMD 通道断开才触发全局 disconnect，其他通道让超时检测决定
+
+### 🔧 Low-1: connect() 注释过时
+
+- **文件**: `HuRole.kt` — `connect()` docstring
+- **问题**: 注释说 "CarWith 监听 MD 端口" 但实际用 HU 端口
+- **修复**: 更新注释
+
+---
+
+## 第七轮修复（回顾）
 
 ### 🔧 Critical-1: ConnectionService 竞态条件 — EADDRINUSE 真正根因
 
@@ -111,11 +142,11 @@
 
 | 严重程度 | 历史总计 | 已修复 | 本次新增 | 剩余建议 |
 |---------|---------|--------|---------|---------|
-| Critical | 8 | 8 | **3** | 0 |
+| Critical | 10 | 10 | **2** | 0 |
 | High | 14 | 14 | 0 | 0 |
-| Medium | 20 | 13 | 0 | 5 |
-| Low | 11 | 2 | **1** | 7 |
-| **总计** | **53** | **37** | **4** | **12** |
+| Medium | 21 | 14 | **1** | 5 |
+| Low | 12 | 3 | **1** | 7 |
+| **总计** | **57** | **41** | **4** | **12** |
 
 ---
 
@@ -213,6 +244,8 @@
 | 28 | ConnectionService.instance 单例模式 | P3 |
 | 33 | ProtocolService 空实现 | P2 |
 | 34 | ProtocolTranslator 直通模式 | P2 |
+| 50 | `onPortCheckResult` 回调从未调用（死代码） | P3 |
+| 51 | `connect()` 内 disconnect 触发冗余 reconnect 定时器 | P3 |
 
 ### Low（历史遗留）
 

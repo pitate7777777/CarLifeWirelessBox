@@ -283,7 +283,7 @@ class HuRole(
     /**
      * 主动连接手机 B 的 CarWith
      *
-     * CarWith 作为 MD 角色在手机B上监听 MD 端口 (7200/8200/9200/9300)，
+     * CarWith 在手机B上监听 HU 端口 (7240/8240/9240/9340)，
      * HuRole 作为 HU 角色主动连接这些端口，完成 CarLife 协议握手。
      */
     fun connect() {
@@ -315,11 +315,11 @@ class HuRole(
 
                     // 连接到手机B的 CarWith 端口（HU端口，CarWith 在这些端口上监听）
                     val port = type.huPort
-                    LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:$port")
+                    LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:$port (autoRead=$autoRead)")
                     channel.connect(phoneBIp, port)
                 }
 
-                LogUtils.i("$TAG: All channels connecting to phone B CarWith...")
+                LogUtils.i("$TAG: All ${config.totalEnabled} channels connecting, waiting for connections...")
 
                 // 连接超时检测
                 launch {
@@ -369,8 +369,10 @@ class HuRole(
 
             override fun onDisconnected(ch: Channel, reason: String?) {
                 LogUtils.w("$TAG: ${ch.name} disconnected: $reason")
-                if (state.get() != HuState.DISCONNECTED) {
-                    disconnect("${ch.name} disconnected")
+                // 单通道断开不立即断开全部，让超时检测决定
+                // 只有 CMD 通道断开才立即断开（握手必须依赖 CMD）
+                if (ch.type == ChannelType.HU_CMD && state.get() != HuState.DISCONNECTED) {
+                    disconnect("CMD channel disconnected: $reason")
                 }
             }
 
