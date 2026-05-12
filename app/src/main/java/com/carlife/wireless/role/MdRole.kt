@@ -21,8 +21,6 @@ import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -88,7 +86,6 @@ class MdRole(private val context: Context) {
 
     private val state = AtomicReference(MdState.IDLE)
     @Volatile private var stateListener: ((MdState) -> Unit)? = null
-    private val executor: ExecutorService = Executors.newCachedThreadPool()
     private val tcpServers: MutableMap<Int, TcpServer> = ConcurrentHashMap()
     private val channels: MutableMap<Int, Channel> = ConcurrentHashMap()
     private val connectedCount = AtomicInteger(0)
@@ -176,8 +173,6 @@ class MdRole(private val context: Context) {
 
         tcpServers.values.forEach { it.release() }
         tcpServers.clear()
-
-        executor.shutdown()
 
         connectedCount.set(0)
         handshakeCompleted.set(false)

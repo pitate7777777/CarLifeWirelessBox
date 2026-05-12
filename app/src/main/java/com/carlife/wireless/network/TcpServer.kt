@@ -125,15 +125,24 @@ class TcpServer(
 
         scope.launch {
             try {
-                serverSocket = ServerSocket(port)
+                val ss = ServerSocket(port)
+                serverSocket = ss
                 boundPort = port
+
+                // 如果在 ServerSocket 创建后、进入 accept 循环前 stop() 被调用，立即退出
+                if (!isRunning.get()) {
+                    try { ss.close() } catch (_: Exception) {}
+                    serverSocket = null
+                    return@launch
+                }
+
                 LogUtils.i("$TAG: Started on port $port, type=${type.name}")
                 listener?.onStarted(port)
 
                 // 接受客户端连接（阻塞，直到 stop() 被调用）
                 while (isRunning.get()) {
                     val socket = try {
-                        serverSocket?.accept()
+                        ss.accept()
                     } catch (e: IOException) {
                         if (isRunning.get()) {
                             val error = "Accept failed: ${e.message}"

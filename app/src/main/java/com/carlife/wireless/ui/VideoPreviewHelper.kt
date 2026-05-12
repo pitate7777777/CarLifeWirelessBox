@@ -134,28 +134,24 @@ class VideoPreviewHelper {
         try {
             val dec = decoder ?: return
 
-            // 将帧数据入队
+            // 将帧数据入队并尝试送入解码器（整体加锁避免竞态）
             synchronized(frameQueue) {
                 if (frameQueue.size >= 30) {
                     frameQueue.removeFirst() // 丢弃最旧的帧
                 }
                 frameQueue.addLast(data)
-            }
 
-            // 尝试送入解码器
-            val inputIndex = dec.dequeueInputBuffer(0) // 非阻塞
-            if (inputIndex >= 0) {
-                val inputBuffer = dec.getInputBuffer(inputIndex) ?: return
-                inputBuffer.clear()
+                // 尝试送入解码器
+                val inputIndex = dec.dequeueInputBuffer(0) // 非阻塞
+                if (inputIndex >= 0) {
+                    val inputBuffer = dec.getInputBuffer(inputIndex) ?: return
+                    inputBuffer.clear()
 
-                val frame: ByteArray
-                synchronized(frameQueue) {
-                    frame = frameQueue.removeFirstOrNull() ?: return
+                    val frame = frameQueue.removeFirstOrNull() ?: return
+                    val size = minOf(frame.size, inputBuffer.remaining())
+                    inputBuffer.put(frame, 0, size)
+                    dec.queueInputBuffer(inputIndex, 0, size, 0, 0)
                 }
-
-                val size = minOf(frame.size, inputBuffer.remaining())
-                inputBuffer.put(frame, 0, size)
-                dec.queueInputBuffer(inputIndex, 0, size, 0, 0)
             }
 
             // 读取解码输出并渲染

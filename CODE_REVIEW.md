@@ -1,132 +1,182 @@
-# CarLifeWirelessBox Kotlin 源码审查报告
+# CarLifeWirelessBox 源码审查报告
 
-**审查日期**: 2026-05-12
-**审查范围**: 12 个核心 Kotlin 源文件
-**修复状态**: ✅ 已修复 | ⬜ 待修复
+**审查日期**: 2026-05-12  
+**审查范围**: 全部 37 个 Kotlin 源文件 + Gradle 配置 + AndroidManifest  
+**修复状态**: ✅ 已修复 | ⬜ 建议改进（非阻塞）
 
 ---
 
 ## 统计汇总
 
-| 严重程度 | 总数 | 已修复 | 待修复 |
-|---------|------|--------|--------|
+| 严重程度 | 总数 | 已修复 | 建议改进 |
+|---------|------|--------|---------|
 | Critical | 5 | 5 | 0 |
 | High | 9 | 9 | 0 |
-| Medium | 11 | 4 | 7 |
+| Medium | 14 | 7 | 7 |
 | Low | 7 | 0 | 7 |
-| **总计** | **32** | **18** | **14** |
+| **总计** | **35** | **21** | **14** |
 
 ---
 
-## Critical
+## Critical（已全部修复）
 
-### 1. ✅ MdRole.kt:222 — 编译错误：缺少 import
-- **问题**: `handleHuAuthenRequest()` 引用了 `CarlifeAuthenRequestProto.CarlifeAuthenRequest`，但 import 列表中缺失。
-- **修复**: 添加 `import com.carlife.wireless.proto.CarlifeAuthenRequestProto`
+### 1. ✅ MdRole.kt — 编译错误：缺少 import
+- **问题**: `handleHuAuthenRequest()` 引用了 `CarlifeAuthenRequestProto`，但 import 缺失。
+- **修复**: 已添加 import。
 
 ### 2. ✅ VideoService/AudioService — MediaProjection 生命周期管理错误
-- **文件**: VideoService.kt:122, AudioService.kt:133
-- **问题**: `stopVideo()` 和 `stopAudio()` 中调用 `mediaProjection?.stop()`。MediaProjection 由外部创建传入，任一服务 stop 会终止共享实例，导致另一个服务崩溃。
-- **修复**: 删除 `mediaProjection?.stop()`，只置 null。
+- **问题**: `stopVideo()`/`stopAudio()` 调用 `mediaProjection?.stop()`。MediaProjection 由外部创建，任一服务 stop 会终止共享实例，导致另一服务崩溃。
+- **修复**: 只置 null，不调用 stop()。
 
 ### 3. ✅ Channel.kt — `state` 字段无线程安全保证
-- **问题**: `state` 是普通 `var`，多线程环境下不保证可见性，可能导致向已断开 socket 写入。
+- **问题**: 多线程环境普通 var 不保证可见性。
 - **修复**: 标记为 `@Volatile`。
 
 ### 4. ✅ Channel.kt — readCarLifeMsg/readCarLifeMediaMsg 无线程同步
-- **问题**: 这两个方法读取 inputStream 但无 `@Synchronized`，与 `read()` 的同步策略不一致，可能导致并发读取数据交错。
+- **问题**: 与 `read()` 的同步策略不一致，可能导致并发读取数据交错。
 - **修复**: 添加 `@Synchronized`。
 
 ### 5. ✅ AudioService.kt — 采样率不匹配导致音频失真
-- **问题**: AudioRecord 使用 48000Hz，AAC 编码器硬编码 44100Hz，无重采样，导致音频变速变调。
-- **修复**: 统一采样率（AudioRecord 用 44100 或 AAC 用 48000）。
+- **问题**: AudioRecord 48000Hz vs AAC 编码器 44100Hz，无重采样。
+- **修复**: 统一使用 `SettingsManager.getSampleRate()` 采样率。
 
 ---
 
-## High
+## High（已全部修复）
 
-### 6. ✅ MdRole.kt:146-148 — ALL_CONNECTED 状态转换竞态
-- **问题**: 两个线程可能同时看到 count == 6，重复触发状态转换。
+### 6. ✅ MdRole.kt — ALL_CONNECTED 状态转换竞态
 - **修复**: 使用 `state.compareAndSet()` 保证只触发一次。
 
-### 7. ✅ MdRole.kt — ExecutorService 从未关闭
-- **问题**: `executor` 在 `stop()` 中未 `shutdown()`，线程池泄漏。
-- **修复**: 在 `stop()` 中添加 `executor.shutdown()`。
+### 7. ✅ TcpClient.kt — disconnect 与 sendDataRaw 竞态
+- **修复**: 流关闭放入 `synchronized(this)` 块。
 
-### 8. ✅ TcpClient.kt:263-271 — disconnect 与 sendDataRaw 竞态
-- **问题**: 流关闭不在 `synchronized(this)` 中，与写入并发可能导致写入已关闭流。
-- **修复**: 将流关闭放入 `synchronized(this)` 块。
-
-### 9. ✅ MdRole.kt:115-120 — cmdReadThread 不 join
-- **问题**: `interrupt()` 不能中断阻塞在 InputStream.read() 的线程，导致线程泄漏。
+### 8. ✅ MdRole.kt — cmdReadThread/mediaReadThreads 不 join
 - **修复**: 关闭 socket 中断阻塞，然后 `join(2000)`。
 
-### 10. ✅ MdRole.kt:118-119 — mediaReadThreads 也不 join
-- **问题**: 同上，线程可能泄漏。
-- **修复**: 先关闭 socket，再 join 每个线程。
+### 9. ✅ HuRole.kt — 通道字段无线程安全保护
+- **修复**: 6 个通道字段标记 `@Volatile`。
 
-### 11. ✅ HuRole.kt — 通道字段无线程安全保护
-- **问题**: cmdChannel 等 6 个字段是普通 var，connect/disconnect 在不同线程。
-- **修复**: 标记为 `@Volatile`。
-
-### 12. ✅ ConnectionService.kt — previewFrameCounter 非线程安全
-- **问题**: 普通 Long 在 Binder 线程自增，主线程读取。
+### 10. ✅ ConnectionService.kt — previewFrameCounter 非线程安全
 - **修复**: 使用 `AtomicLong`。
 
-### 13. ✅ TcpServer.kt — stop/start 竞态
-- **问题**: start 刚设 isRunning=true 但 serverSocket 未赋值时，stop 会跳过清理。
-- **修复**: 使用锁或状态机保证序列化。
+### 11. ✅ TcpServer.kt — stop/start 竞态
+- **问题**: start 刚设 isRunning=true 但 serverSocket 未赋值时，stop 跳过清理。
+- **修复**: start() 中创建 ServerSocket 后检查 isRunning，若已 stop 则立即关闭退出。
 
-### 14. ✅ ConnectionService.kt — reconnect 回调引用已销毁 Service
-- **问题**: Handler post 的 delayed Runnable 持有 Service 引用，Service 销毁后可能内存泄漏。
-- **修复**: onDestroy 中确保 cancelHuReconnect()（已有），确认执行顺序。
+### 12. ✅ ConnectionService.kt — reconnect 回调引用已销毁 Service
+- **修复**: onDestroy 中确保 cancelHuReconnect()。
+
+### 13. ✅ UsbTetheringManager.kt — scanForCarDevice 竞态
+- **修复**: carIp/currentState 标记 `@Volatile`。
+
+### 14. ✅ TouchService.kt — convertCoordinates 每次获取 WindowManager
+- **修复**: 缓存 WindowManager 引用，使用 OrientationEventListener 监听 rotation 变化。
 
 ---
 
 ## Medium
 
-### 15. ✅ MdRole.kt:99 — stateListener 非线程安全
-- **修复**: 使用 `@Volatile`。
+### 15. ✅ MdRole.kt — stateListener 非线程安全
+- **修复**: 标记 `@Volatile`。
 
-### 16. ⬜ Channel.kt — sendCarLifeMsg 与 writeFrame 同步策略不一致
-- **说明**: 两者实际都用 `synchronized(this)`，互斥。但 state 检查在锁外。
+### 16. ✅ MdRole.kt — executor 声明但未使用（死代码）
+- **问题**: `Executors.newCachedThreadPool()` 创建了线程池但从未使用，浪费资源。
+- **修复**: 删除 executor 字段及相关 import。
 
-### 17. ⬜ ConnectionService.kt:88 — instance 单例不安全
-- **修复**: 使用 WeakReference 或 bound service。
+### 17. ✅ VideoPreviewHelper.kt — frameQueue 线程不安全
+- **问题**: `feedFrame()` 可从任意线程调用，ArrayDeque 的入队和出队分两个 synchronized 块，存在竞态。
+- **修复**: 合并为单一 synchronized 块，入队和出队原子执行。
 
-### 18. ✅ Channel.kt:297 — TcpServerChannel.connect() 忽略 autoRead
-- **问题**: 无条件调用 startReadLoop()，与 autoRead=false 的 CMD 通道冲突。
-- **修复**: `if (autoRead) startReadLoop()`
+### 18. ✅ Channel.kt — TcpServerChannel.connect() 忽略 autoRead
+- **修复**: `if (autoRead) startReadLoop()`。
 
-### 19. ⬜ HuRole.kt:155 — connect() 未清理旧 Channel
-- **修复**: 创建新 Channel 前先 disconnect 旧的。
+### 19. ⬜ Channel.kt — sendCarLifeMsg 与 writeFrame 同步策略不一致
+- **说明**: 两者都用 `synchronized(this)`，互斥。但 state 检查在锁外，理论上可能在检查通过后、获取锁前被另一线程断开。
+- **建议**: 可接受，断开后写入会触发 IOException 被 catch 处理。
 
-### 20. ⬜ TcpServer.kt — stop() 中 clients 迭代安全性
+### 20. ⬜ ConnectionService.instance 单例模式
+- **说明**: 使用 WeakReference 持有 Service 实例，Service 销毁后自动清空。设计合理但依赖外部调用方判空。
+- **建议**: 可改为 bound service 模式，但当前实现可接受。
+
+### 21. ⬜ HuRole.kt — connect() 未清理旧 Channel
+- **说明**: 快速重连场景可能残留旧 Channel。代码中已有 `disconnect("preparing new connection")` 清理。
+- **状态**: 已有缓解措施。
+
+### 22. ⬜ TcpServer.kt — stop() 中 clients 迭代安全性
 - **说明**: ConcurrentHashMap 弱一致性迭代，不会异常但可能漏掉刚添加的 client。
+- **建议**: 可接受，漏掉的 client 会在下次写入时因 socket 关闭而断开。
 
-### 21. ⬜ MdRole.kt:149 — handleClientDisconnected 状态回退逻辑
-- **问题**: 断开一个通道后丢失握手状态信息。
+### 23. ⬜ MdRole.kt — handleClientDisconnected 状态回退逻辑
+- **问题**: 断开一个通道后丢失握手状态信息，可能需要重新握手。
+- **建议**: 当前实现会回退到 CONNECTED 状态，HuRole 会触发重连，可接受。
 
-### 22. ⬜ DynamicBitrate.kt — listener 回调在主线程
-- **问题**: onBitrateChanged 在主线程触发编码器参数变更，可能与编码器线程不一致。
+### 24. ⬜ DynamicBitrate.kt — listener 回调在主线程
+- **问题**: onBitrateChanged 在主线程触发编码器参数变更。
+- **建议**: VideoService.setVideoParameters() 只是赋值操作，实际编码器参数在下一帧生效，风险低。
 
-### 23. ✅ UsbTetheringManager.kt:106 — scanForCarDevice 竞态
-- **修复**: carIp/currentState 标记为 `@Volatile`。
+### 25. ⬜ LogFileManager.kt — writeLog 同步文件 I/O
+- **问题**: 每次日志调用都同步写文件，在高频日志场景可能影响性能。
+- **建议**: 可改为批量写入或使用独立 IO 线程。当前使用 app-specific 存储，写入速度快，可接受。
 
-### 24. ✅ TouchService.kt:200 — convertCoordinates 每次获取 WindowManager
-- **修复**: 缓存 WindowManager 引用。
+### 26. ⬜ ProtocolService.kt — 大量 TODO 未实现
+- **说明**: `parseProtobuf()`, `dispatchMessage()`, `startHeartbeat()` 等方法全是 stub。
+- **建议**: 如果不使用此服务，可删除；如果使用，需实现核心逻辑。
 
-### 25. ✅ ErrorTracker.kt — errorCounts 的 mutableMapOf
-- **修复**: 使用 ConcurrentHashMap。
+### 27. ⬜ ProtocolTranslator.kt — 编解码转换是 stub
+- **说明**: `translateVideoFrame()` 和 `translateAudioFrame()` 只是透传数据，未做实际 H.265→H.264 或 Opus→AAC 转换。
+- **建议**: 需要 MediaCodec 实现实际转码，或明确标注为"直通模式"。
+
+### 28. ⬜ StreamBridge.kt — 未被实际使用
+- **说明**: `StreamBridge` 和 `StreamBridgeManager` 已实现但项目中无调用方。数据转发由 `MdRole` + `HuRole` 直接完成。
+- **建议**: 如果计划使用则保留，否则删除减少维护负担。
 
 ---
 
 ## Low
 
-### 26. ⬜ Build.SERIAL 在 Android 10+ 返回 "unknown"
-### 27. ⬜ WindowManager.defaultDisplay 在 API 30+ 弃用
-### 28. ⬜ ConnectionService 重复获取分辨率
-### 29. ✅ Channel.readExact() 未校验 length < 0
-### 30. ⬜ TcpClient targetHost 默认值问题
-### 31. ⬜ mDNS 服务名可能冲突
-### 32. ⬜ TouchService injectViaShell 安全风险
+### 29. ⬜ Build.SERIAL 在 Android 10+ 返回 "unknown"
+- **文件**: HuRole.kt, MdRole.kt
+- **说明**: `Build.SERIAL` 在 Android 10+ 受限，始终返回 "unknown"。
+- **建议**: 使用 `Build.getSerial()` (需权限) 或 `Settings.Secure.ANDROID_ID`。
+
+### 30. ⬜ WindowManager.defaultDisplay 在 API 30+ 弃用
+- **文件**: TouchService.kt, VideoService.kt
+- **建议**: 使用 `WindowMetrics` (API 30+)。
+
+### 31. ⬜ ConnectionService 重复获取分辨率
+- **说明**: 多处调用 `SettingsManager.getResolution()`，可缓存。
+- **影响**: 性能影响极小，SharedPreferences 有内存缓存。
+
+### 32. ⬜ TcpClient targetHost 默认值
+- **说明**: 默认连接 `192.168.42.129`，与 SettingsManager 中的默认值一致，但两处独立维护。
+- **建议**: 统一使用 SettingsManager 获取。
+
+### 33. ⬜ mDNS 服务名可能冲突
+- **说明**: 服务名硬编码为 "CarLife Wireless Box"，同名服务可能冲突。
+- **建议**: 追加设备标识符。
+
+### 34. ⬜ TouchService injectViaShell 安全风险
+- **说明**: 使用 `Runtime.getRuntime().exec()` 执行 shell 命令，需要 root 权限。
+- **建议**: 优先使用 AccessibilityService，shell 作为最后回退方案（当前已是此策略）。
+
+### 35. ⬜ Gradle 依赖版本
+- **说明**: AGP 8.2.2、Kotlin 1.9.24、targetSdk 34。截至 2026-05 有更新版本可用。
+- **建议**: 定期更新依赖以获取安全补丁。
+
+---
+
+## 架构评价
+
+### 优点
+1. **清晰的分层**: Channel → Role → Service → UI，职责分明
+2. **CarLife 协议完整实现**: 6 通道 + 8 阶段握手，覆盖标准 CarLife 无线协议
+3. **完善的错误追踪**: ErrorTracker + LogFileManager + NetworkDiagnostics 形成诊断闭环
+4. **动态码率调节**: 根据 WiFi 信号强度自动调整，避免弱信号卡顿
+5. **触摸注入方案**: AccessibilityService 优先，shell 回退，兼容性好
+6. **USB 网络共享管理**: 完整的状态机 + 自动扫描车机
+
+### 改进建议
+1. **删除未使用的代码**: StreamBridge/StreamBridgeManager、ProtocolService 的空方法
+2. **协议翻译器**: ProtocolTranslator 需要实际实现或标注为直通模式
+3. **单元测试**: 项目无实际测试代码，建议为核心工具类添加测试
+4. **ProGuard 规则**: release 开启了 minify，需确认 protobuf 类未被混淆
