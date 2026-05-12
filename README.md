@@ -41,7 +41,7 @@
 | **数据桥接** | `StreamBridge` 单通道桥接 + `StreamBridgeManager` 管理器，支持协议转换；ConnectionService 直接转发模式（HuRole↔MdRole 端到端） |
 | **USB 连接** | `UsbTetheringManager` — USB 网络共享状态检测、车机 IP 自动扫描（192.168.42.x）、USB 状态广播、网口检测（usb0/rndis0/ncm） |
 | **动态码率** | `DynamicBitrate` — 根据 WiFi RSSI 自动调节视频码率（5 级信号等级），信号下降立即响应，信号改善延迟升级（防抖动） |
-| **连接引导** | `UsbGuideActivity` — 分 4 步引导 USB 连接（数据线→网络共享→等待车机→完成），步骤指示器 + 常见问题提示 |
+| **连接引导** | `UsbGuideActivity` — 分 4 步引导 USB 连接（数据线→网络共享→等待车机→完成），步骤指示器 + 常见问题提示；`WifiGuideActivity` — 分 5 步引导无线连接（热点→连接→CarWith→服务→成功），实时 WiFi 状态检测 + CarWith 端口探测 |
 | **协议转换** | `ProtocolTranslator`（H.265→H.264 / Opus→AAC 框架）、`VersionDetector` 版本检测 |
 | **视频服务** | `VideoService` — MediaProjection 屏幕采集 + MediaCodec H.264 硬编码，SPS/PPS 缓存 |
 | **音频服务** | `AudioService` — AudioPlaybackCapture 系统音频录制 + MediaCodec AAC 编码 |
@@ -50,7 +50,7 @@
 | **连接服务** | `ConnectionService` 前台服务，协调 MdRole/HuRole/Video/Audio/Touch 生命周期，**HuRole 自动重连（指数退避）** |
 | **断线重连** | HuRole 断线后自动重连（5s→10s→20s→40s→80s 指数退避，最多 5 次）；MdRole 断线自动回到等待状态 |
 | **网络诊断** | `NetworkDiagnostics` — WiFi 状态、热点检测、Ping、CarWith 端口监听检测，一键生成诊断报告 |
-| **UI 界面** | `MainActivity` 状态监控 + MediaProjection 授权、`SettingsActivity` 参数配置、`LogViewerActivity` 日志查看、`NetworkDiagActivity` 网络诊断 |
+| **UI 界面** | `MainActivity` 状态监控 + MediaProjection 授权、`SettingsActivity` 参数配置、`LogViewerActivity` 日志查看、`NetworkDiagActivity` 网络诊断、`UsbGuideActivity` USB 连接引导、`WifiGuideActivity` 无线连接引导 |
 | **竖屏支持** | 支持横屏/竖屏自适应显示，触摸坐标自动变换（参考 CarProjection 实现） |
 | **Protobuf** | 28 个 `.proto` 文件，覆盖认证/注册/心跳/视频/音频/控制等全部 CarLife 消息 |
 | **工具类** | 日志（文件保存 + 7 天轮转）、网络检测、设置管理、字节操作 |
@@ -72,7 +72,7 @@ app/src/main/java/com/carlife/wireless/
 ├── bridge/         # 数据流桥接（StreamBridge, StreamBridgeManager）
 ├── protocol/       # 协议转换（ProtocolTranslator）、版本检测（VersionDetector）
 ├── service/        # Android 服务（ConnectionService, Video/Audio/Touch/ProtocolService）
-├── ui/             # 用户界面（MainActivity, SettingsActivity, LogViewerActivity, NetworkDiagActivity）
+├── ui/             # 用户界面（MainActivity, SettingsActivity, LogViewerActivity, NetworkDiagActivity, UsbGuideActivity, WifiGuideActivity）
 ├── receiver/       # 广播接收器（BootReceiver, WifiStateReceiver）
 ├── util/           # 工具类（Constants, LogUtils, NetworkUtils, NetworkDiagnostics, SettingsManager, ByteUtils）
 └── proto/          # 28 个 Protobuf 定义文件
@@ -97,13 +97,15 @@ app/src/main/java/com/carlife/wireless/
    - 手机 B 打开 CarWith → 点击「CarLife 连接」→ 选择「无线连接」
    - 旧手机 APP 点击「启动 CarLife 服务」
 
-5. **遇到问题？** 点击 APP 内「🔍 网络诊断」按钮，一键检测连接状态
+5. **新手？** 点击 APP 内「📶 无线 CarLife 连接引导」按钮，分步引导完成设置
+
+6. **遇到问题？** 点击 APP 内「🔍 网络诊断」按钮，一键检测连接状态
 
 ### 设置说明
 
 | 设置项 | 说明 | 默认值 |
 |--------|------|--------|
-| 手机 B 的 IP | 手机 B 热点的网关地址 | 192.168.42.129 |
+| 手机 B 的 IP | 手机 B 热点的网关地址 | 192.168.43.1 |
 | 视频分辨率 | 投屏分辨率 | 1280x720 |
 | 视频码率 | 编码码率 (kbps) | 2000 |
 | 视频帧率 | 编码帧率 | 30 |

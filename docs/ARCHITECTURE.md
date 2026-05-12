@@ -59,16 +59,23 @@ CarLifeWirelessBox/
 │       │   │   ├── ui/
 │       │   │   │   ├── MainActivity.kt     # 主界面
 │       │   │   │   ├── SettingsActivity.kt # 设置界面
-│       │   │   │   └── LogViewerActivity.kt # 日志查看器
+│       │   │   │   ├── LogViewerActivity.kt # 日志查看器
+│       │   │   │   ├── NetworkDiagActivity.kt # 网络诊断
+│       │   │   │   ├── UsbGuideActivity.kt # USB 连接引导（4步）
+│       │   │   │   ├── WifiGuideActivity.kt # WiFi 无线连接引导（5步）
+│       │   │   │   └── VideoPreviewHelper.kt # 视频预览辅助
 │       │   │   ├── receiver/
 │       │   │   │   ├── BootReceiver.kt     # 开机自启
 │       │   │   │   └── WifiStateReceiver.kt # WiFi 状态监听
 │       │   │   └── util/
-│       │   │       ├── Constants.kt        # 协议常量（端口、超时等）
+│       │   │       ├── Constants.kt        # 协议常量（端口、超时、IP 地址）
 │       │   │       ├── ByteUtils.kt        # 字节操作工具
+│       │   │       ├── CoordConverter.kt   # 坐标转换工具
 │       │   │       ├── LogUtils.kt         # 日志工具（支持文件保存）
-│       │   │       ├── LogFileManager.kt   # 日志文件管理
-│       │   │       ├── NetworkUtils.kt     # 网络工具
+│       │   │       ├── LogFileManager.kt   # 日志文件管理（7天轮转）
+│       │   │       ├── NetworkUtils.kt     # 网络工具（IP 获取、热点网关、Ping）
+│       │   │       ├── NetworkDiagnostics.kt # 网络诊断（WiFi/热点/端口检测）
+│       │   │       ├── ErrorTracker.kt     # 错误追踪
 │       │   │       └── SettingsManager.kt  # 设置管理（SharedPreferences）
 │       │   ├── proto/                      # 28 个 .proto 文件
 │       │   │   ├── carlife_common.proto
@@ -82,7 +89,7 @@ CarLifeWirelessBox/
 │       │   │   ├── CarlifeVideoEncoderInfoProto.proto
 │       │   │   └── ... (共 28 个)
 │       │   └── res/
-│       │       ├── layout/                 # 4 个布局文件
+│       │       ├── layout/                 # 7 个布局文件（main, settings, log_viewer, network_diag, usb_guide, wifi_guide, dialog）
 │       │       ├── values/                 # strings, colors, styles, arrays
 │       │       ├── menu/                   # main_menu, log_viewer_menu
 │       │       ├── drawable/               # 图标
@@ -114,9 +121,9 @@ CarLifeWirelessBox/
 | `bridge` | 数据桥接（StreamBridge 单通道桥接、StreamBridgeManager 管理器） |
 | `protocol` | 协议处理（ProtocolTranslator 版本转换、VersionDetector 版本检测） |
 | `service` | Android 服务（ConnectionService 核心协调、Video/Audio/Touch 占位） |
-| `ui` | 用户界面（MainActivity、SettingsActivity、LogViewerActivity） |
+| `ui` | 用户界面（MainActivity、SettingsActivity、LogViewerActivity、NetworkDiagActivity、UsbGuideActivity、WifiGuideActivity） |
 | `receiver` | 广播接收器（开机自启、WiFi 状态变化） |
-| `util` | 工具类（常量、字节操作、日志、网络、设置） |
+| `util` | 工具类（常量、字节操作、日志、网络、设置、网络诊断、错误追踪） |
 
 ---
 
