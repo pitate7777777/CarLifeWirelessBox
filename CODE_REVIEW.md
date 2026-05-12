@@ -1,12 +1,24 @@
 # CarLifeWirelessBox 源码审查报告
 
-**审查日期**: 2026-05-12（第五轮）  
-**审查范围**: HuRole 连接流程 + WifiGuideActivity 状态检测  
+**审查日期**: 2026-05-12（第六轮）  
+**审查范围**: HuRole 编译错误修复  
 **修复状态**: ✅ 已修复 | 🔧 本次新增 | ⬜ 建议改进
 
 ---
 
-## 本次修复（第五轮）
+## 本次修复（第六轮）
+
+### 🔧 Critical-1: HuRole.kt 编译错误 — `launch` 作用域外调用
+
+- **文件**: `HuRole.kt` — `onChannelConnected()` (line 527)
+- **问题**: 握手超时检测使用了裸 `launch { ... }`，但 `onChannelConnected()` 是普通成员函数，不是 `CoroutineScope`。Kotlin 编译器报 `Unresolved reference: None of the following candidates is applicable because of receiver type mismatch`。
+- **根因**: 同一函数中 `scope.launch { ... }` 写对了（line 522），但超时块漏写了 `scope.` 前缀。
+- **修复**: `launch {` → `scope.launch {`，确保在正确的 CoroutineScope 上启动协程。
+- **影响**: 阻断编译，项目无法构建。
+
+---
+
+## 第五轮修复
 
 ### 🔧 High-1: HuRole 端口预检干扰正式连接（无线连接卡住根因）
 

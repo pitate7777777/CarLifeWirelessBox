@@ -519,7 +519,7 @@ class HuRole(
                 sendProtocolVersion()
             }
             // 握手超时检测（独立于连接超时）
-            launch {
+            scope.launch {
                 delay(HANDSHAKE_TIMEOUT_MS)
                 if (state.get() != HuState.CONNECTED && handshakeStarted.get()) {
                     val phase = handshakePhase.get()
