@@ -8,7 +8,16 @@
 
 ## 本次修复（第六轮）
 
-### 🔧 Critical-1: HuRole 连接端口错误（无线连接卡住第 4 步根因）
+### 🔧 Critical-1: TcpServer 异步启动导致端口未监听（无线连接卡住第4步根因）
+
+- **文件**: `MdRole.kt` — `start()` + `ConnectionService.kt` — `onStartCommand()`
+- **问题**: `MdRole.start()` 调用 `server.start()` × 6（每个都是 `scope.launch` 异步执行），然后**立即** `updateState(WAITING_CONNECTION)`。但 ServerSocket 还没创建！`HuRole.connect()` 随即尝试 TCP 连接 → 对端还没监听 → 连接失败。
+- **修复**:
+  1. `MdRole.start()` 使用 `CountDownLatch` 等待所有 TcpServer 的 `onStarted` 回调，确保端口真正绑定后才返回
+  2. `ConnectionService.onStartCommand()` 改用 `serviceScope.launch { startMdRole(); startHuRole() }` 串行编排，避免阻塞主线程
+- **影响**: 无线连接完全无法工作，卡在"等待连接"。
+
+### 🔧 Critical-2: HuRole 连接端口错误
 
 - **文件**: `HuRole.kt` — `connect()` → `channel.connect(phoneBIp)`
 - **问题**: HU 端连接手机 B 时使用了 HU 端口（7240, 8240, 9240...），但 MdRole（手机 B）在 MD 端口（7200, 8200, 9200...）上监听。HU 连的是自己的端口，手机 B 根本没在这些端口上监听，导致连接永远无法建立。
@@ -16,7 +25,7 @@
 - **修复**: `channel.connect(phoneBIp)` → `channel.connect(phoneBIp, type.mdPort)`
 - **影响**: 无线连接完全无法工作，卡在"等待连接"。
 
-### 🔧 Critical-2: HuRole.kt 编译错误 — `launch` 作用域外调用
+### 🔧 Critical-3: HuRole.kt 编译错误 — `launch` 作用域外调用
 
 - **文件**: `HuRole.kt` — `onChannelConnected()` (line 527)
 - **问题**: 握手超时检测使用了裸 `launch { ... }`，但 `onChannelConnected()` 是普通成员函数，不是 `CoroutineScope`。Kotlin 编译器报 `Unresolved reference: None of the following candidates is applicable because of receiver type mismatch`。

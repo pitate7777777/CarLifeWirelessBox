@@ -24,6 +24,11 @@ import com.carlife.wireless.role.MdRole
 import com.carlife.wireless.usb.UsbTetheringManager
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 import java.io.IOException
 import java.lang.ref.WeakReference
 import java.util.concurrent.atomic.AtomicInteger
@@ -82,6 +87,7 @@ class ConnectionService : Service() {
     /** HuRole 最近一次错误（huRole 被置 null 后仍保留，供 UI 显示） */
     private var lastHuRoleError: String = ""
     private var isRunning = false
+    private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var nsdManager: NsdManager? = null
     private var registrationListener: NsdManager.RegistrationListener? = null
 
@@ -119,9 +125,11 @@ class ConnectionService : Service() {
         LogUtils.i(TAG, "ConnectionService started")
         isServiceActive = true
         startForegroundService()
-        // MdRole 和 HuRole 独立启动，互不依赖
-        startMdRole()
-        startHuRole()
+        // MdRole 必须先就绪（TcpServer 绑定端口），再启动 HuRole 连接
+        serviceScope.launch {
+            startMdRole()
+            startHuRole()
+        }
         startTouchService()
         startUsbMonitoring()
         isRunning = true
@@ -135,6 +143,7 @@ class ConnectionService : Service() {
         instanceRef = null
         isServiceActive = false
         LogUtils.i(TAG, "ConnectionService destroyed")
+        serviceScope.cancel()
         stopAllServices()
         stopMdRole()
         stopUsbMonitoring()

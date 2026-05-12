@@ -22,6 +22,8 @@ import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
@@ -129,11 +131,15 @@ class MdRole(private val context: Context) {
         updateState(MdState.STARTING)
 
         try {
+            val startLatch = CountDownLatch(MD_PORTS.size)
+            val startFailed = AtomicBoolean(false)
+
             MD_PORTS.forEach { port ->
                 // 所有通道禁用默认 ChannelHeader 读取，使用 CarLife 格式专用读取循环
                 val server = TcpServer(port, object : TcpServerListener {
                     override fun onStarted(port: Int) {
                         LogUtils.i(TAG, "TcpServer started on port $port (${PORT_NAMES[port]})")
+                        startLatch.countDown()
                     }
                     override fun onStopped(port: Int) {
                         LogUtils.i(TAG, "TcpServer stopped on port $port")
@@ -150,6 +156,8 @@ class MdRole(private val context: Context) {
                     override fun onError(port: Int, error: String) {
                         LogUtils.e(TAG, "Error on port $port (${PORT_NAMES[port]}): $error")
                         lastErrorMessage.set("Port ${PORT_NAMES[port]}: $error")
+                        startFailed.set(true)
+                        startLatch.countDown()  // 出错也要释放 latch，避免永久阻塞
                         updateState(MdState.ERROR)
                     }
                 }, autoRead = false)
@@ -158,8 +166,21 @@ class MdRole(private val context: Context) {
                 server.start()
             }
 
+            // 等待所有 TcpServer 真正绑定端口就绪（最多 5 秒）
+            val allStarted = startLatch.await(5, TimeUnit.SECONDS)
+            if (!allStarted) {
+                val remaining = startLatch.count
+                LogUtils.e(TAG, "TcpServer startup timeout! $remaining servers not ready")
+                updateState(MdState.ERROR)
+                return
+            }
+            if (startFailed.get()) {
+                LogUtils.e(TAG, "Some TcpServers failed to start")
+                return
+            }
+
             updateState(MdState.WAITING_CONNECTION)
-            LogUtils.i(TAG, "All TcpServers started, waiting for connections...")
+            LogUtils.i(TAG, "All ${MD_PORTS.size} TcpServers started, waiting for connections...")
 
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "Failed to start TcpServers")
