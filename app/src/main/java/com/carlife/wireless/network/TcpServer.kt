@@ -12,6 +12,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.IOException
+import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -127,7 +128,7 @@ class TcpServer(
             try {
                 val ss = ServerSocket()
                 ss.reuseAddress = true
-                ss.bind(port)
+                ss.bind(InetSocketAddress(port))
                 serverSocket = ss
                 boundPort = port
 
