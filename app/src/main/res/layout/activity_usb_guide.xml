@@ -42,7 +42,7 @@
                 android:id="@+id/dot_step_0"
                 android:layout_width="12dp"
                 android:layout_height="12dp"
-                android:background="@drawable/ic_notification"
+                android:background="@drawable/step_dot"
                 android:backgroundTint="#FF2196F3" />
 
             <View
@@ -54,7 +54,7 @@
                 android:id="@+id/dot_step_1"
                 android:layout_width="12dp"
                 android:layout_height="12dp"
-                android:background="@drawable/ic_notification"
+                android:background="@drawable/step_dot"
                 android:backgroundTint="#FFBDBDBD" />
 
             <View
@@ -66,7 +66,7 @@
                 android:id="@+id/dot_step_2"
                 android:layout_width="12dp"
                 android:layout_height="12dp"
-                android:background="@drawable/ic_notification"
+                android:background="@drawable/step_dot"
                 android:backgroundTint="#FFBDBDBD" />
 
             <View
@@ -78,7 +78,7 @@
                 android:id="@+id/dot_step_3"
                 android:layout_width="12dp"
                 android:layout_height="12dp"
-                android:background="@drawable/ic_notification"
+                android:background="@drawable/step_dot"
                 android:backgroundTint="#FFBDBDBD" />
 
         </LinearLayout>

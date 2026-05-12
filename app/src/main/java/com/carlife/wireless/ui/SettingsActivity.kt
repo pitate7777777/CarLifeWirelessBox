@@ -103,7 +103,9 @@ class SettingsActivity : AppCompatActivity() {
         
         // 加载码率（从 bps 转换为 kbps）
         val bitrate = prefs.getInt("bitrate", 2000000)
-        binding.seekbarBitrate.progress = bitrate / 1000
+        val bitrateKbps = bitrate / 1000
+        binding.seekbarBitrate.progress = bitrateKbps
+        binding.tvBitrateValue.text = getString(R.string.video_bitrate_value, bitrateKbps)
         
         // 加载帧率
         val framerate = prefs.getString("framerate", "30") ?: "30"
@@ -131,6 +133,17 @@ class SettingsActivity : AppCompatActivity() {
             saveSettings()
             finish()
         }
+
+        // 码率 SeekBar 实时显示
+        binding.seekbarBitrate.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
+                // 最小 500 kbps
+                val kbps = if (progress < 500) 500 else progress
+                binding.tvBitrateValue.text = getString(R.string.video_bitrate_value, kbps)
+            }
+            override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+        })
     }
     
     private fun showCustomResolutionDialog() {

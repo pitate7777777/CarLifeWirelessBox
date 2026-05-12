@@ -10,9 +10,14 @@
     <string name="status_disconnected">未连接</string>
     <string name="video_resolution">视频分辨率</string>
     <string name="video_bitrate">视频码率</string>
+    <string name="video_bitrate_value">%1$d kbps</string>
     <string name="audio_sample_rate">音频采样率</string>
     <string name="video_framerate">视频帧率</string>
+    <string name="audio_sample_rate_label">音频采样率</string>
     <string name="tcp_port">TCP 端口</string>
+    <string name="phone_b_ip_label">手机 B 的 IP 地址</string>
+    <string name="phone_b_ip_hint">例如: 192.168.43.1</string>
+    <string name="phone_b_ip_helper">手机 B 开启热点后的网关地址，通常为 192.168.43.1</string>
     <string name="save">保存</string>
 
     <!-- 对话框相关 -->

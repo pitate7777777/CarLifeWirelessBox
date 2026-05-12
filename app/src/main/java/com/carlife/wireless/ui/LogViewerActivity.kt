@@ -182,6 +182,11 @@ class LogViewerActivity : AppCompatActivity() {
                     .show()
                 true
             }
+            R.id.action_refresh -> {
+                loadLogFiles()
+                Toast.makeText(this, "日志列表已刷新", Toast.LENGTH_SHORT).show()
+                true
+            }
             else -> super.onOptionsItemSelected(item)
         }
     }
