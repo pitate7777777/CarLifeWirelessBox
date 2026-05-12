@@ -197,10 +197,22 @@ class MdRole(private val context: Context) {
         }
 
         // 启动 CarLife 格式读取循环
-        if (port == Constants.PortMD.MD_CMD) {
-            startCmdReadLoop(channel)
-        } else {
-            startMediaReadLoop(port, channel)
+        when (port) {
+            Constants.PortMD.MD_CMD -> {
+                // CMD 通道：8 字节 CarLife CMD 格式（车机发起握手）
+                startCmdReadLoop(channel)
+            }
+            Constants.PortMD.MD_CTRL -> {
+                // CTRL 通道：双向格式不同
+                // 车机→本机：CarLife CMD 格式（8字节，触摸事件）
+                // 本机→车机：CarLife CMD 格式（8字节，控制响应）
+                // 统一使用 CMD 格式读取
+                startCmdReadLoop(channel)
+            }
+            else -> {
+                // VIDEO/MEDIA/TTS/VR 通道：12 字节 CarLife 媒体格式
+                startMediaReadLoop(port, channel)
+            }
         }
 
         // CMD 通道连接后即进入握手状态（不等全部 6 通道）
@@ -278,10 +290,8 @@ class MdRole(private val context: Context) {
             Constants.PortMD.MD_TTS -> hu.sendTtsData(header, data)
             Constants.PortMD.MD_VR -> hu.sendVrData(header, data)
             Constants.PortMD.MD_CTRL -> {
-                // CTRL 通道使用 CMD 格式（8字节），不是媒体格式
-                // 但车机可能通过媒体格式发送，这里也处理
-                val cmdHeader = ChannelHeader.Cmd(serviceType, data.size, 0)
-                hu.sendControlData(cmdHeader, data)
+                // CTRL 通道使用 CarLife CMD 格式（8字节头）转发到手机B
+                hu.sendControlMsg(serviceType, data)
             }
             else -> LogUtils.w(TAG, "Unknown port $port for media forwarding")
         }
@@ -345,7 +355,18 @@ class MdRole(private val context: Context) {
                 handleVideoEncoderStart()
             }
             else -> {
-                LogUtils.d(TAG, "Unhandled CMD from car: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+                // 其他 CMD 消息（触摸控制等）→ 转发到手机 B
+                if (handshakeCompleted.get()) {
+                    val hu = huRole
+                    if (hu != null) {
+                        LogUtils.d(TAG, "Forwarding CMD 0x${Integer.toHexString(serviceType)} to Phone B (${data.size} bytes)")
+                        hu.sendControlMsg(serviceType, data)
+                    } else {
+                        LogUtils.w(TAG, "HU role not set, cannot forward CMD 0x${Integer.toHexString(serviceType)}")
+                    }
+                } else {
+                    LogUtils.d(TAG, "Unhandled CMD from car: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+                }
             }
         }
     }
@@ -566,12 +587,35 @@ class MdRole(private val context: Context) {
         return cmdChannel.sendCarLifeMsg(serviceType, data)
     }
 
+    /**
+     * 向车机发送媒体数据
+     *
+     * 使用 CarLife 媒体通道格式（12字节）：
+     * [data_len(4B)][timestamp(4B)][service_type(4B)] + [raw_data]
+     *
+     * 注意：不能使用 channel.send()，它写入的是 ChannelHeader.Media（11字节带magic），
+     * 车机期望的是 CarLife 标准媒体格式（12字节无magic）。
+     */
     fun sendData(port: Int, payloadType: Int, data: ByteArray): Boolean {
         val channel = channels[port] ?: run {
             LogUtils.w(TAG, "Channel not available for port $port")
             return false
         }
-        return channel.send(payloadType, data)
+        return channel.sendCarLifeMediaMsg(payloadType, 0, data)
+    }
+
+    /**
+     * 向车机发送控制数据（CMD 格式）
+     *
+     * 使用 CarLife CMD 通道格式（8字节）：
+     * [data_len(2B)][reserved(2B)][service_type(4B)] + [data]
+     */
+    fun sendControlData(serviceType: Int, data: ByteArray): Boolean {
+        val channel = channels[Constants.PortMD.MD_CTRL] ?: run {
+            LogUtils.w(TAG, "CTRL channel not available")
+            return false
+        }
+        return channel.sendCarLifeMsg(serviceType, data)
     }
 
     fun getChannelInfo(): Map<Int, String> {

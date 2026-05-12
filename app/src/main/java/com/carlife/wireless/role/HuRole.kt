@@ -412,37 +412,50 @@ class HuRole(
 
     /**
      * 转发视频数据到手机 B
+     * 使用 CarLife 媒体格式（12字节头）：[data_len(4B)][timestamp(4B)][service_type(4B)]
      */
     fun sendVideoData(header: ChannelHeader.Media, data: ByteArray): Boolean {
-        return channels[ChannelType.HU_VIDEO]?.send(header.payloadType, data, header.timestamp) ?: false
+        return channels[ChannelType.HU_VIDEO]?.sendCarLifeMediaMsg(header.payloadType, header.timestamp, data) ?: false
     }
 
     /**
      * 转发音频数据到手机 B
+     * 使用 CarLife 媒体格式
      */
     fun sendMediaData(header: ChannelHeader.Media, data: ByteArray): Boolean {
-        return channels[ChannelType.HU_MEDIA]?.send(header.payloadType, data, header.timestamp) ?: false
+        return channels[ChannelType.HU_MEDIA]?.sendCarLifeMediaMsg(header.payloadType, header.timestamp, data) ?: false
     }
 
     /**
      * 转发 TTS 数据到手机 B
+     * 使用 CarLife 媒体格式
      */
     fun sendTtsData(header: ChannelHeader.Media, data: ByteArray): Boolean {
-        return channels[ChannelType.HU_TTS]?.send(header.payloadType, data, header.timestamp) ?: false
+        return channels[ChannelType.HU_TTS]?.sendCarLifeMediaMsg(header.payloadType, header.timestamp, data) ?: false
     }
 
     /**
      * 转发 VR 数据到手机 B（车机麦克风 → 手机 B 语音识别）
+     * 使用 CarLife 媒体格式
      */
     fun sendVrData(header: ChannelHeader.Media, data: ByteArray): Boolean {
-        return channels[ChannelType.HU_VR]?.send(header.payloadType, data, header.timestamp) ?: false
+        return channels[ChannelType.HU_VR]?.sendCarLifeMediaMsg(header.payloadType, header.timestamp, data) ?: false
     }
 
     /**
      * 转发控制指令到手机 B（触摸事件等）
+     * 使用 CarLife CMD 格式（8字节头）：[data_len(2B)][reserved(2B)][service_type(4B)]
      */
     fun sendControlData(header: ChannelHeader.Cmd, data: ByteArray): Boolean {
-        return channels[ChannelType.HU_CTRL]?.send(header.payloadType, data) ?: false
+        return channels[ChannelType.HU_CTRL]?.sendCarLifeMsg(header.payloadType, data) ?: false
+    }
+
+    /**
+     * 转发控制指令到手机 B（按 serviceType + raw data）
+     * 使用 CarLife CMD 格式
+     */
+    fun sendControlMsg(serviceType: Int, data: ByteArray): Boolean {
+        return channels[ChannelType.HU_CTRL]?.sendCarLifeMsg(serviceType, data) ?: false
     }
 
     // ==================== 通道连接管理 ====================

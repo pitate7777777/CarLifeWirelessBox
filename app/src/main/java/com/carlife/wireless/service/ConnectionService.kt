@@ -365,14 +365,12 @@ class ConnectionService : Service() {
                 }
 
                 override fun onVideoFrameReceived(header: ChannelHeader.Media, frame: ByteArray) {
-                    // 手机B的视频帧 → 转发到车机
-                    mdRole?.let { md ->
-                        md.sendData(
-                            com.carlife.wireless.util.Constants.PortMD.MD_VIDEO,
-                            header.payloadType,
-                            frame
-                        )
-                    }
+                    // 手机B的视频帧 → 转发到车机（使用 CarLife 媒体格式）
+                    mdRole?.sendData(
+                        com.carlife.wireless.util.Constants.PortMD.MD_VIDEO,
+                        header.payloadType,
+                        frame
+                    )
                     // 广播给 MainActivity 用于本地预览（每 3 帧取 1 帧，减少开销）
                     if (previewFrameCounter.incrementAndGet() % 3 == 0L) {
                         broadcastVideoFrame(frame, false)
@@ -404,9 +402,8 @@ class ConnectionService : Service() {
                 }
 
                 override fun onControlReceived(header: ChannelHeader.Cmd, payload: ByteArray) {
-                    // 车机的控制指令 → 转发到手机B
-                    // 同时交给 TouchService 处理触摸事件
-                    touchService?.onTouchEvent(header.payloadType, payload)
+                    // 手机B的控制响应 → 转发到车机（CarLife CMD 格式）
+                    mdRole?.sendControlData(header.payloadType, payload)
                 }
 
                 override fun onError(error: String) {
