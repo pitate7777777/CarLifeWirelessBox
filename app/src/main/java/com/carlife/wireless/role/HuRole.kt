@@ -313,8 +313,8 @@ class HuRole(
                     val channel = createChannel(type, autoRead)
                     channels[type] = channel
 
-                    // 连接到手机B的 CarWith 端口（MD端口）
-                    val port = type.mdPort
+                    // 连接到手机B的 CarWith 端口（HU端口，CarWith 在这些端口上监听）
+                    val port = type.huPort
                     LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:$port")
                     channel.connect(phoneBIp, port)
                 }
