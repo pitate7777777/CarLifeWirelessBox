@@ -94,13 +94,22 @@ class MdRole(private val context: Context) {
     private val handshakeCompleted = AtomicBoolean(false)
     private val connectionStartTime = AtomicLong(0L)
     private val lastErrorMessage = AtomicReference("")
+    /** 车机编码器配置缓存（同步给 HuRole 以匹配手机B编码参数） */
+    @Volatile private var cachedCarEncoderConfig: HuRole.CarEncoderConfig? = null
     // 协程作用域（IO 线程池 + SupervisorJob 保证子协程独立失败）
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     @Volatile private var cmdReadJob: Job? = null
     private val mediaReadJobs: MutableMap<Int, Job> = ConcurrentHashMap()
 
     fun setStateListener(listener: (MdState) -> Unit) { this.stateListener = listener }
-    fun setHuRole(huRole: HuRole) { this.huRole = huRole }
+    fun setHuRole(huRole: HuRole) {
+        this.huRole = huRole
+        // 同步缓存的车机编码器配置
+        cachedCarEncoderConfig?.let {
+            huRole.carEncoderConfig = it
+            LogUtils.i(TAG, "Synced car encoder config to HuRole on setHuRole")
+        }
+    }
     fun getState(): MdState = state.get()
 
     private fun updateState(newState: MdState) {
@@ -525,17 +534,36 @@ class MdRole(private val context: Context) {
     /**
      * Phase 7: 处理车机视频编码器初始化
      * 解析车机期望的视频参数，回复 VIDEO_ENCODER_INIT_DONE
+     * 同时捕获车机编码能力，传递给 HuRole 以匹配手机B编码参数
      */
     private fun handleVideoEncoderInit(data: ByteArray) {
         try {
             val info = CarlifeVideoEncoderInfoProto.CarlifeVideoEncoderInfo.parseFrom(data)
             LogUtils.i(TAG, "[Phase 7] Car VIDEO_ENCODER_INIT: codec=${info.preferredCodec}, " +
                     "res=${info.currentResolutionEnum}, fps=${info.currentFps}, bitrate=${info.bitrateKbps}kbps")
+
+            // 捕获车机编码能力，缓存并传递给 HuRole
+            val carConfig = HuRole.CarEncoderConfig(
+                supportedCodecs = info.supportedCodecs,
+                preferredCodec = info.preferredCodec.number,
+                resolution = info.currentResolution,
+                resolutionEnum = info.currentResolutionEnum.number,
+                fps = info.currentFps,
+                bitrateKbps = info.bitrateKbps,
+                iFrameInterval = info.iFrameInterval,
+                hardwareEncoder = info.hardwareEncoder
+            )
+            cachedCarEncoderConfig = carConfig
+            huRole?.carEncoderConfig = carConfig
+            LogUtils.i(TAG, "[Phase 7] Car encoder config → HuRole: " +
+                    "codecs=0x${Integer.toHexString(carConfig.supportedCodecs)}, " +
+                    "res=0x${Integer.toHexString(carConfig.resolution)}, " +
+                    "fps=${carConfig.fps}, bitrate=${carConfig.bitrateKbps}kbps")
         } catch (e: Exception) {
             LogUtils.w(TAG, "[Phase 7] Failed to parse VIDEO_ENCODER_INIT: ${e.message}")
         }
 
-        // 回复编码器初始化完成
+        // 回复编码器初始化完成（使用车机的参数）
         try {
             val done = CarlifeVideoEncoderInfoProto.CarlifeVideoEncoderInfo.newBuilder()
                 .setSupportedCodecs(1 shl CarlifeVideoEncoderInfoProto.VideoCodecType.VIDEO_CODEC_H264.number)

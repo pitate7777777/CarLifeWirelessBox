@@ -148,6 +148,47 @@ class HuRole(
     val phoneBIp: String = Constants.IpAddress.HOTSPOT_GATEWAY,
     var listener: HuRoleListener? = null
 ) {
+    /**
+     * 车机编码器配置（由 MdRole 从车机 VIDEO_ENCODER_INIT 中捕获）
+     * 用于 HuRole 向手机B协商编码参数时，匹配车机实际能力
+     *
+     * 位掩码说明（proto 枚举值即位偏移）：
+     * - VideoCodecType: H264=1, H265=2
+     * - VideoResolution: 480P=1, 720P=2, 1080P=3
+     */
+    data class CarEncoderConfig(
+        val supportedCodecs: Int = 0,
+        val preferredCodec: Int = 0,        // VideoCodecType.number
+        val resolution: Int = 0,            // 位掩码
+        val resolutionEnum: Int = 0,        // VideoResolution.number
+        val fps: Int = 30,
+        val bitrateKbps: Int = 2000,
+        val iFrameInterval: Int = 2,
+        val hardwareEncoder: Boolean = true
+    ) {
+        /** 是否支持 H.264 (enum=1) */
+        fun supportsH264(): Boolean = (supportedCodecs and (1 shl 1)) != 0
+        /** 是否支持 H.265 (enum=2) */
+        fun supportsH265(): Boolean = (supportedCodecs and (1 shl 2)) != 0
+        /** 是否支持 480P (enum=1, bit 1) */
+        fun supports480p(): Boolean = (resolution and (1 shl 1)) != 0
+        /** 是否支持 720P (enum=2, bit 2) */
+        fun supports720p(): Boolean = (resolution and (1 shl 2)) != 0
+        /** 是否支持 1080P (enum=3, bit 3) */
+        fun supports1080p(): Boolean = (resolution and (1 shl 3)) != 0
+    }
+
+    /** 车机编码器配置（默认值：仅 H.264 + 480P，兼容老车机） */
+    @Volatile
+    var carEncoderConfig: CarEncoderConfig = CarEncoderConfig(
+        supportedCodecs = (1 shl 1),  // 仅 H.264
+        preferredCodec = 1,            // H.264
+        resolution = (1 shl 1),       // 仅 480P (bit 1)
+        resolutionEnum = 1,            // RES_480P
+        fps = 30,
+        bitrateKbps = 2000
+    )
+
     companion object {
         private const val TAG = "HuRole"
         private val DEVICE_ID: String = Build.SERIAL ?: "unknown"
@@ -544,8 +585,27 @@ class HuRole(
             }
             CarLifeMsg.VIDEO_ENCODER_INIT_DONE -> {
                 // Phase 6 响应：编码器初始化完成
-                LogUtils.i("$TAG: [Phase 6] VIDEO_ENCODER_INIT_DONE received")
-                // 发送 VIDEO_ENCODER_START
+                // 解析手机B选择的编码参数，记录版本兼容性信息
+                try {
+                    val info = CarlifeVideoEncoderInfoProto.CarlifeVideoEncoderInfo.parseFrom(data)
+                    val codecName = when (info.preferredCodec) {
+                        CarlifeVideoEncoderInfoProto.VideoCodecType.VIDEO_CODEC_H264 -> "H.264"
+                        CarlifeVideoEncoderInfoProto.VideoCodecType.VIDEO_CODEC_H265 -> "H.265"
+                        else -> "Unknown(${info.preferredCodec.number})"
+                    }
+                    LogUtils.i("$TAG: [Phase 6] VIDEO_ENCODER_INIT_DONE — Phone B chose: " +
+                            "codec=$codecName, res=${info.currentResolutionEnum.name}, " +
+                            "fps=${info.currentFps}, bitrate=${info.bitrateKbps}kbps")
+
+                    // 版本兼容性检查：如果手机B选择了 H.265 但车机不支持，发出警告
+                    if (info.preferredCodec == CarlifeVideoEncoderInfoProto.VideoCodecType.VIDEO_CODEC_H265
+                        && !carEncoderConfig.supportsH265()) {
+                        LogUtils.w("$TAG: ⚠️ 版本兼容性警告：手机B选择了 H.265，但车机可能不支持。" +
+                                "投屏可能出现卡logo或黑屏。建议在手机B的 CarWith 中切换为 H.264。")
+                    }
+                } catch (e: Exception) {
+                    LogUtils.w("$TAG: [Phase 6] Failed to parse VIDEO_ENCODER_INIT_DONE: ${e.message}")
+                }
                 sendVideoEncoderStart()
             }
             else -> {
@@ -704,32 +764,69 @@ class HuRole(
     /**
      * Phase 6: 发送视频编码器初始化
      * VIDEO_ENCODER_INIT (0x00018007)
+     *
+     * 根据车机实际编码能力（carEncoderConfig）配置参数，
+     * 确保手机B输出的编码格式、分辨率与车机兼容。
      */
     private fun sendVideoEncoderInit() {
         try {
+            val car = carEncoderConfig
+
+            // 构建车机支持的编解码器位掩码
+            // 只告诉手机B车机确实支持的编解码器，避免发送车机无法解码的格式
+            var codecs = 0
+            if (car.supportsH264()) codecs = codecs or (1 shl VideoCodecType.VIDEO_CODEC_H264.number)
+            if (car.supportsH265()) codecs = codecs or (1 shl VideoCodecType.VIDEO_CODEC_H265.number)
+            // 如果车机没有声明支持任何编解码器，默认 H.264
+            if (codecs == 0) codecs = (1 shl VideoCodecType.VIDEO_CODEC_H264.number)
+
+            // 选择首选编解码器：优先车机声明的，否则 H.264
+            val preferredCodec = if (car.preferredCodec > 0 && (codecs and (1 shl car.preferredCodec)) != 0) {
+                VideoCodecType.forNumber(car.preferredCodec) ?: VideoCodecType.VIDEO_CODEC_H264
+            } else {
+                VideoCodecType.VIDEO_CODEC_H264
+            }
+
+            // 构建车机支持的分辨率位掩码
+            var resolutions = 0
+            if (car.supports480p())  resolutions = resolutions or (1 shl VideoResolution.RES_480P.number)
+            if (car.supports720p())  resolutions = resolutions or (1 shl VideoResolution.RES_720P.number)
+            if (car.supports1080p()) resolutions = resolutions or (1 shl VideoResolution.RES_1080P.number)
+            if (resolutions == 0) resolutions = (1 shl VideoResolution.RES_480P.number)
+
+            // 选择默认分辨率：车机声明的，否则 480P
+            val defaultRes = if (car.resolutionEnum >= 0) {
+                VideoResolution.forNumber(car.resolutionEnum) ?: VideoResolution.RES_480P
+            } else {
+                VideoResolution.RES_480P
+            }
+
+            // 帧率和码率：使用车机声明的值
+            val fps = if (car.fps > 0) car.fps else Constants.Video.DEFAULT_FPS
+            val bitrateKbps = if (car.bitrateKbps > 0) car.bitrateKbps else 2000
+
             val info = CarlifeVideoEncoderInfoProto.CarlifeVideoEncoderInfo.newBuilder()
-                .setSupportedCodecs(
-                    (1 shl VideoCodecType.VIDEO_CODEC_H264.number) or
-                    (1 shl VideoCodecType.VIDEO_CODEC_H265.number)
-                )
-                .setPreferredCodec(VideoCodecType.VIDEO_CODEC_H264)
-                .setCurrentResolution(
-                    (1 shl VideoResolution.RES_480P.number) or
-                    (1 shl VideoResolution.RES_720P.number) or
-                    (1 shl VideoResolution.RES_1080P.number)
-                )
-                .setCurrentResolutionEnum(VideoResolution.RES_480P)
-                .addSupportedResolutions(VideoResolution.RES_480P)
-                .addSupportedResolutions(VideoResolution.RES_720P)
-                .addSupportedResolutions(VideoResolution.RES_1080P)
-                .setCurrentFps(Constants.Video.DEFAULT_FPS)
-                .setBitrateKbps(2000)
-                .setIFrameInterval(2)
-                .setHardwareEncoder(true)
+                .setSupportedCodecs(codecs)
+                .setPreferredCodec(preferredCodec)
+                .setCurrentResolution(resolutions)
+                .setCurrentResolutionEnum(defaultRes)
+                .apply {
+                    // 添加所有车机支持的分辨率
+                    if (car.supports480p())  addSupportedResolutions(VideoResolution.RES_480P)
+                    if (car.supports720p())  addSupportedResolutions(VideoResolution.RES_720P)
+                    if (car.supports1080p()) addSupportedResolutions(VideoResolution.RES_1080P)
+                }
+                .setCurrentFps(fps)
+                .setBitrateKbps(bitrateKbps)
+                .setIFrameInterval(car.iFrameInterval)
+                .setHardwareEncoder(car.hardwareEncoder)
                 .build()
 
             channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.VIDEO_ENCODER_INIT, info.toByteArray())
-            LogUtils.i("$TAG: [Phase 6] VIDEO_ENCODER_INIT sent")
+            LogUtils.i("$TAG: [Phase 6] VIDEO_ENCODER_INIT sent — " +
+                    "codec=${preferredCodec.name}, res=${defaultRes.name}, " +
+                    "fps=${fps}, bitrate=${bitrateKbps}kbps " +
+                    "(matched to car capabilities)")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 6] Failed to send VIDEO_ENCODER_INIT")
             ErrorTracker.recordHandshakeFailure("HuRole", e.message ?: "unknown", "Phase6-VideoEncoderInit")
