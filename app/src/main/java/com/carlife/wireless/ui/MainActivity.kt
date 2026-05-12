@@ -357,6 +357,13 @@ class MainActivity : AppCompatActivity() {
         logBuffer.add("[$timestamp] $message")
         if (logBuffer.size > MAX_LOG_LINES) logBuffer.removeAt(0)
         binding.tvLog.text = logBuffer.joinToString("\n")
+        // 自动滚动到底部，显示最新日志
+        binding.tvLog.post {
+            val scrollParent = binding.tvLog.parent
+            if (scrollParent is android.widget.ScrollView) {
+                scrollParent.fullScroll(android.widget.ScrollView.FOCUS_DOWN)
+            }
+        }
     }
 
     // ==================== 权限 ====================

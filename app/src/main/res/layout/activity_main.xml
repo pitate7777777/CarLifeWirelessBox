@@ -402,10 +402,11 @@
 
             </LinearLayout>
 
-                <ScrollView
+                <com.carlife.wireless.ui.NestedLogScrollView
                     android:layout_width="match_parent"
                     android:layout_height="200dp"
-                    android:layout_marginTop="8dp">
+                    android:layout_marginTop="8dp"
+                    android:nestedScrollingEnabled="true">
 
                     <TextView
                         android:id="@+id/tv_log"
@@ -415,7 +416,7 @@
                         android:textSize="12sp"
                         android:lineSpacingExtra="4dp" />
 
-                </ScrollView>
+                </com.carlife.wireless.ui.NestedLogScrollView>
 
             </LinearLayout>
 
