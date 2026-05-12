@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme -->
+    <style name="Theme.CarLifeWirelessBox" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorSecondaryVariant">@color/accent</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">@color/primary_dark</item>
+        <item name="android:navigationBarColor">@color/background</item>
+
+        <!-- Background -->
+        <item name="android:windowBackground">@color/background</item>
+
+        <!-- Material Card style -->
+        <item name="materialCardViewStyle">@style/Widget.App.CardView</item>
+
+        <!-- Button style -->
+        <item name="materialButtonStyle">@style/Widget.App.Button</item>
+
+        <!-- TextInputLayout style -->
+        <item name="textInputStyle">@style/Widget.App.TextInputLayout</item>
+
+        <!-- Spinner style -->
+        <item name="android:spinnerStyle">@style/Widget.App.Spinner</item>
+    </style>
+
+    <!-- Card View style -->
+    <style name="Widget.App.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardCornerRadius">12dp</item>
+        <item name="cardElevation">2dp</item>
+        <item name="contentPadding">16dp</item>
+    </style>
+
+    <!-- Button style -->
+    <style name="Widget.App.Button" parent="Widget.MaterialComponents.Button">
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <!-- Outlined Button style -->
+    <style name="Widget.App.Button.Outlined" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="cornerRadius">12dp</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+
+    <!-- Text Input Layout style -->
+    <style name="Widget.App.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxCornerRadiusTopStart">8dp</item>
+        <item name="boxCornerRadiusTopEnd">8dp</item>
+        <item name="boxCornerRadiusBottomStart">8dp</item>
+        <item name="boxCornerRadiusBottomEnd">8dp</item>
+    </style>
+
+    <!-- Spinner style -->
+    <style name="Widget.App.Spinner" parent="Widget.AppCompat.Spinner">
+        <item name="android:background">@drawable/spinner_background</item>
+        <item name="android:paddingStart">12dp</item>
+        <item name="android:paddingEnd">12dp</item>
+    </style>
+
+    <!-- Toolbar title style -->
+    <style name="Widget.App.Toolbar.Title" parent="TextAppearance.MaterialComponents.Headline6">
+        <item name="android:textColor">@color/white</item>
+        <item name="android:textSize">20sp</item>
+    </style>
+</resources>
