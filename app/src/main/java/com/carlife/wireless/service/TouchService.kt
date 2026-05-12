@@ -14,6 +14,7 @@ import android.view.Surface
 import android.view.WindowManager
 import android.view.OrientationEventListener
 import android.view.accessibility.AccessibilityNodeInfo
+import com.carlife.wireless.util.CoordConverter
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import java.util.concurrent.ExecutorService
@@ -95,12 +96,8 @@ class TouchService : Service() {
     private var carDisplayWidth: Int = DEFAULT_CAR_WIDTH
     private var carDisplayHeight: Int = DEFAULT_CAR_HEIGHT
 
-    // 竖屏模式下的坐标变换因子（参考 CarProjection）
-    private var portraitGestureFactorW: Float = 1.0f
-    private var portraitGestureFactorH: Float = 1.0f
-    private var landscapeGestureFactorW: Float = 1.0f
-    private var landscapeGestureFactorH: Float = 1.0f
-    private var portraitLeftX: Float = 0f // 竖屏时画面左侧偏移
+    // 坐标转换器（委托给 CoordConverter）
+    @Volatile private var coordConverter: CoordConverter = CoordConverter(1920, 1080, 800, 480)
 
     // 触摸注入器（由 AccessibilityService 提供）
     private var touchInjector: TouchInjector? = null
@@ -159,21 +156,10 @@ class TouchService : Service() {
         screenWidth = prefs.getFloat("mobile_w", screenWidth.toFloat()).toInt()
         screenHeight = prefs.getFloat("mobile_h", screenHeight.toFloat()).toInt()
 
-        // 横屏因子：手机分辨率 / 车机投屏分辨率
-        landscapeGestureFactorW = screenWidth.toFloat() / carDisplayWidth
-        landscapeGestureFactorH = screenHeight.toFloat() / carDisplayHeight
-
-        // 竖屏因子：手机竖屏时，车机画面旋转 90° 映射
-        // 竖屏手机宽 = 手机高，竖屏手机高 = 手机宽
-        // 车机竖屏实际投屏宽度 = 车机宽 * 车机高 / 手机高（保持比例）
-        val portraitCarWidth = carDisplayWidth.toFloat() * carDisplayHeight / screenWidth
-        portraitGestureFactorW = screenHeight.toFloat() / portraitCarWidth
-        portraitGestureFactorH = screenWidth.toFloat() / carDisplayHeight
-        portraitLeftX = (carDisplayWidth - portraitCarWidth) / 2f
+        // 委托给 CoordConverter 进行坐标转换
+        coordConverter = CoordConverter(screenWidth, screenHeight, carDisplayWidth, carDisplayHeight)
 
         LogUtils.i(TAG, "refreshSize: mobile=${screenWidth}x${screenHeight}, car=${carDisplayWidth}x${carDisplayHeight}")
-        LogUtils.i(TAG, "  landscape factor: W=$landscapeGestureFactorW, H=$landscapeGestureFactorH")
-        LogUtils.i(TAG, "  portrait factor: W=$portraitGestureFactorW, H=$portraitGestureFactorH, leftX=$portraitLeftX")
     }
 
     override fun onBind(intent: Intent?): IBinder = binder
@@ -432,37 +418,7 @@ class TouchService : Service() {
      */
     private fun convertCoordinates(carX: Float, carY: Float): Pair<Float, Float> {
         // 使用缓存的 rotation（由 OrientationEventListener 更新），避免每次触摸都查询
-        val rotation = currentRotation
-
-        val phoneX: Float
-        val phoneY: Float
-
-        when (rotation) {
-            Surface.ROTATION_0, Surface.ROTATION_180 -> {
-                // 竖屏模式：车机画面旋转 90° 映射到手机
-                // 需要减去画面左侧偏移
-                phoneX = (carX - portraitLeftX) * portraitGestureFactorW
-                phoneY = carY * portraitGestureFactorH
-            }
-            Surface.ROTATION_90, Surface.ROTATION_270 -> {
-                // 横屏模式：直接映射
-                phoneX = carX * landscapeGestureFactorW
-                phoneY = carY * landscapeGestureFactorH
-            }
-            else -> {
-                phoneX = carX * screenWidth / carDisplayWidth
-                phoneY = carY * screenHeight / carDisplayHeight
-            }
-        }
-
-        // 边界保护
-        val maxX = if (rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) screenHeight.toFloat() else screenWidth.toFloat()
-        val maxY = if (rotation == Surface.ROTATION_0 || rotation == Surface.ROTATION_180) screenWidth.toFloat() else screenHeight.toFloat()
-
-        return Pair(
-            phoneX.coerceIn(0f, maxX - 1),
-            phoneY.coerceIn(0f, maxY - 1)
-        )
+        return coordConverter.convert(carX, carY, currentRotation)
     }
 
     // ==================== 触摸注入 ====================

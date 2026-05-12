@@ -20,6 +20,7 @@ import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
+import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
@@ -93,8 +94,10 @@ class MdRole(private val context: Context) {
     private val handshakeCompleted = AtomicBoolean(false)
     private val connectionStartTime = AtomicLong(0L)
     private val lastErrorMessage = AtomicReference("")
-    @Volatile private var cmdReadThread: Thread? = null
-    private val mediaReadThreads: MutableMap<Int, Thread> = ConcurrentHashMap()
+    // 协程作用域（IO 线程池 + SupervisorJob 保证子协程独立失败）
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    @Volatile private var cmdReadJob: Job? = null
+    private val mediaReadJobs: MutableMap<Int, Job> = ConcurrentHashMap()
 
     fun setStateListener(listener: (MdState) -> Unit) { this.stateListener = listener }
     fun setHuRole(huRole: HuRole) { this.huRole = huRole }
@@ -162,14 +165,13 @@ class MdRole(private val context: Context) {
         channels.values.forEach { it.disconnect("MdRole stopped") }
         channels.clear()
 
-        // 关闭 socket 后 join 读取线程，确保完全退出
-        cmdReadThread?.interrupt()
-        cmdReadThread?.join(2000)
-        cmdReadThread = null
+        // 取消所有协程（包括读取循环）
+        scope.cancel()
+        cmdReadJob = null
+        mediaReadJobs.clear()
 
-        mediaReadThreads.values.forEach { it.interrupt() }
-        mediaReadThreads.values.forEach { it.join(2000) }
-        mediaReadThreads.clear()
+        // 重建 scope 以支持后续 start()
+        scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
         tcpServers.values.forEach { it.release() }
         tcpServers.clear()
@@ -218,8 +220,8 @@ class MdRole(private val context: Context) {
      * 格式：[data_len(2B)][reserved(2B)][service_type(4B)] + [protobuf_data]
      */
     private fun startCmdReadLoop(channel: Channel) {
-        cmdReadThread?.interrupt()
-        cmdReadThread = Thread({
+        cmdReadJob?.cancel()
+        cmdReadJob = scope.launch {
             LogUtils.i(TAG, "CMD CarLife read loop started")
             while (channel.isConnected) {
                 val msg = channel.readCarLifeMsg() ?: break
@@ -227,9 +229,6 @@ class MdRole(private val context: Context) {
                 handleCarLifeCmdMessage(serviceType, data)
             }
             LogUtils.i(TAG, "CMD CarLife read loop ended")
-        }, "MdRole-CMD-Read").apply {
-            isDaemon = true
-            start()
         }
     }
 
@@ -239,10 +238,9 @@ class MdRole(private val context: Context) {
      * 格式：[data_len(4B)][timestamp(4B)][service_type(4B)] + [raw_data]
      */
     private fun startMediaReadLoop(port: Int, channel: Channel) {
-        val existingThread = mediaReadThreads[port]
-        existingThread?.interrupt()
+        mediaReadJobs[port]?.cancel()
 
-        val thread = Thread({
+        val job = scope.launch {
             LogUtils.i(TAG, "Media CarLife read loop started on port $port (${PORT_NAMES[port]})")
             while (channel.isConnected) {
                 val msg = channel.readCarLifeMediaMsg() ?: break
@@ -250,11 +248,8 @@ class MdRole(private val context: Context) {
                 handleMediaMessage(port, serviceType, timestamp, data)
             }
             LogUtils.i(TAG, "Media CarLife read loop ended on port $port")
-        }, "MdRole-Media-$port").apply {
-            isDaemon = true
-            start()
         }
-        mediaReadThreads[port] = thread
+        mediaReadJobs[port] = job
     }
 
     /**

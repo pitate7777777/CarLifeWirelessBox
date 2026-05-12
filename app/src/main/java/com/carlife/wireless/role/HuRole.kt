@@ -28,6 +28,7 @@ import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
+import kotlinx.coroutines.*
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -169,8 +170,10 @@ class HuRole(
     @Volatile private var vrChannel: Channel? = null
     @Volatile private var ctrlChannel: Channel? = null
 
-    // CMD 通道读取线程
-    @Volatile private var cmdReadThread: Thread? = null
+    // 协程作用域（IO 线程池 + SupervisorJob 保证子协程独立失败）
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // CMD 通道读取协程
+    @Volatile private var cmdReadJob: Job? = null
 
     /**
      * 连接到手机 B
@@ -189,8 +192,8 @@ class HuRole(
         disconnect("preparing new connection")
         state.set(HuState.CONNECTING)
 
-        // 在后台线程执行端口预检 + 连接
-        Thread {
+        // 在后台协程执行端口预检 + 连接
+        scope.launch {
             try {
                 // ========== 端口预检 ==========
                 LogUtils.i("$TAG: Checking CarWith ports at $phoneBIp ...")
@@ -211,13 +214,13 @@ class HuRole(
                     listener?.onError(msg)
                     ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, 0)
                     updateState(HuState.DISCONNECTED, "CarWith not ready")
-                    return@Thread
+                    return@launch
                 }
 
                 if (openCount < portResults.size) {
                     // 部分端口未打开 → CarWith 可能还在初始化
                     LogUtils.w("$TAG: Only $openCount/${portResults.size} ports open, waiting 2s for CarWith to initialize...")
-                    Thread.sleep(2000)
+                    delay(2000)
 
                     // 重新检测未打开的端口
                     val recheck = NetworkDiagnostics.checkCarWithPorts(phoneBIp, 1500)
@@ -232,7 +235,7 @@ class HuRole(
                         LogUtils.w("$TAG: $msg")
                         listener?.onError(msg)
                         updateState(HuState.DISCONNECTED, "Incomplete ports: ${stillClosed.joinToString(", ")}")
-                        return@Thread
+                        return@launch
                     }
                 }
 
@@ -260,10 +263,6 @@ class HuRole(
                 ErrorTracker.recordConnectionLost("HuRole", "初始化失败: ${e.message}")
                 updateState(HuState.DISCONNECTED, "Initialization failed")
             }
-        }.apply {
-            name = "HuRole-Connect"
-            isDaemon = true
-            start()
         }
     }
 
@@ -314,10 +313,12 @@ class HuRole(
             LogUtils.e(e, "$TAG: Error during disconnect")
         }
 
-        // socket 关闭后 join 读取线程
-        cmdReadThread?.interrupt()
-        cmdReadThread?.join(2000)
-        cmdReadThread = null
+        // 取消所有协程（包括读取循环和连接协程）
+        scope.cancel()
+        cmdReadJob = null
+
+        // 重建 scope 以支持后续 reconnect
+        scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
         cmdChannel = null
         videoChannel = null
@@ -382,16 +383,12 @@ class HuRole(
 
         if (count >= 6) {
             LogUtils.i("$TAG: All 6 channels connected, starting CarLife handshake...")
-            // 启动 CMD 通道独立读取线程（使用 CarLife 消息格式）
+            // 启动 CMD 通道独立读取协程（使用 CarLife 消息格式）
             startCmdReadLoop()
-            // 发送协议版本
-            Thread {
-                Thread.sleep(100)
+            // 延迟发送协议版本
+            scope.launch {
+                delay(100)
                 sendProtocolVersion()
-            }.apply {
-                name = "HuRole-Handshake"
-                isDaemon = true
-                start()
             }
         }
     }
@@ -404,7 +401,7 @@ class HuRole(
      */
     private fun startCmdReadLoop() {
         val ch = cmdChannel ?: return
-        cmdReadThread = Thread({
+        cmdReadJob = scope.launch {
             LogUtils.i("$TAG: CMD read loop started (CarLife protocol)")
             while (ch.isConnected && state.get() != HuState.DISCONNECTED) {
                 val msg = ch.readCarLifeMsg() ?: break
@@ -412,9 +409,6 @@ class HuRole(
                 handleCarLifeCmdMessage(serviceType, data)
             }
             LogUtils.i("$TAG: CMD read loop ended")
-        }, "HuRole-CMD-Read").apply {
-            isDaemon = true
-            start()
         }
     }
 

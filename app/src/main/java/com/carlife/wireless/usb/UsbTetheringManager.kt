@@ -12,6 +12,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import com.carlife.wireless.util.LogUtils
+import kotlinx.coroutines.*
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
@@ -65,6 +66,9 @@ class UsbTetheringManager(private val context: Context) {
     private var usbReceiver: BroadcastReceiver? = null
     private var isMonitoring = false
 
+    // 协程作用域（IO 线程池 + SupervisorJob）
+    private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
     fun setListener(listener: UsbStateListener?) {
         this.listener = listener
     }
@@ -99,6 +103,10 @@ class UsbTetheringManager(private val context: Context) {
         isMonitoring = false
 
         LogUtils.i(TAG, "停止监听 USB 网络状态")
+
+        // 取消所有协程
+        scope.cancel()
+        scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
         try {
             networkCallback?.let {
@@ -181,14 +189,14 @@ class UsbTetheringManager(private val context: Context) {
      * 在 192.168.42.1 ~ 192.168.42.254 范围内扫描开放 CarLife 端口的设备
      */
     fun scanForCarDevice(callback: (String?) -> Unit) {
-        Thread {
+        scope.launch {
             LogUtils.i(TAG, "开始扫描 USB 网络中的车机设备...")
 
             val localIp = getUsbInterfaceIp()
             if (localIp == null) {
                 LogUtils.w(TAG, "USB 网络未就绪，跳过扫描")
-                handler.post { callback(null) }
-                return@Thread
+                withContext(Dispatchers.Main) { callback(null) }
+                return@launch
             }
 
             // 扫描 7200 端口（CarLife CMD 端口）
@@ -203,23 +211,19 @@ class UsbTetheringManager(private val context: Context) {
                     LogUtils.i(TAG, "发现车机设备: $ip (CarLife CMD 端口开放)")
                     carIp = ip
                     currentState = UsbState.CAR_CONNECTED
-                    handler.post {
+                    withContext(Dispatchers.Main) {
                         listener?.onCarDeviceFound(ip)
                         listener?.onUsbStateChanged(currentState, ip)
                         callback(ip)
                     }
-                    return@Thread
+                    return@launch
                 } catch (_: Exception) {
                     // 端口未开放，继续扫描
                 }
             }
 
             LogUtils.w(TAG, "未发现车机设备")
-            handler.post { callback(null) }
-        }.apply {
-            name = "Usb-CarDevice-Scan"
-            isDaemon = true
-            start()
+            withContext(Dispatchers.Main) { callback(null) }
         }
     }
 

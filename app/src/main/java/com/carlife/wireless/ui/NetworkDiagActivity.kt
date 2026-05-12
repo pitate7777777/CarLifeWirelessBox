@@ -1,8 +1,6 @@
 package com.carlife.wireless.ui
 
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -12,7 +10,7 @@ import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
 import com.carlife.wireless.util.SettingsManager
-import kotlin.concurrent.thread
+import kotlinx.coroutines.*
 
 /**
  * 网络诊断 Activity
@@ -30,8 +28,8 @@ class NetworkDiagActivity : AppCompatActivity() {
     }
 
     private lateinit var binding: ActivityNetworkDiagBinding
-    private val handler = Handler(Looper.getMainLooper())
     private var isRunning = false
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -48,6 +46,11 @@ class NetworkDiagActivity : AppCompatActivity() {
     override fun onSupportNavigateUp(): Boolean {
         finish()
         return true
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        scope.cancel()
     }
 
     private fun setupListeners() {
@@ -161,15 +164,15 @@ class NetworkDiagActivity : AppCompatActivity() {
         binding.tvDiagResult.text = ""
         binding.tvDiagSummary.text = ""
 
-        thread {
+        scope.launch(Dispatchers.IO) {
             try {
                 // 分步执行并更新 UI
-                handler.post { binding.tvDiagStatus.text = "① 检查 WiFi 状态..." }
-                Thread.sleep(300)
+                withContext(Dispatchers.Main) { binding.tvDiagStatus.text = "① 检查 WiFi 状态..." }
+                delay(300)
 
-                val result = NetworkDiagnostics.runDiagnostics(this, phoneBIp, 2000)
+                val result = NetworkDiagnostics.runDiagnostics(this@NetworkDiagActivity, phoneBIp, 2000)
 
-                handler.post {
+                withContext(Dispatchers.Main) {
                     binding.tvDiagResult.text = result.toText()
                     binding.tvDiagSummary.text = result.toSummary()
 
@@ -193,7 +196,7 @@ class NetworkDiagActivity : AppCompatActivity() {
                     appendErrorStats()
                 }
             } catch (e: Exception) {
-                handler.post {
+                withContext(Dispatchers.Main) {
                     binding.tvDiagStatus.text = "诊断失败: ${e.message}"
                     isRunning = false
                     binding.btnStartDiag.isEnabled = true
@@ -223,7 +226,7 @@ class NetworkDiagActivity : AppCompatActivity() {
         binding.tvDiagResult.text = ""
         binding.tvDiagSummary.text = ""
 
-        thread {
+        scope.launch(Dispatchers.IO) {
             try {
                 val results = NetworkDiagnostics.checkCarWithPorts(phoneBIp, 1500)
                 val openCount = results.count { it.isOpen }
@@ -247,7 +250,7 @@ class NetworkDiagActivity : AppCompatActivity() {
                     sb.appendLine("  打开 CarWith → CarLife 连接 → 无线连接")
                 }
 
-                handler.post {
+                withContext(Dispatchers.Main) {
                     binding.tvDiagResult.text = sb.toString()
 
                     val summaryText = if (openCount == totalCount) {
@@ -267,7 +270,7 @@ class NetworkDiagActivity : AppCompatActivity() {
                     binding.tvDiagStatus.text = "快速检测完成"
                 }
             } catch (e: Exception) {
-                handler.post {
+                withContext(Dispatchers.Main) {
                     binding.tvDiagStatus.text = "检测失败: ${e.message}"
                     isRunning = false
                     binding.btnStartDiag.isEnabled = true

@@ -4,6 +4,7 @@ import com.carlife.wireless.model.ChannelHeader
 import com.carlife.wireless.model.KConnectionState
 import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.LogUtils
+import kotlinx.coroutines.*
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket
@@ -76,6 +77,9 @@ abstract class Channel(
     protected var inputStream: InputStream? = null
     protected var outputStream: OutputStream? = null
     var callback: ChannelCallback? = null
+
+    // 协程作用域（IO 线程池 + SupervisorJob）
+    protected val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     val name: String get() = "${role.name}_${type.name}"
     val isConnected: Boolean get() = state == KConnectionState.CONNECTED
@@ -423,21 +427,17 @@ abstract class Channel(
     }
 
     /**
-     * 启动读取循环（在后台线程调用）
+     * 启动读取循环（在后台协程调用）
      */
     protected fun startReadLoop() {
-        Thread {
+        scope.launch {
             LogUtils.i("[$name] read loop started")
             while (state == KConnectionState.CONNECTED) {
                 val result = read() ?: break
                 val (header, payload) = result
-                callback?.onDataReceived(this, header, payload)
+                callback?.onDataReceived(this@Channel, header, payload)
             }
             LogUtils.i("[$name] read loop ended (state=$state)")
-        }.apply {
-            name = "Channel-Read-$name"
-            isDaemon = true
-            start()
         }
     }
 
@@ -484,7 +484,7 @@ private class TcpChannel(
 
         updateState(KConnectionState.CONNECTING)
 
-        Thread {
+        scope.launch {
             try {
                 LogUtils.i("[$name] connecting to $host:$port...")
                 val sock = Socket(host, port)
@@ -500,13 +500,9 @@ private class TcpChannel(
                 if (autoRead) startReadLoop()
             } catch (e: Exception) {
                 LogUtils.e(e, "[$name] connect failed to $host:$port")
-                callback?.onError(this, e)
+                callback?.onError(this@TcpChannel, e)
                 updateState(KConnectionState.DISCONNECTED, "connect failed: ${e.message}")
             }
-        }.apply {
-            name = "Channel-Connect-$name"
-            isDaemon = true
-            start()
         }
     }
 
@@ -525,6 +521,7 @@ private class TcpChannel(
         outputStream = null
         socket = null
 
+        scope.cancel()
         updateState(KConnectionState.DISCONNECTED, reason)
     }
 }
@@ -578,6 +575,7 @@ class TcpServerChannel(
         outputStream = null
         socket = null
 
+        scope.cancel()
         updateState(KConnectionState.DISCONNECTED, reason)
     }
 }
