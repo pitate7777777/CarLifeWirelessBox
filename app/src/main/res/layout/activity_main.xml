@@ -330,6 +330,15 @@
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_view_logs"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/view_logs"
+                android:textColor="#FF7B1FA2"
+                android:layout_marginBottom="12dp"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_usb_guide"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -368,12 +377,30 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
                 <TextView
-                    android:layout_width="wrap_content"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
                     android:text="连接日志"
                     android:textSize="18sp"
                     android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tv_log_more"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="查看全部 ▸"
+                    android:textSize="13sp"
+                    android:textColor="#FF7B1FA2"
+                    android:padding="4dp" />
+
+            </LinearLayout>
 
                 <ScrollView
                     android:layout_width="match_parent"

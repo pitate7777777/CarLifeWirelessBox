@@ -125,6 +125,15 @@ class SettingsActivity : AppCompatActivity() {
         val phoneBIp = prefs.getString("phone_b_ip", com.carlife.wireless.util.Constants.IpAddress.HOTSPOT_GATEWAY)
             ?: com.carlife.wireless.util.Constants.IpAddress.HOTSPOT_GATEWAY
         binding.etPhoneBIp.setText(phoneBIp)
+
+        // 加载通道开关配置
+        val channelConfig = SettingsManager.getChannelConfig(this)
+        binding.switchChannelCmd.isChecked = channelConfig.cmdEnabled
+        binding.switchChannelVideo.isChecked = channelConfig.videoEnabled
+        binding.switchChannelCtrl.isChecked = channelConfig.ctrlEnabled
+        binding.switchChannelMedia.isChecked = channelConfig.mediaEnabled
+        binding.switchChannelTts.isChecked = channelConfig.ttsEnabled
+        binding.switchChannelVr.isChecked = channelConfig.vrEnabled
     }
     
     private fun setupListeners() {
@@ -243,6 +252,18 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         LogUtils.i(TAG, "Settings saved: resolution=$resolution, bitrate=$bitrate, framerate=$framerate, sampleRate=$sampleRate, port=$port, phoneBIp=$phoneBIp")
+
+        // 保存通道开关配置
+        val channelConfig = SettingsManager.ChannelConfig(
+            cmdEnabled = true,   // 始终启用
+            videoEnabled = true, // 始终启用
+            ctrlEnabled = true,  // 始终启用
+            mediaEnabled = binding.switchChannelMedia.isChecked,
+            ttsEnabled = binding.switchChannelTts.isChecked,
+            vrEnabled = binding.switchChannelVr.isChecked
+        )
+        SettingsManager.saveChannelConfig(this, channelConfig)
+        LogUtils.i(TAG, "Channel config saved: media=${channelConfig.mediaEnabled}, tts=${channelConfig.ttsEnabled}, vr=${channelConfig.vrEnabled}")
     }
     
     override fun onDestroy() {

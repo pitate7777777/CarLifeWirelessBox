@@ -56,4 +56,20 @@
     <string name="diag_report_title">诊断报告</string>
     <string name="diag_report_saved">诊断报告已保存</string>
     <string name="diag_report_share">分享报告</string>
-</resources>
+
+    <!-- 通道开关 -->
+    <string name="channel_config_title">📡 通道开关</string>
+    <string name="channel_config_subtitle">控制哪些 CarLife 数据通道启用</string>
+    <string name="channel_cmd">CMD（协议握手）</string>
+    <string name="channel_cmd_desc">必须启用 — CarLife 协议通信</string>
+    <string name="channel_video">VIDEO（投屏画面）</string>
+    <string name="channel_video_desc">必须启用 — 视频流传输</string>
+    <string name="channel_ctrl">CTRL（触摸控制）</string>
+    <string name="channel_ctrl_desc">必须启用 — 车机触摸回传</string>
+    <string name="channel_media">MEDIA（音乐转发）</string>
+    <string name="channel_media_desc">可选 — 车机播放手机音乐</string>
+    <string name="channel_tts">TTS（语音播报）</string>
+    <string name="channel_tts_desc">可选 — 语音导航播报</string>
+    <string name="channel_vr">VR（语音识别）</string>
+    <string name="channel_vr_desc">可选 — 语音助手交互</string>
+    <string name="view_logs">📋 查看日志</string></resources>

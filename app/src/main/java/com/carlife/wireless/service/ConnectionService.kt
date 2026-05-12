@@ -361,6 +361,19 @@ class ConnectionService : Service() {
             val phoneBIp = com.carlife.wireless.util.SettingsManager.getPhoneBIp(this)
             LogUtils.i(TAG, "Phone B IP: $phoneBIp")
             huRole = HuRole(this, phoneBIp)
+
+            // 应用保存的通道开关配置
+            val savedConfig = com.carlife.wireless.util.SettingsManager.getChannelConfig(this)
+            huRole?.channelConfig = HuRole.ChannelConfig(
+                cmdEnabled = savedConfig.cmdEnabled,
+                videoEnabled = savedConfig.videoEnabled,
+                ctrlEnabled = savedConfig.ctrlEnabled,
+                mediaEnabled = savedConfig.mediaEnabled,
+                ttsEnabled = savedConfig.ttsEnabled,
+                vrEnabled = savedConfig.vrEnabled
+            )
+            LogUtils.i(TAG, "Channel config applied: media=${savedConfig.mediaEnabled}, tts=${savedConfig.ttsEnabled}, vr=${savedConfig.vrEnabled}")
+
             // 将 HuRole 注入 MdRole，实现车机→手机B的数据转发
             val hr = huRole
             if (hr != null) mdRole?.setHuRole(hr)

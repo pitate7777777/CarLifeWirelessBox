@@ -199,6 +199,15 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, NetworkDiagActivity::class.java))
         }
 
+        binding.btnViewLogs.setOnClickListener {
+            startActivity(Intent(this, LogViewerActivity::class.java))
+        }
+
+        // "查看全部" 日志链接
+        binding.tvLogMore.setOnClickListener {
+            startActivity(Intent(this, LogViewerActivity::class.java))
+        }
+
         binding.btnUsbGuide.setOnClickListener {
             startActivity(Intent(this, UsbGuideActivity::class.java))
         }

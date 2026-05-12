@@ -130,4 +130,44 @@ object SettingsManager {
         val bitrate = getBitrateKbps(context)
         return "预设: ${preset.label}\n分辨率: ${w}x${h}\n帧率: ${fps}fps\n码率: ${bitrate}kbps"
     }
+
+    // ==================== 通道开关配置 ====================
+
+    /** 通道开关配置数据类 */
+    data class ChannelConfig(
+        val cmdEnabled: Boolean = true,      // 必须
+        val videoEnabled: Boolean = true,    // 必须
+        val ctrlEnabled: Boolean = true,     // 必须
+        val mediaEnabled: Boolean = true,    // 可选
+        val ttsEnabled: Boolean = false,     // 可选
+        val vrEnabled: Boolean = false       // 可选
+    )
+
+    /**
+     * 获取通道开关配置
+     */
+    fun getChannelConfig(context: Context): ChannelConfig {
+        val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
+        return ChannelConfig(
+            cmdEnabled = true,   // CMD 始终启用（不可关闭）
+            videoEnabled = true, // VIDEO 始终启用（不可关闭）
+            ctrlEnabled = true,  // CTRL 始终启用（不可关闭）
+            mediaEnabled = prefs.getBoolean("channel_media", true),
+            ttsEnabled = prefs.getBoolean("channel_tts", false),
+            vrEnabled = prefs.getBoolean("channel_vr", false)
+        )
+    }
+
+    /**
+     * 保存通道开关配置
+     */
+    fun saveChannelConfig(context: Context, config: ChannelConfig) {
+        val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
+        prefs.edit().apply {
+            putBoolean("channel_media", config.mediaEnabled)
+            putBoolean("channel_tts", config.ttsEnabled)
+            putBoolean("channel_vr", config.vrEnabled)
+            apply()
+        }
+    }
 }
