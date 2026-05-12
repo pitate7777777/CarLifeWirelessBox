@@ -292,13 +292,23 @@ class HuRole(
             return
         }
 
-        updateState(HuState.CONNECTING)
+        // 清理可能残留的旧资源（静默清理，不触发 listener 回调）
+        // 注意：不能调用 disconnect()，因为它会触发 DISCONNECTED 回调，
+        // 导致 ConnectionService 调度重连并销毁当前 HuRole 实例
+        channels.values.forEach { ch ->
+            try { ch.disconnect("preparing new connection") } catch (_: Exception) {}
+        }
+        channels.clear()
+        if (!scope.isActive) {
+            scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        }
+        cmdReadJob = null
         connectedChannelCount.set(0)
         requiredConnectedCount.set(0)
+        handshakeStarted.set(false)
+        handshakePhase.set("未开始")
 
-        // 清理可能残留的旧资源
-        disconnect("preparing new connection")
-        state.set(HuState.CONNECTING)
+        updateState(HuState.CONNECTING)
 
         scope.launch {
             try {
