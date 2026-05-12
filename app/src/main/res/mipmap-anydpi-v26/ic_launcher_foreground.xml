@@ -1,25 +1,104 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- 蓝色圆角矩形背景 -->
-    <path
-        android:fillColor="#2196F3"
-        android:pathData="M8,8h92v92h-92z"/>
-    
-    <!-- 白色文字 "C" -->
-    <group android:translateX="30" android:translateY="54">
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M0,-20 A20,20 0 1,1 0,20 A20,20 0 1,1 0,-20 M-5,-15 L-5,15 L5,15 L5,-15 Z"/>
-    </group>
-    
-    <!-- 白色文字 "L" -->
-    <group android:translateX="65" android:translateY="54">
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M-10,-20 L10,-20 L10,20 L-10,20 L-10,0 L5,0 L5,20 L-10,20 Z"/>
-    </group>
+
+    <!-- 背景渐变：深蓝到青色 -->
+    <path android:fillColor="#1565C0"
+        android:pathData="M0,0h108v108h-108z"/>
+
+    <!-- 网格装饰 -->
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.05"
+        android:pathData="M0,27h108M0,54h108M0,81h108M27,0v108M54,0v108M81,0v108"
+        android:strokeWidth="0.5" android:strokeColor="#FFFFFF"/>
+
+    <!-- WiFi 外弧 -->
+    <path android:fillColor="#4FC3F7" android:fillAlpha="0.35"
+        android:pathData="M78,22 A20,20 0 0,1 92,36"
+        android:strokeWidth="2.5" android:strokeColor="#4FC3F7"
+        android:strokeLineCap="round"/>
+
+    <!-- WiFi 中弧 -->
+    <path android:fillColor="#4FC3F7" android:fillAlpha="0.55"
+        android:pathData="M80,28 A14,14 0 0,1 90,38"
+        android:strokeWidth="2.5" android:strokeColor="#4FC3F7"
+        android:strokeLineCap="round"/>
+
+    <!-- WiFi 内弧 -->
+    <path android:fillColor="#4FC3F7" android:fillAlpha="0.85"
+        android:pathData="M82,34 A8,8 0 0,1 88,40"
+        android:strokeWidth="2.5" android:strokeColor="#4FC3F7"
+        android:strokeLineCap="round"/>
+
+    <!-- WiFi 中心点 -->
+    <path android:fillColor="#00E5FF" android:fillAlpha="0.9"
+        android:pathData="M85,40.5 A2.5,2.5 0 1,1 85,45.5 A2.5,2.5 0 1,1 85,40.5z"/>
+
+    <!-- 车身阴影 -->
+    <path android:fillColor="#000000" android:fillAlpha="0.12"
+        android:pathData="M26,74 A28,4 0 0,1 82,74z"/>
+
+    <!-- 车身主体 -->
+    <path android:fillColor="#E3F2FD"
+        android:pathData="M30,64 L34,56 L42,48 L50,44 L62,44 L70,48 L76,56 L80,64 L80,68 L30,68z"
+        android:strokeColor="#BBDEFB" android:strokeWidth="0.8" android:strokeLineJoin="round"/>
+
+    <!-- 车窗 -->
+    <path android:fillColor="#1565C0" android:fillAlpha="0.45"
+        android:pathData="M40,54 L46,48 L58,46 L66,48 L70,54 L50,54z"
+        android:strokeColor="#90CAF9" android:strokeWidth="0.5"/>
+
+    <!-- 车窗分隔线 -->
+    <path android:strokeColor="#90CAF9" android:strokeWidth="0.8" android:strokeAlpha="0.5"
+        android:pathData="M50,46 L50,54"/>
+
+    <!-- 前灯 -->
+    <path android:fillColor="#FFF176" android:fillAlpha="0.9"
+        android:pathData="M76,58 L81,58 L81,62 L76,62z" android:strokeWidth="0"/>
+
+    <!-- 后灯 -->
+    <path android:fillColor="#EF5350" android:fillAlpha="0.75"
+        android:pathData="M30,58 L34,58 L34,62 L30,62z" android:strokeWidth="0"/>
+
+    <!-- 左车轮外圈 -->
+    <path android:fillColor="#37474F"
+        android:pathData="M40,70 A5,5 0 1,1 40,80 A5,5 0 1,1 40,70z"
+        android:strokeColor="#546E7A" android:strokeWidth="0.8"/>
+    <!-- 左车轮内圈 -->
+    <path android:fillColor="#78909C"
+        android:pathData="M40,72.5 A2.5,2.5 0 1,1 40,77.5 A2.5,2.5 0 1,1 40,72.5z"/>
+
+    <!-- 右车轮外圈 -->
+    <path android:fillColor="#37474F"
+        android:pathData="M70,70 A5,5 0 1,1 70,80 A5,5 0 1,1 70,70z"
+        android:strokeColor="#546E7A" android:strokeWidth="0.8"/>
+    <!-- 右车轮内圈 -->
+    <path android:fillColor="#78909C"
+        android:pathData="M70,72.5 A2.5,2.5 0 1,1 70,77.5 A2.5,2.5 0 1,1 70,72.5z"/>
+
+    <!-- 手机外框 -->
+    <path android:fillColor="#263238"
+        android:pathData="M14,54 L30,54 A3,3 0 0,1 33,57 L33,79 A3,3 0 0,1 30,82 L14,82 A3,3 0 0,1 11,79 L11,57 A3,3 0 0,1 14,54z"
+        android:strokeColor="#4FC3F7" android:strokeWidth="1"/>
+
+    <!-- 手机屏幕 -->
+    <path android:fillColor="#0D47A1" android:fillAlpha="0.8"
+        android:pathData="M13,58 L31,58 A1,1 0 0,1 32,59 L32,77 A1,1 0 0,1 31,78 L13,78 A1,1 0 0,1 12,77 L12,59 A1,1 0 0,1 13,58z"/>
+
+    <!-- 手机 Home 键 -->
+    <path android:fillColor="#4FC3F7" android:fillAlpha="0.5"
+        android:pathData="M22,79 A1.5,1.5 0 1,1 22,82 A1.5,1.5 0 1,1 22,79z"
+        android:strokeColor="#4FC3F7" android:strokeWidth="0.6"/>
+
+    <!-- 连接虚线 -->
+    <path android:strokeColor="#4FC3F7" android:strokeWidth="1.5" android:strokeAlpha="0.5"
+        android:pathData="M33,62 Q42,52 46,56"
+        android:strokeLineCap="round"
+        android:strokeDashArray="3,2"/>
+
+    <!-- 底部标签 -->
+    <path android:fillColor="#FFFFFF" android:fillAlpha="0.6"
+        android:pathData="M38,97 L70,97" android:strokeWidth="0.5"/>
 </vector>
