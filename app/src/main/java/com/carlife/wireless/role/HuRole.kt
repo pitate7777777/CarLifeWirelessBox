@@ -7,7 +7,6 @@ import com.carlife.wireless.channel.ChannelCallback
 import com.carlife.wireless.channel.ChannelType
 import com.carlife.wireless.channel.DeviceRole
 import com.carlife.wireless.model.ChannelHeader
-import com.carlife.wireless.model.KConnectionState
 import com.carlife.wireless.proto.CarlifeAuthenRequestProto
 import com.carlife.wireless.proto.CarlifeAuthenResponseProto
 import com.carlife.wireless.proto.CarlifeAuthenResultProto
@@ -16,10 +15,6 @@ import com.carlife.wireless.proto.CarlifeDeviceInfoProto
 import com.carlife.wireless.proto.CarlifeDeviceInfoProto.DeviceType
 import com.carlife.wireless.proto.CarlifeDeviceInfoProto.OsType
 import com.carlife.wireless.proto.CarlifeFeatureConfigProto
-import com.carlife.wireless.proto.CarlifeRegisterRequestProto
-import com.carlife.wireless.proto.CarlifeRegisterResponseProto
-import com.carlife.wireless.proto.CarlifeRegisterTypeProto.RegisterType
-import com.carlife.wireless.proto.CarlifeRegisterTypeProto.RegisterResultCode
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoCodecType
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoResolution
@@ -30,6 +25,7 @@ import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -220,6 +216,8 @@ class HuRole(
     private val state = AtomicReference(HuState.IDLE)
     private val connectedChannelCount = AtomicInteger(0)
     private val requiredConnectedCount = AtomicInteger(0)
+    /** 防止握手重复启动的标志 */
+    private val handshakeStarted = AtomicBoolean(false)
 
     // 通道配置
     var channelConfig: ChannelConfig = DEFAULT_CHANNEL_CONFIG
@@ -399,6 +397,7 @@ class HuRole(
 
         connectedChannelCount.set(0)
         requiredConnectedCount.set(0)
+        handshakeStarted.set(false)
         LogUtils.i("$TAG: Disconnected: ${reason ?: "unknown"}")
     }
 
@@ -460,18 +459,16 @@ class HuRole(
                 "total=$totalCount/${channelConfig.totalEnabled}, " +
                 "required=${requiredConnectedCount.get()}/${channelConfig.requiredCount}")
 
-        // 必选通道全部连接 → 启动握手
-        if (requiredConnectedCount.get() >= channelConfig.requiredCount) {
-            // 可选通道可能还在连接中，但不阻塞握手
+        // 必选通道全部连接 → 启动握手（AtomicBoolean 防止重复触发）
+        if (requiredConnectedCount.get() >= channelConfig.requiredCount
+            && handshakeStarted.compareAndSet(false, true)) {
             val optionalPending = channelConfig.optionalChannels.count { channels[it]?.isConnected != true }
             if (optionalPending > 0) {
                 LogUtils.i("$TAG: All required channels connected, $optionalPending optional channels pending. Starting handshake...")
             } else {
                 LogUtils.i("$TAG: All channels connected, starting CarLife handshake...")
             }
-            // 启动 CMD 通道独立读取协程（使用 CarLife 消息格式）
             startCmdReadLoop()
-            // 延迟发送协议版本
             scope.launch {
                 delay(100)
                 sendProtocolVersion()

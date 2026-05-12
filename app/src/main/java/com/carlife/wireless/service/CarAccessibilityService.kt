@@ -3,8 +3,6 @@ package com.carlife.wireless.service
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
-import android.os.Handler
-import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import com.carlife.wireless.util.LogUtils
 
@@ -62,18 +60,16 @@ class CarAccessibilityService : AccessibilityService() {
     private var gesturePath: Path? = null
 
     /** 手势是否正在进行（DOWN 已发送，UP 未到达） */
-    private var isGestureActive = false
+    @Volatile private var isGestureActive = false
 
     /** 手势起始时间 */
-    private var gestureStartTime = 0L
+    @Volatile private var gestureStartTime = 0L
 
     /** 上一个 MOVE 点的时间戳（用于采样降频） */
     private var lastMoveTime = 0L
 
     /** 手势路径点计数 */
     private var gesturePointCount = 0
-
-    private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onServiceConnected() {
         super.onServiceConnected()
