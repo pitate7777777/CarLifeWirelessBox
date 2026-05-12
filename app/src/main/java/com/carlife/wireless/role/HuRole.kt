@@ -23,6 +23,7 @@ import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
+import com.carlife.wireless.util.NetworkUtils
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
@@ -197,7 +198,7 @@ class HuRole(
         private val OS_VERSION: String = Build.VERSION.RELEASE ?: "unknown"
 
         /** 连接超时（毫秒）— 仅检查 CMD + VIDEO 两个核心通道 */
-        private const val CONNECT_TIMEOUT_MS = 10_000L
+        private const val CONNECT_TIMEOUT_MS = 15_000L
 
         /**
          * 默认通道配置
@@ -289,64 +290,45 @@ class HuRole(
         disconnect("preparing new connection")
         state.set(HuState.CONNECTING)
 
-        // 在后台协程执行端口预检 + 连接
+        // 在后台协程执行连接
+        // 注意：不做端口预检（快速 TCP 连接+断开会干扰 CarWith 的连接队列，
+        // 导致后续正式连接时 CarWith 不响应握手消息）
         scope.launch {
             try {
-                // ========== 端口预检 ==========
-                LogUtils.i("$TAG: Checking CarWith ports at $phoneBIp ...")
-                val portResults = NetworkDiagnostics.checkCarWithPorts(phoneBIp, 1500)
-                val openCount = portResults.count { it.isOpen }
-                val closedPorts = portResults.filter { !it.isOpen }.map { "${it.port}(${it.name})" }
-
-                LogUtils.i("$TAG: Port check: $openCount/${portResults.size} open")
-
-                // 通知上层端口检测结果
-                listener?.onPortCheckResult(openCount, portResults.size, closedPorts)
-
-                if (openCount == 0) {
-                    // 没有任何端口打开 → CarWith 未进入无线连接模式
-                    val msg = "CarWith 未就绪：手机 B ($phoneBIp) 无端口监听。" +
-                              "请在手机 B 上打开 CarWith → CarLife 连接 → 无线连接"
-                    LogUtils.w("$TAG: $msg")
-                    listener?.onError(msg)
-                    ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, 0)
-                    updateState(HuState.DISCONNECTED, "CarWith not ready")
-                    return@launch
-                }
-
-                if (openCount < portResults.size) {
-                    // 部分端口未打开 → CarWith 可能还在初始化
-                    LogUtils.w("$TAG: Only $openCount/${portResults.size} ports open, waiting 2s for CarWith to initialize...")
-                    delay(2000)
-
-                    // 重新检测未打开的端口
-                    val recheck = NetworkDiagnostics.checkCarWithPorts(phoneBIp, 1500)
-                    val recheckOpen = recheck.count { it.isOpen }
-                    val stillClosed = recheck.filter { !it.isOpen }.map { "${it.port}(${it.name})" }
-
-                    LogUtils.i("$TAG: Recheck: $recheckOpen/${recheck.size} open")
-
-                    if (recheckOpen < portResults.size) {
-                        val msg = "CarWith 端口不完整：${stillClosed.joinToString(", ")} 未监听。" +
-                                  "请确认 CarWith 已进入无线连接模式"
+                // ========== 快速 TCP 可达性检测（单端口，不影响 CarWith 状态） ==========
+                LogUtils.i("$TAG: Quick reachability check to $phoneBIp ...")
+                val reachable = NetworkUtils.ping(phoneBIp, 2000)
+                if (!reachable) {
+                    // Ping 不可靠（Android 热点常阻 ICMP），改用单端口 TCP 探测
+                    val probeResult = NetworkDiagnostics.checkPort(phoneBIp, Constants.Port.HU_CMD, "CMD", 2000)
+                    if (!probeResult.isOpen) {
+                        val msg = "手机 B ($phoneBIp) 不可达，请检查热点连接。" +
+                                  "或在手机 B 上打开 CarWith → CarLife 连接 → 无线连接"
                         LogUtils.w("$TAG: $msg")
                         listener?.onError(msg)
-                        updateState(HuState.DISCONNECTED, "Incomplete ports: ${stillClosed.joinToString(", ")}")
+                        ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, 0)
+                        updateState(HuState.DISCONNECTED, "Phone B unreachable")
                         return@launch
                     }
                 }
+                LogUtils.i("$TAG: Phone B reachable, proceeding with connection")
 
                 // ========== 建立连接（按配置启用通道） ==========
                 val config = channelConfig
-                LogUtils.i("$TAG: All CarWith ports ready, connecting ${config.totalEnabled} channels " +
+                LogUtils.i("$TAG: Connecting ${config.totalEnabled} channels to $phoneBIp " +
                         "(required: ${config.requiredChannels.joinToString { it.name }}, " +
                         "optional: ${config.optionalChannels.joinToString { it.name }})")
+
+                // 通知上层端口检测结果（全部视为开放，由连接超时兜底）
+                listener?.onPortCheckResult(config.totalEnabled, config.totalEnabled, emptyList())
 
                 for (type in config.allChannels) {
                     val autoRead = type != ChannelType.HU_CMD
                     val channel = createChannel(type, autoRead)
                     channels[type] = channel
                     channel.connect(phoneBIp)
+                    // 短暂延迟，避免 6 个 SYN 同时到达 CarWith 导致连接被拒
+                    if (type != config.allChannels.last()) delay(100)
                 }
 
                 LogUtils.i("$TAG: Connecting to phone B at $phoneBIp (${config.totalEnabled} channels)")
@@ -366,13 +348,13 @@ class HuRole(
                         val required = requiredConnectedCount.get()
                         LogUtils.e("$TAG: Connection timeout! VIDEO not connected. " +
                                 "Connected: $connected/${config.totalEnabled} total, $required/${config.requiredCount} required")
-                        listener?.onError("连接超时：视频通道未连接，请检查 CarWith 状态")
+                        listener?.onError("连接超时：视频通道未连接，请检查 CarWith 是否已进入无线连接模式")
                         ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, CONNECT_TIMEOUT_MS)
                         disconnect("Connection timeout: VIDEO not connected")
                     } else if (!requiredOk) {
                         // VIDEO 已连接但其他必选通道缺失 → 警告但不中断
                         val missing = config.requiredChannels.filter { channels[it]?.isConnected != true }
-                        LogUtils.w("$TAG: Some required channels not connected: ${missing.joinToString { it.name }}}, but VIDEO is OK")
+                        LogUtils.w("$TAG: Some required channels not connected: ${missing.joinToString { it.name }}, but VIDEO is OK")
                     } else {
                         LogUtils.i("$TAG: All required channels connected within timeout window")
                     }

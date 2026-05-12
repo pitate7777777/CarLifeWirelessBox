@@ -28,6 +28,43 @@
 | CarLife 6.7.2 及之前 | ✅ 可用 | 旧版有线 CarLife |
 | CarLife 7.2 及之后 | ❌ 不兼容 | 连接黑屏 |
 
+## 无线连接流程
+
+```
+[手机B - CarWith] ← WiFi 热点 → [旧手机 APP] ← USB → [WinCE 车机]
+```
+
+**连接步骤（WifiGuideActivity 引导）：**
+
+| 步骤 | 操作 | 说明 |
+|------|------|------|
+| 1 | 手机 B 开启 WiFi 热点 | 旧手机连接到此热点 |
+| 2 | 本机连接热点 | 自动检测网关 IP 作为手机 B 地址 |
+| 3 | 手机 B 打开 CarWith | 选择「无线连接」，CarWith 开始监听 6 个端口 |
+| 4 | 启动 CarLife 服务 | HuRole 连接手机 B 的 6 个端口，完成 CarLife 协议握手 |
+
+**协议握手流程（CarLife 标准协议）：**
+
+```
+Bridge(HU)                    PhoneB CarWith(MD)
+    |                              |
+    |--- HU_PROTOCOL_VERSION ----→ |  Phase 1: 版本协商
+    |←-- VERSION_MATCH_STATUS ---- |
+    |--- HU_INFO ----------------→ |  Phase 2: 设备信息交换
+    |←-- MD_INFO ----------------- |
+    |--- HU_AUTHEN_REQUEST ------> |  Phase 3: 认证
+    |←-- MD_AUTHEN_RESPONSE ------ |
+    |--- HU_AUTHEN_RESULT -------> |  Phase 4: 认证结果
+    |←-- MD_AUTHEN_RESULT -------- |
+    |←-- MD_FEATURE_CONFIG_REQ --- |  Phase 5: 特性协商
+    |--- HU_FEATURE_CONFIG_RESP → |
+    |--- VIDEO_ENCODER_INIT -----> |  Phase 6: 视频编码器初始化
+    |←-- VIDEO_ENCODER_INIT_DONE - |
+    |--- VIDEO_ENCODER_START ----→ |  Phase 7: 开始投屏
+    |                              |
+    |====== 数据传输阶段 ==========|
+```
+
 ## 开发进度
 
 ### ✅ 已完成

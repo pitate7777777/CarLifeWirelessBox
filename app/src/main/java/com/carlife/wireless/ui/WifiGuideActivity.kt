@@ -224,12 +224,14 @@ class WifiGuideActivity : AppCompatActivity() {
     /**
      * 判断是否连接到手机热点
      *
-     * 核心逻辑：通过系统 DHCP 网关判断。
-     * 手机热点的网关地址就是手机本身的 IP（通常是 .1）。
-     * 如果当前 WiFi 的网关 IP 与本机 IP 在同一子网且不同，
-     * 且网关可达，则认为已连接到热点。
+     * 核心逻辑：
+     * 1. 通过系统 DHCP 网关判断（最可靠）
+     * 2. 通过本机 IP 与手机 B IP 的子网匹配判断
+     * 注意：不能仅凭 WiFi 已连接就返回 true（可能连的是普通路由器）
      */
     private fun isLikelyHotspot(ssid: String?): Boolean {
+        val phoneBIp = SettingsManager.getPhoneBIp(this)
+
         // 方法 1: 通过系统 API 获取当前 WiFi 的网关地址
         val gatewayIp = NetworkUtils.getActiveGatewayIp(this)
         if (gatewayIp != null) {
@@ -243,20 +245,22 @@ class WifiGuideActivity : AppCompatActivity() {
                     return true
                 }
             }
-            // 即使本机 IP 未知，只要网关存在且不是默认值，也认为连上了
-            if (gatewayIp != Constants.IpAddress.HOTSPOT_GATEWAY || isWifiConnected()) {
-                LogUtils.d(TAG, "Hotspot detected via active gateway: $gatewayIp")
+            // 网关 IP 与手机 B IP 一致 → 已连接到手机 B 的热点
+            if (gatewayIp == phoneBIp) {
+                LogUtils.d(TAG, "Hotspot detected: gateway matches phoneB IP: $gatewayIp")
                 return true
             }
         }
 
-        // 方法 2: 子网匹配（回退方案）
+        // 方法 2: 子网匹配（回退方案）— 本机 IP 与手机 B IP 在同一子网
         val localIp = NetworkUtils.getLocalIpAddress()
         if (localIp != null) {
-            val phoneBIp = SettingsManager.getPhoneBIp(this)
             val localPrefix = localIp.substringBeforeLast(".")
             val phonePrefix = phoneBIp.substringBeforeLast(".")
-            if (localPrefix == phonePrefix) return true
+            if (localPrefix == phonePrefix) {
+                LogUtils.d(TAG, "Hotspot detected via subnet match: local=$localIp, phoneB=$phoneBIp")
+                return true
+            }
         }
 
         return false
@@ -435,9 +439,17 @@ class WifiGuideActivity : AppCompatActivity() {
             sb.appendLine("检测到网关: $autoDetected")
         }
 
-        // Ping 手机 B
+        // 检测手机 B 可达性（TCP 探测替代 ICMP ping，Android 热点 ICMP 常被阻断）
         if (wifiConnected) {
-            val reachable = NetworkUtils.ping(phoneBIp, 2000)
+            val reachable = try {
+                val socket = java.net.Socket()
+                socket.connect(java.net.InetSocketAddress(phoneBIp, 7240), 2000)
+                socket.close()
+                true
+            } catch (_: Exception) {
+                // TCP 探测失败，回退到 ping
+                NetworkUtils.ping(phoneBIp, 2000)
+            }
             sb.appendLine("手机 B: ${if (reachable) "✅ 可达" else "⚠️ 不可达"}")
         }
 

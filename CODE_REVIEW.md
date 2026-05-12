@@ -1,8 +1,34 @@
 # CarLifeWirelessBox 源码审查报告
 
-**审查日期**: 2026-05-12（第四轮）  
-**审查范围**: 近 5 次提交涉及的 12 个文件  
+**审查日期**: 2026-05-12（第五轮）  
+**审查范围**: HuRole 连接流程 + WifiGuideActivity 状态检测  
 **修复状态**: ✅ 已修复 | 🔧 本次新增 | ⬜ 建议改进
+
+---
+
+## 本次修复（第五轮）
+
+### 🔧 High-1: HuRole 端口预检干扰正式连接（无线连接卡住根因）
+
+- **文件**: `HuRole.kt` — `connect()`
+- **问题**: 连接前执行 `NetworkDiagnostics.checkCarWithPorts()` 对 CarWith 的 6 个端口进行快速 TCP 连接+断开。这种行为会：
+  1. 填满 CarWith 的 TCP backlog 队列
+  2. 使 CarWith 进入异常连接状态
+  3. 导致后续正式连接时 CarWith 不响应握手消息（HU_PROTOCOL_VERSION）
+  4. 最终触发 10 秒连接超时
+- **修复**: 移除端口预检，改用单端口 TCP 探测检测可达性；通道间增加 100ms 延迟避免 SYN 风暴；超时从 10s 增至 15s。
+
+### 🔧 Medium-1: WifiGuideActivity Ping 检测不可靠（"手机B不可达"根因）
+
+- **文件**: `WifiGuideActivity.kt` — `updateConnectionInfo()`
+- **问题**: 使用 `InetAddress.isReachable()` (ICMP ping) 检测手机 B 可达性。Android 热点经常阻断 ICMP，导致即使 TCP 连接正常（端口检测通过），ping 仍返回 false，UI 显示"手机B: 不可达"。
+- **修复**: 改用 TCP Socket 探测（连接 CMD 端口 7240），失败时回退到 ping。
+
+### 🔧 Medium-2: WifiGuideActivity 热点检测误判
+
+- **文件**: `WifiGuideActivity.kt` — `isLikelyHotspot()`
+- **问题**: 当网关检测和子网匹配均失败时，仅凭 `isWifiConnected()` 就返回 true。这意味着连到普通路由器也会被误判为已连接手机热点，导致服务启动但 HuRole 连接失败。
+- **修复**: 移除 `isWifiConnected()` 回退逻辑，只在网关/子网确匹配时返回 true。
 
 ---
 
