@@ -66,6 +66,12 @@ class ConnectionService : Service() {
         /** 当前运行的 ConnectionService 实例（供 MainActivity 传递 MediaProjection） */
         private var instanceRef: WeakReference<ConnectionService>? = null
 
+        /** 服务是否正在运行（静态标志，比 getRunningServices 可靠） */
+        @Volatile
+        @JvmStatic
+        var isServiceActive: Boolean = false
+            private set
+
         @JvmStatic
         val instance: ConnectionService?
             get() = instanceRef?.get()
@@ -109,6 +115,7 @@ class ConnectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         LogUtils.i(TAG, "ConnectionService started")
+        isServiceActive = true
         startForegroundService()
         // MdRole 和 HuRole 独立启动，互不依赖
         startMdRole()
@@ -124,6 +131,7 @@ class ConnectionService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         instanceRef = null
+        isServiceActive = false
         LogUtils.i(TAG, "ConnectionService destroyed")
         stopAllServices()
         stopMdRole()

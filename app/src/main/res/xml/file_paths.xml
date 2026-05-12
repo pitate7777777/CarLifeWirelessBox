@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <!-- 仅允许共享日志文件目录（用于分享日志） -->
+    <!-- app-specific 外部存储（Android 10+ 的日志目录） -->
     <external-files-path name="logs" path="logs" />
+    <!-- 内部存储日志目录（Android 9- 的回退路径） -->
+    <files-path name="internal_logs" path="logs" />
     <!-- 允许共享诊断报告目录（用于分享报告） -->
     <external-files-path name="reports" path="reports" />
 </paths>

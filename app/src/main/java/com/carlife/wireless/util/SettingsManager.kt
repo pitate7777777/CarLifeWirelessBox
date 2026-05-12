@@ -59,12 +59,24 @@ object SettingsManager {
 
     /**
      * 获取手机 B 的 IP 地址
-     * 默认值为热点网关地址（192.168.43.1）
+     *
+     * 优先返回用户手动设置的 IP；
+     * 若未设置，则自动从当前 WiFi 连接的 DHCP 网关中获取（即热点网关地址）。
      */
     fun getPhoneBIp(context: Context): String {
         val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
-        return prefs.getString("phone_b_ip", Constants.IpAddress.HOTSPOT_GATEWAY)
-            ?: Constants.IpAddress.HOTSPOT_GATEWAY
+        val saved = prefs.getString("phone_b_ip", null)
+        if (!saved.isNullOrEmpty() && saved != Constants.IpAddress.HOTSPOT_GATEWAY) {
+            // 用户手动设置过 IP，直接使用
+            return saved
+        }
+        // 未手动设置 → 自动检测当前热点网关
+        val autoDetected = NetworkUtils.getActiveGatewayIp(context)
+        if (!autoDetected.isNullOrEmpty()) {
+            return autoDetected
+        }
+        // 回退到默认值
+        return Constants.IpAddress.HOTSPOT_GATEWAY
     }
 
     /**

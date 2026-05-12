@@ -1,7 +1,6 @@
 package com.carlife.wireless.ui
 
 import android.app.Activity
-import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -265,12 +264,8 @@ class MainActivity : AppCompatActivity() {
     // ==================== 服务状态 ====================
 
     private fun isServiceRunning(): Boolean {
-        val manager = getSystemService(ACTIVITY_SERVICE) as ActivityManager
-        @Suppress("DEPRECATION")
-        for (service in manager.getRunningServices(Int.MAX_VALUE)) {
-            if (ConnectionService::class.java.name == service.service.className) return true
-        }
-        return false
+        // 优先使用静态标志（比 getRunningServices 可靠）
+        return ConnectionService.isServiceActive || ConnectionService.instance != null
     }
 
     private fun updateUI() {

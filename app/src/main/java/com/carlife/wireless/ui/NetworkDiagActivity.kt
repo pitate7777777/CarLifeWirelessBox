@@ -5,7 +5,6 @@ import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.carlife.wireless.databinding.ActivityNetworkDiagBinding
-import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
@@ -77,9 +76,7 @@ class NetworkDiagActivity : AppCompatActivity() {
     }
 
     private fun getPhoneBIp(): String {
-        val prefs = getSharedPreferences("carlife_settings", MODE_PRIVATE)
-        return prefs.getString("phone_b_ip", Constants.IpAddress.HOTSPOT_GATEWAY)
-            ?: Constants.IpAddress.HOTSPOT_GATEWAY
+        return SettingsManager.getPhoneBIp(this)
     }
 
     /**

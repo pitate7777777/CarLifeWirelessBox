@@ -161,15 +161,32 @@ class WifiGuideActivity : AppCompatActivity() {
         // 获取连接信息用于判断
         val channels = getConnectionChannels()
 
+        // 自动更新手机 B IP（如果检测到新的网关地址）
+        if (isHotspotConnected) {
+            val detectedGateway = NetworkUtils.getActiveGatewayIp(this)
+            if (!detectedGateway.isNullOrEmpty() && detectedGateway != phoneBIp) {
+                LogUtils.i(TAG, "Auto-detected gateway IP: $detectedGateway (was: $phoneBIp)")
+                SettingsManager.setPhoneBIp(this, detectedGateway)
+            }
+        }
+
         currentStep = when {
             // 已连接成功（6 个通道全部建立）
             channels >= 6 -> 4
             // 服务已启动，正在等待连接
             serviceRunning -> 3
-            // 已连接到热点，等待启动服务
+            // 已连接到热点（WiFi 连接 + 网关可达），等待启动服务
             isHotspotConnected -> 2
-            // WiFi 已连接但不是热点
-            wifiConnected -> 1
+            // WiFi 已连接但未检测到热点（可能是普通路由器）
+            wifiConnected -> {
+                // 额外检查：如果 IP 在同一子网，也算连接到热点
+                val localIp = NetworkUtils.getLocalIpAddress()
+                if (localIp != null) {
+                    val localPrefix = localIp.substringBeforeLast(".")
+                    val phonePrefix = phoneBIp.substringBeforeLast(".")
+                    if (localPrefix == phonePrefix) 2 else 1
+                } else 1
+            }
             // WiFi 未连接
             else -> 0
         }
@@ -205,18 +222,43 @@ class WifiGuideActivity : AppCompatActivity() {
     }
 
     /**
-     * 判断是否可能是手机热点
-     * Android 热点默认 SSID 通常包含设备名，且子网为 192.168.43.x
+     * 判断是否连接到手机热点
+     *
+     * 核心逻辑：通过系统 DHCP 网关判断。
+     * 手机热点的网关地址就是手机本身的 IP（通常是 .1）。
+     * 如果当前 WiFi 的网关 IP 与本机 IP 在同一子网且不同，
+     * 且网关可达，则认为已连接到热点。
      */
     private fun isLikelyHotspot(ssid: String?): Boolean {
-        if (ssid == null) return false
-        // 常见热点 SSID 特征
-        val hotspotKeywords = listOf("carlife", "carwith", "hotspot", "ap", "android", "huawei", "xiaomi", "oppo", "vivo", "samsung")
-        val lowerSsid = ssid.lowercase()
-        if (hotspotKeywords.any { lowerSsid.contains(it) }) return true
-        // 如果 IP 在热点子网范围内，也认为是热点
+        // 方法 1: 通过系统 API 获取当前 WiFi 的网关地址
+        val gatewayIp = NetworkUtils.getActiveGatewayIp(this)
+        if (gatewayIp != null) {
+            val localIp = NetworkUtils.getLocalIpAddress()
+            // 网关和本机在同一子网，且不是自己 → 已连接到热点/路由器
+            if (localIp != null) {
+                val gwPrefix = gatewayIp.substringBeforeLast(".")
+                val localPrefix = localIp.substringBeforeLast(".")
+                if (gwPrefix == localPrefix && gatewayIp != localIp) {
+                    LogUtils.d(TAG, "Hotspot detected via gateway: $gatewayIp (local=$localIp)")
+                    return true
+                }
+            }
+            // 即使本机 IP 未知，只要网关存在且不是默认值，也认为连上了
+            if (gatewayIp != Constants.IpAddress.HOTSPOT_GATEWAY || isWifiConnected()) {
+                LogUtils.d(TAG, "Hotspot detected via active gateway: $gatewayIp")
+                return true
+            }
+        }
+
+        // 方法 2: 子网匹配（回退方案）
         val localIp = NetworkUtils.getLocalIpAddress()
-        if (localIp != null && localIp.startsWith("192.168.43.")) return true
+        if (localIp != null) {
+            val phoneBIp = SettingsManager.getPhoneBIp(this)
+            val localPrefix = localIp.substringBeforeLast(".")
+            val phonePrefix = phoneBIp.substringBeforeLast(".")
+            if (localPrefix == phonePrefix) return true
+        }
+
         return false
     }
 
@@ -385,9 +427,13 @@ class WifiGuideActivity : AppCompatActivity() {
         val localIp = NetworkUtils.getLocalIpAddress()
         if (localIp != null) sb.appendLine("本机 IP: $localIp")
 
-        // 手机 B IP
+        // 手机 B IP（自动检测的网关地址）
         val phoneBIp = SettingsManager.getPhoneBIp(this)
         sb.appendLine("手机 B IP: $phoneBIp")
+        val autoDetected = NetworkUtils.getActiveGatewayIp(this)
+        if (autoDetected != null && autoDetected != phoneBIp) {
+            sb.appendLine("检测到网关: $autoDetected")
+        }
 
         // Ping 手机 B
         if (wifiConnected) {
