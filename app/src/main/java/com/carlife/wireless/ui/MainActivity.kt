@@ -133,6 +133,10 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // 设置工具栏
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.title = getString(R.string.app_name)
+
         LogUtils.i(TAG, "MainActivity onCreate")
 
         // 注册广播接收器

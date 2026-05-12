@@ -35,8 +35,10 @@ class NetworkDiagActivity : AppCompatActivity() {
         binding = ActivityNetworkDiagBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        supportActionBar?.title = "网络诊断"
+        // 设置工具栏
+        setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        binding.toolbar.setNavigationOnClickListener { finish() }
 
         setupListeners()
         updatePhoneBIp()

@@ -28,7 +28,13 @@ class CarLifeApplication : Application() {
         LogUtils.i(TAG, "CarLifeApplication onCreate")
 
         LogUtils.init(this, saveToFile = true)
-        LogUtils.i(TAG, "日志已初始化，将保存到本地文件")
+
+        // 从设置中恢复日志开关状态
+        val consoleLogEnabled = com.carlife.wireless.util.SettingsManager.isConsoleLogEnabled(this)
+        val fileLogEnabled = com.carlife.wireless.util.SettingsManager.isFileLogEnabled(this)
+        LogUtils.setConsoleLogEnabled(consoleLogEnabled)
+        LogUtils.setSaveToFile(fileLogEnabled)
+        LogUtils.i(TAG, "日志已初始化: 控制台=$consoleLogEnabled, 文件=$fileLogEnabled")
 
         initCrashHandler()
     }

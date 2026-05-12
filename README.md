@@ -170,6 +170,43 @@ MIT License
 
 ## 更新日志
 
+### 2026-05-13 — 统一界面风格 + 日志开关
+
+**统一界面风格**:
+- 所有 Activity 统一使用 MaterialToolbar，顶部导航栏风格一致
+- MainActivity 新增顶部工具栏（原来没有）
+- SettingsActivity 新增顶部工具栏 + 返回按钮（原来没有）
+- NetworkDiagActivity、UsbGuideActivity、WifiGuideActivity 改用 MaterialToolbar 替代默认 ActionBar
+- 颜色统一管理：新增 `colors.xml` 语义颜色（`color_car`/`color_phone`/`color_box`/`color_channel` 等）
+- Settings 卡片边框/背景色改用颜色资源引用，消除布局中硬编码颜色
+- 预览遮罩色、日志终端色、提示卡片背景色等均提取为颜色资源
+
+**日志增加开关**:
+- `LogUtils` 新增控制台日志主开关（`setConsoleLogEnabled`），关闭后不再输出 Logcat 日志
+- `SettingsManager` 新增 `isConsoleLogEnabled`/`isFileLogEnabled` 持久化配置
+- SettingsActivity 新增「日志设置」卡片，包含「控制台日志」和「文件日志」两个独立开关
+- `CarLifeApplication` 启动时自动恢复上次的日志开关配置
+- 控制台日志和文件日志可独立控制：开发时全开，生产环境可关闭控制台日志
+
+**涉及文件**:
+- `colors.xml` — 新增 18 个语义颜色资源
+- `styles.xml` — 新增工具栏样式
+- `strings.xml` — 新增日志设置相关字符串
+- `activity_main.xml` — 新增 MaterialToolbar，硬编码颜色改用资源引用
+- `activity_settings.xml` — 新增工具栏 + 日志设置卡片
+- `activity_log_viewer.xml` — 日志终端色改用资源引用
+- `activity_network_diag.xml` — 新增 MaterialToolbar
+- `activity_usb_guide.xml` — 新增 MaterialToolbar
+- `activity_wifi_guide.xml` — 新增 MaterialToolbar
+- `LogUtils.kt` — 新增 `consoleLogEnabled` 主开关
+- `SettingsManager.kt` — 新增日志开关读写方法
+- `CarLifeApplication.kt` — 启动时恢复日志开关配置
+- `MainActivity.kt` — 初始化 Toolbar
+- `SettingsActivity.kt` — 初始化 Toolbar + 日志开关 UI
+- `NetworkDiagActivity.kt` — 改用 MaterialToolbar
+- `UsbGuideActivity.kt` — 改用 MaterialToolbar
+- `WifiGuideActivity.kt` — 改用 MaterialToolbar
+
 ### 2026-05-13 — 端口泄漏修复 (EADDRINUSE) + ConnectionService 竞态修复
 
 **问题**: 无线连接卡在第 4 步，TcpServer 端口泄漏导致 HuRole 反连失败。

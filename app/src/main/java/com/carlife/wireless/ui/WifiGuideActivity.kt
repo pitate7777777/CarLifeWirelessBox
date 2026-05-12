@@ -52,8 +52,11 @@ class WifiGuideActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_wifi_guide)
 
-        supportActionBar?.title = "无线连接引导"
+        // 设置工具栏
+        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        toolbar.setNavigationOnClickListener { finish() }
 
         setupListeners()
         registerReceivers()

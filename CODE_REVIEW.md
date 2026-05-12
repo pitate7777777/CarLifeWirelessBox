@@ -1,8 +1,43 @@
 # CarLifeWirelessBox 源码审查报告
 
-**审查日期**: 2026-05-13（第八轮）  
-**审查范围**: HuRole 连接方向修正 + 端口修正 + 通道容错 + 代码审查  
+**审查日期**: 2026-05-13（第九轮）  
+**审查范围**: 统一界面风格 + 日志开关 + 代码清理  
 **修复状态**: ✅ 已修复 | 🔧 本次新增 | ⬜ 建议改进
+
+---
+
+## 本次修复（第九轮）— 统一界面风格 + 日志开关
+
+### 🔧 UI-1: Activity 工具栏风格不统一
+
+- **问题**: 6 个 Activity 使用了 4 种不同的导航方式：
+  - `MainActivity` — 无工具栏
+  - `SettingsActivity` — 无工具栏
+  - `LogViewerActivity` — MaterialToolbar
+  - `NetworkDiagActivity` — 默认 ActionBar (`supportActionBar`)
+  - `UsbGuideActivity` — 默认 ActionBar
+  - `WifiGuideActivity` — 默认 ActionBar
+- **修复**: 所有 Activity 统一使用 MaterialToolbar，提供一致的导航体验和视觉风格
+
+### 🔧 UI-2: 布局中硬编码颜色过多
+
+- **问题**: 布局 XML 中存在大量 `#FF2196F3`、`#FF4CAF50` 等硬编码颜色值，不利于主题切换和维护
+- **修复**: 将语义颜色提取到 `colors.xml`（新增 18 个颜色资源），布局改用 `@color/` 引用
+
+### 🔧 Log-1: 缺少日志主开关
+
+- **问题**: `LogUtils` 只有 `saveToFileEnabled` 控制文件日志，无法关闭控制台日志输出。生产环境中 Logcat 日志可能泄露敏感信息
+- **修复**: 
+  - `LogUtils` 新增 `consoleLogEnabled` 标志，所有日志方法在输出前检查此标志
+  - `SettingsManager` 新增 `isConsoleLogEnabled()`/`setConsoleLogEnabled()` 和 `isFileLogEnabled()`/`setFileLogEnabled()`
+  - `SettingsActivity` 新增「日志设置」卡片，支持独立控制控制台日志和文件日志
+  - `CarLifeApplication.onCreate()` 启动时从 SharedPreferences 恢复日志开关配置
+
+### 🔧 Low-1: SettingsActivity 未使用的 ErrorTracker import
+
+- **文件**: `SettingsActivity.kt`
+- **问题**: `ErrorTracker` 已导入但未在代码中使用
+- **修复**: 删除未使用的 import
 
 ---
 
@@ -142,11 +177,12 @@
 
 | 严重程度 | 历史总计 | 已修复 | 本次新增 | 剩余建议 |
 |---------|---------|--------|---------|---------|
-| Critical | 10 | 10 | **2** | 0 |
+| Critical | 10 | 10 | 0 | 0 |
 | High | 14 | 14 | 0 | 0 |
-| Medium | 21 | 14 | **1** | 5 |
-| Low | 12 | 3 | **1** | 7 |
-| **总计** | **57** | **41** | **4** | **12** |
+| Medium | 21 | 14 | 0 | 5 |
+| Low | 12 | 4 | **1** | 6 |
+| UI | 0 | 0 | **2** | 0 |
+| **总计** | **57** | **42** | **3** | **11** |
 
 ---
 

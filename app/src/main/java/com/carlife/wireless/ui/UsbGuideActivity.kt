@@ -43,8 +43,11 @@ class UsbGuideActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_usb_guide)
 
-        supportActionBar?.title = "USB 连接引导"
+        // 设置工具栏
+        val toolbar = findViewById<com.google.android.material.appbar.MaterialToolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        toolbar.setNavigationOnClickListener { finish() }
 
         setupUsbManager()
         setupListeners()

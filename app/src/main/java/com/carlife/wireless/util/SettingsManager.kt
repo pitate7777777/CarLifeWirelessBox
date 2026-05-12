@@ -170,4 +170,38 @@ object SettingsManager {
             apply()
         }
     }
+
+    // ==================== 日志开关配置 ====================
+
+    /**
+     * 获取控制台日志开关状态
+     */
+    fun isConsoleLogEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
+        return prefs.getBoolean("log_console_enabled", true)
+    }
+
+    /**
+     * 设置控制台日志开关
+     */
+    fun setConsoleLogEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("log_console_enabled", enabled).apply()
+    }
+
+    /**
+     * 获取文件日志开关状态
+     */
+    fun isFileLogEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
+        return prefs.getBoolean("log_file_enabled", true)
+    }
+
+    /**
+     * 设置文件日志开关
+     */
+    fun setFileLogEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("log_file_enabled", enabled).apply()
+    }
 }

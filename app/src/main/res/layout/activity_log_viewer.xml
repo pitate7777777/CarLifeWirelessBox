@@ -30,13 +30,13 @@
         android:layout_height="0dp"
         android:layout_weight="1"
         android:padding="16dp"
-        android:background="@android:color/black">
+        android:background="@color/log_bg">
 
         <TextView
             android:id="@+id/tvLogContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="#00FF00"
+            android:textColor="@color/log_text"
             android:textSize="12sp"
             android:lineSpacingExtra="4dp"
             android:fontFamily="monospace" />

@@ -10,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import com.carlife.wireless.R
 import com.carlife.wireless.databinding.ActivitySettingsBinding
 import com.carlife.wireless.databinding.DialogCustomResolutionBinding
-import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 
@@ -33,12 +32,17 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivitySettingsBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        
+
+        // 设置工具栏
+        setSupportActionBar(binding.toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        binding.toolbar.setNavigationOnClickListener { finish() }
+
         LogUtils.i(TAG, "SettingsActivity onCreate")
-        
+
         // 从资源文件加载分辨率选项
         resolutions = resources.getStringArray(R.array.resolution_options)
-        
+
         setupSpinners()
         loadSettings()
         setupListeners()
@@ -134,6 +138,10 @@ class SettingsActivity : AppCompatActivity() {
         binding.switchChannelMedia.isChecked = channelConfig.mediaEnabled
         binding.switchChannelTts.isChecked = channelConfig.ttsEnabled
         binding.switchChannelVr.isChecked = channelConfig.vrEnabled
+
+        // 加载日志开关配置
+        binding.switchConsoleLog.isChecked = SettingsManager.isConsoleLogEnabled(this)
+        binding.switchFileLog.isChecked = SettingsManager.isFileLogEnabled(this)
     }
     
     private fun setupListeners() {
@@ -264,6 +272,15 @@ class SettingsActivity : AppCompatActivity() {
         )
         SettingsManager.saveChannelConfig(this, channelConfig)
         LogUtils.i(TAG, "Channel config saved: media=${channelConfig.mediaEnabled}, tts=${channelConfig.ttsEnabled}, vr=${channelConfig.vrEnabled}")
+
+        // 保存日志开关配置
+        val consoleLogEnabled = binding.switchConsoleLog.isChecked
+        val fileLogEnabled = binding.switchFileLog.isChecked
+        SettingsManager.setConsoleLogEnabled(this, consoleLogEnabled)
+        SettingsManager.setFileLogEnabled(this, fileLogEnabled)
+        LogUtils.setConsoleLogEnabled(consoleLogEnabled)
+        LogUtils.setSaveToFile(fileLogEnabled)
+        LogUtils.i(TAG, "Log config saved: console=$consoleLogEnabled, file=$fileLogEnabled")
     }
     
     override fun onDestroy() {

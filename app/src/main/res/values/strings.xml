@@ -72,4 +72,13 @@
     <string name="channel_tts_desc">可选 — 语音导航播报</string>
     <string name="channel_vr">VR（语音识别）</string>
     <string name="channel_vr_desc">可选 — 语音助手交互</string>
-    <string name="view_logs">📋 查看日志</string></resources>
+    <string name="view_logs">📋 查看日志</string>
+
+    <!-- 日志设置 -->
+    <string name="log_settings_title">📋 日志设置</string>
+    <string name="log_settings_subtitle">控制日志输出行为，关闭可减少性能开销</string>
+    <string name="console_log_title">控制台日志</string>
+    <string name="console_log_desc">Logcat 输出，开发调试时使用</string>
+    <string name="file_log_title">文件日志</string>
+    <string name="file_log_desc">保存到本地文件，保留最近 7 天</string>
+</resources>

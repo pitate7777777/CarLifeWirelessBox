@@ -6,17 +6,25 @@
         <item name="colorPrimary">@color/primary</item>
         <item name="colorPrimaryVariant">@color/primary_dark</item>
         <item name="colorOnPrimary">@color/white</item>
-        
+
         <!-- Secondary brand color -->
         <item name="colorSecondary">@color/accent</item>
         <item name="colorSecondaryVariant">@color/accent</item>
         <item name="colorOnSecondary">@color/white</item>
-        
+
         <!-- Status bar -->
         <item name="android:statusBarColor">@color/primary_dark</item>
         <item name="android:navigationBarColor">@color/black</item>
-        
+
         <!-- Background -->
         <item name="android:windowBackground">@color/background</item>
+    </style>
+
+    <!-- 工具栏样式 -->
+    <style name="Theme.CarLifeWirelessBox.Toolbar" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/primary</item>
+        <item name="colorPrimaryVariant">@color/primary_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
     </style>
 </resources>

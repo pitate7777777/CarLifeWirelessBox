@@ -5,14 +5,47 @@
     <color name="primary_dark">#1976D2</color>
     <color name="primary_light">#BBDEFB</color>
     <color name="accent">#FF4081</color>
-    
+
     <!-- 基础颜色 -->
     <color name="white">#FFFFFF</color>
     <color name="black">#000000</color>
     <color name="gray">#808080</color>
     <color name="gray_light">#CCCCCC</color>
-    
+
     <!-- 背景色 -->
     <color name="background">#F5F5F5</color>
     <color name="background_dark">#263238</color>
+
+    <!-- 功能语义颜色 -->
+    <color name="color_car">#1565C0</color>         <!-- 车机相关 -->
+    <color name="color_phone">#2E7D32</color>        <!-- 手机 B 相关 -->
+    <color name="color_box">#E65100</color>          <!-- 本机（转接盒）相关 -->
+    <color name="color_channel">#7B1FA2</color>      <!-- 通道相关 -->
+    <color name="color_log">#7B1FA2</color>          <!-- 日志相关 -->
+    <color name="color_wifi">#2196F3</color>         <!-- WiFi 相关 -->
+    <color name="color_success">#4CAF50</color>      <!-- 成功/已连接 -->
+    <color name="color_warning">#FF9800</color>      <!-- 警告 -->
+    <color name="color_error">#F44336</color>        <!-- 错误 -->
+
+    <!-- 卡片边框颜色 -->
+    <color name="card_stroke_car">#FF2196F3</color>
+    <color name="card_stroke_phone">#FF4CAF50</color>
+    <color name="card_stroke_box">#FFFF9800</color>
+    <color name="card_stroke_channel">#FF9C27B0</color>
+
+    <!-- 卡片背景颜色 -->
+    <color name="card_bg_car">#FFF8FBFF</color>
+    <color name="card_bg_phone">#FFF8FFF8</color>
+    <color name="card_bg_box">#FFFFFBF5</color>
+    <color name="card_bg_channel">#FFFCF5FF</color>
+
+    <!-- 日志终端色 -->
+    <color name="log_bg">#FF000000</color>
+    <color name="log_text">#FF00FF00</color>
+
+    <!-- 提示卡片背景 -->
+    <color name="tip_bg">#FFF3E0</color>
+
+    <!-- 预览遮罩 -->
+    <color name="preview_mask">#FF1A1A2E</color>
 </resources>
