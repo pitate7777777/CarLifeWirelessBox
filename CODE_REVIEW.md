@@ -1,33 +1,32 @@
 # CarLifeWirelessBox 源码审查报告
 
 **审查日期**: 2026-05-13（第七轮）  
-**审查范围**: 端口泄漏修复 (EADDRINUSE) + 资源清理竞态 + 代码清理  
+**审查范围**: 端口泄漏根因 (EADDRINUSE) + ConnectionService 竞态 + 资源清理  
 **修复状态**: ✅ 已修复 | 🔧 本次新增 | ⬜ 建议改进
 
 ---
 
-## 本次修复（第七轮）— 基于 logcat 日志分析
+## 本次修复（第七轮）— 基于 logcat 日志深度分析
 
-### 🔧 Critical-1: TcpServer 端口泄漏 — EADDRINUSE 根因
+### 🔧 Critical-1: ConnectionService 竞态条件 — EADDRINUSE 真正根因
 
-- **文件**: `TcpServer.kt` — `stop()` + `start()`
-- **日志证据**: 
+- **文件**: `ConnectionService.kt` — `onHuRoleStateChanged()`
+- **日志证据**:
   ```
-  TcpServer: Failed to start server on port 7240: bind failed: EADDRINUSE (Address already in use)
-  TcpServer: Failed to start server on port 8240: bind failed: EADDRINUSE (Address already in use)
-  TcpServer: Failed to start server on port 9240: bind failed: EADDRINUSE (Address already in use)
-  TcpServer: Failed to start server on port 9340: bind failed: EADDRINUSE (Address already in use)
-  HuRole: TcpServer startup failed! 0 servers not ready
+  TcpServer: Started on port 7240/8240/9240/9340  ← 全部成功
+  HuRole: State: CONNECTING -> DISCONNECTED (preparing new connection)  ← connect()内部cleanup
+  [ConnectionService] HuRole DISCONNECTED  ← listener触发
+  [ConnectionService] stopHuRole() + huRole = null  ← 销毁了HuRole！
+  TcpServer: Failed ... EADDRINUSE  ← 协程还在运行，端口没释放
   ```
-  所有 4 个 HU 端口 (7240/8240/9240/9340) 反复绑定失败，导致 HuRole 完全无法启动。
 - **根因分析**:
-  1. `stop()` 方法有 early return：`if (!isRunning.getAndSet(false)) return`。当 `isRunning` 已经为 false 时（例如 `release()` 调用后），`stop()` 跳过 `serverSocket.close()`，端口永远不释放。
-  2. `release()` 调用 `scope.cancel()` 取消协程作用域，可能中断 `finally` 块中的 `serverSocket.close()`。
-  3. `ServerSocket` 构造函数 `new ServerSocket(port)` 不设置 `SO_REUSEADDR`，端口处于 TIME_WAIT 状态时无法重新绑定。
+  `HuRole.connect()` 在启动协程前调用 `disconnect("preparing new connection")` 清理旧资源。
+  这触发状态回调 `DISCONNECTED` → `ConnectionService.onHuRoleStateChanged()` →
+  调 `huRole?.disconnect()` (冗余) + `huRole = null` (孤儿化TcpServer!)。
+  之后协程启动创建新TcpServer，但旧的已被孤儿化，端口永远不释放。
 - **修复**:
-  1. `stop()` 移除 early return，**始终**关闭 `serverSocket` 释放端口（幂等安全）
-  2. `start()` 使用 `ServerSocket()` + `reuseAddress = true` + `bind(port)` 替代 `ServerSocket(port)`
-  3. `release()` 确保先 `stop()`（关闭 socket）再 `scope.cancel()`（取消协程）
+  1. `onHuRoleStateChanged(DISCONNECTED)`: 移除 `disconnect()` + `huRole = null`，只调度重连
+  2. `startHuRole()`: 改为先检查 HuRole 状态，若已 DISCONNECTED 则 `release()` 清理旧实例再创建新的
 
 ### 🔧 Critical-2: Channel.disconnect() 资源清理顺序错误
 

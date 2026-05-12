@@ -170,17 +170,20 @@ MIT License
 
 ## 更新日志
 
-### 2026-05-13 — 端口泄漏修复 (EADDRINUSE)
+### 2026-05-13 — 端口泄漏修复 (EADDRINUSE) + ConnectionService 竞态修复
 
-**问题**: TcpServer 端口泄漏导致 HuRole 反复连接失败。日志显示所有 HU 端口 (7240/8240/9240/9340) 绑定失败 `EADDRINUSE`，手机 B 完全无法连接。
+**问题**: 无线连接卡在第 4 步，TcpServer 端口泄漏导致 HuRole 反连失败。
 
-**根因**:
-1. `TcpServer.stop()` 在 `isRunning=false` 时提前返回，跳过 `serverSocket.close()`，端口永远不释放
-2. `ServerSocket` 未设置 `SO_REUSEADDR`，TIME_WAIT 状态无法重绑
-3. `scope.cancel()` 与 `finally` 块竞态，可能导致 socket 不被关闭
+**根因** (3 层):
+1. **ConnectionService 竞态** (主因): `HuRole.connect()` 内部 cleanup 触发 `DISCONNECTED` 回调 →
+   `ConnectionService` 立刻 `stopHuRole()` + `huRole = null` → 协程还在运行的 TcpServer 变孤儿 → 端口永不释放
+2. **TcpServer.stop()** 有 early return，`isRunning=false` 时跳过 `serverSocket.close()`
+3. **ServerSocket** 未设 `SO_REUSEADDR`
 
 **修复**:
-- `TcpServer.stop()` 移除 early return，始终关闭 ServerSocket（幂等安全）
-- `ServerSocket` 改用 `reuseAddress = true` + `bind(port)` 模式
-- 资源清理顺序统一为：关闭 socket → cancel scope（防止读循环泄漏）
-- 涉及文件：`TcpServer.kt`、`Channel.kt`、`MdRole.kt`、`HuRole.kt`
+- `ConnectionService.onHuRoleStateChanged(DISCONNECTED)`: 不再调 disconnect/null，只调度重连
+- `ConnectionService.startHuRole()`: 重连时先 `release()` 旧实例再创建新的
+- `TcpServer.stop()`: 移除 early return，始终关闭 ServerSocket (幂等)
+- `ServerSocket`: 使用 `reuseAddress = true` + `InetSocketAddress` 模式
+- Channel/MdRole: 资源清理顺序统一为 关闭socket → cancel scope
+- 涉及文件：`ConnectionService.kt`、`TcpServer.kt`、`Channel.kt`、`MdRole.kt`、`HuRole.kt`

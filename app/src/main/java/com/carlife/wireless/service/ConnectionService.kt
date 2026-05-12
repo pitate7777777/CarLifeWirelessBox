@@ -363,9 +363,19 @@ class ConnectionService : Service() {
     // ==================== HU 角色 ====================
 
     private fun startHuRole() {
-        if (huRole != null) {
-            LogUtils.w(TAG, "HuRole 已启动，跳过")
+        // 如果已有 HuRole 且仍在连接中，跳过
+        if (huRole != null && huRole?.getState() != HuState.DISCONNECTED && huRole?.getState() != HuState.IDLE) {
+            LogUtils.w(TAG, "HuRole 已启动且状态为 ${huRole?.getState()}，跳过")
             return
+        }
+
+        // 清理旧的已断开的 HuRole 实例（释放端口）
+        if (huRole != null) {
+            LogUtils.i(TAG, "清理旧 HuRole 实例...")
+            try {
+                huRole?.release()
+            } catch (_: Exception) {}
+            huRole = null
         }
 
         try {
@@ -660,11 +670,11 @@ class ConnectionService : Service() {
                     updateNotification("手机B: $huError")
                 }
                 stopVideoAndAudioServices()
-                try {
-                    huRole?.disconnect("preparing for reconnect")
-                } catch (_: Exception) {}
-                huRole = null
-                // 尝试自动重连（独立于 MdRole）
+                // 不要在这里调 disconnect() 或置 null！
+                // 此回调可能来自 connect() 内部的清理阶段（"preparing new connection"），
+                // 此时协程还没启动，disconnect+null 会导致刚启动的 TcpServer 成为孤儿，
+                // 端口永远不会释放 → EADDRINUSE。
+                // 让 scheduleHuReconnect/startHuRole 负责清理旧实例。
                 scheduleHuReconnect()
             }
             else -> {}
