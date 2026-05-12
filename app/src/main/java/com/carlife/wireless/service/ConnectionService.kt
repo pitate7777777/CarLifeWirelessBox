@@ -79,6 +79,8 @@ class ConnectionService : Service() {
 
     private var mdRole: MdRole? = null
     private var huRole: HuRole? = null
+    /** HuRole 最近一次错误（huRole 被置 null 后仍保留，供 UI 显示） */
+    private var lastHuRoleError: String = ""
     private var isRunning = false
     private var nsdManager: NsdManager? = null
     private var registrationListener: NsdManager.RegistrationListener? = null
@@ -635,12 +637,19 @@ class ConnectionService : Service() {
                 LogUtils.i(TAG, "HuRole CONNECTED（手机B已连接）")
                 huReconnectCount.set(0)
                 cancelHuReconnect()
+                lastHuRoleError = ""
                 updateNotification("手机B已连接")
                 // 手机B就绪后，检查是否可以启动音视频服务
                 tryStartVideoAndAudioServices()
             }
             HuState.DISCONNECTED -> {
                 LogUtils.i(TAG, "HuRole DISCONNECTED")
+                val huError = huRole?.getLastError() ?: ""
+                if (huError.isNotEmpty()) {
+                    lastHuRoleError = huError
+                    LogUtils.w(TAG, "HuRole error: $huError")
+                    updateNotification("手机B: $huError")
+                }
                 stopVideoAndAudioServices()
                 try {
                     huRole?.disconnect("preparing for reconnect")
@@ -728,6 +737,11 @@ class ConnectionService : Service() {
 
     fun isServiceRunning(): Boolean = isRunning
 
+    /**
+     * 获取当前错误信息（供 WifiGuideActivity 等 UI 直接读取）
+     */
+    fun getBroadcastErrorMessage(): String = getLastErrorMessage()
+
     fun getConnectionStateText(): String {
         val mdState = when (mdRole?.getState()) {
             MdRole.MdState.IDLE -> "空闲"
@@ -748,7 +762,11 @@ class ConnectionService : Service() {
             HuState.NEGOTIATING -> "手机B协商中"
             HuState.CONNECTED -> "手机B已连接"
             HuState.DISCONNECTED -> "手机B未连接"
-            null -> "手机B未启动"
+            null -> {
+                // huRole 为 null：可能是启动失败或尚未启动
+                val huError = lastHuRoleError
+                if (huError.isNotEmpty()) "手机B连接失败: $huError" else "手机B未启动"
+            }
         }
         return "$mdState | $huState"
     }
@@ -780,7 +798,16 @@ class ConnectionService : Service() {
     }
 
     private fun getConnectionDuration(): Long = mdRole?.getConnectionDuration() ?: 0L
-    private fun getLastErrorMessage(): String = mdRole?.getLastErrorMessage() ?: ""
+    private fun getLastErrorMessage(): String {
+        val mdError = mdRole?.getLastErrorMessage() ?: ""
+        val huError = huRole?.getLastError() ?: ""
+        return when {
+            mdError.isNotEmpty() && huError.isNotEmpty() -> "车机: $mdError | 手机B: $huError"
+            mdError.isNotEmpty() -> mdError
+            huError.isNotEmpty() -> huError
+            else -> ""
+        }
+    }
 
     /**
      * 广播视频帧给 MainActivity（用于本地预览）

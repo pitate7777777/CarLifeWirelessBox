@@ -441,14 +441,22 @@ class WifiGuideActivity : AppCompatActivity() {
 
         // 检测手机 B 可达性（TCP 探测替代 ICMP ping，Android 热点 ICMP 常被阻断）
         if (wifiConnected) {
-            val reachable = try {
-                val socket = java.net.Socket()
-                socket.connect(java.net.InetSocketAddress(phoneBIp, 7240), 2000)
-                socket.close()
-                true
-            } catch (_: Exception) {
-                // TCP 探测失败，回退到 ping
-                NetworkUtils.ping(phoneBIp, 2000)
+            // 尝试多个常用端口，任一成功即视为可达
+            val probePorts = listOf(7240, 8240, 9240)
+            var reachable = false
+            for (port in probePorts) {
+                try {
+                    val socket = java.net.Socket()
+                    socket.connect(java.net.InetSocketAddress(phoneBIp, port), 1500)
+                    socket.close()
+                    reachable = true
+                    break
+                } catch (_: Exception) {
+                }
+            }
+            if (!reachable) {
+                // 所有端口探测失败，回退到 ping
+                reachable = NetworkUtils.ping(phoneBIp, 2000)
             }
             sb.appendLine("手机 B: ${if (reachable) "✅ 可达" else "⚠️ 不可达"}")
         }
@@ -460,6 +468,12 @@ class WifiGuideActivity : AppCompatActivity() {
             sb.appendLine("CarLife 服务: ✅ 运行中")
             sb.appendLine("连接状态: ${service.getConnectionStateText()}")
             sb.appendLine("通道: ${service.getConnectedChannelCount()}/6")
+
+            // 显示错误信息（如果有）
+            val errorMsg = service.getBroadcastErrorMessage()
+            if (errorMsg.isNotEmpty()) {
+                sb.appendLine("⚠️ $errorMsg")
+            }
 
             val dynamicBitrate = service.getDynamicBitrate()
             if (dynamicBitrate != null) {

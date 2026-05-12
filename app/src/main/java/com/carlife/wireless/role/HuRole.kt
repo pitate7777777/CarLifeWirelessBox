@@ -260,6 +260,10 @@ class HuRole(
     private val requiredConnectedCount = AtomicInteger(0)
     /** 防止握手重复启动的标志 */
     private val handshakeStarted = AtomicBoolean(false)
+    /** 最近一次错误信息（供 ConnectionService 读取并广播给 UI） */
+    private val lastError = AtomicReference("")
+
+    fun getLastError(): String = lastError.get()
 
     // 通道配置
     var channelConfig: ChannelConfig = DEFAULT_CHANNEL_CONFIG
@@ -305,6 +309,7 @@ class HuRole(
                         val msg = "手机 B ($phoneBIp) 不可达，请检查热点连接。" +
                                   "或在手机 B 上打开 CarWith → CarLife 连接 → 无线连接"
                         LogUtils.w("$TAG: $msg")
+                        lastError.set(msg)
                         listener?.onError(msg)
                         ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, 0)
                         updateState(HuState.DISCONNECTED, "Phone B unreachable")
@@ -346,9 +351,12 @@ class HuRole(
                         // VIDEO 未连接 → 投屏无法工作，算超时
                         val connected = connectedChannelCount.get()
                         val required = requiredConnectedCount.get()
+                        val errMsg = "连接超时：视频通道未连接（已连 $connected/${config.totalEnabled} 个通道），" +
+                                "请检查 CarWith 是否已进入无线连接模式"
                         LogUtils.e("$TAG: Connection timeout! VIDEO not connected. " +
                                 "Connected: $connected/${config.totalEnabled} total, $required/${config.requiredCount} required")
-                        listener?.onError("连接超时：视频通道未连接，请检查 CarWith 是否已进入无线连接模式")
+                        lastError.set(errMsg)
+                        listener?.onError(errMsg)
                         ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, CONNECT_TIMEOUT_MS)
                         disconnect("Connection timeout: VIDEO not connected")
                     } else if (!requiredOk) {
@@ -360,9 +368,11 @@ class HuRole(
                     }
                 }
             } catch (e: Exception) {
+                val errMsg = "连接初始化失败: ${e.message}"
                 LogUtils.e(e, "$TAG: Failed to initialize connections")
-                listener?.onError("Connection initialization failed: ${e.message}")
-                ErrorTracker.recordConnectionLost("HuRole", "初始化失败: ${e.message}")
+                lastError.set(errMsg)
+                listener?.onError(errMsg)
+                ErrorTracker.recordConnectionLost("HuRole", errMsg)
                 updateState(HuState.DISCONNECTED, "Initialization failed")
             }
         }
