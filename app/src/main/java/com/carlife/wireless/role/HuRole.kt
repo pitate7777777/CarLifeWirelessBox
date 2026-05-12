@@ -305,24 +305,7 @@ class HuRole(
         // 导致后续正式连接时 CarWith 不响应握手消息）
         scope.launch {
             try {
-                // ========== 快速 TCP 可达性检测（单端口，不影响 CarWith 状态） ==========
-                LogUtils.i("$TAG: Quick reachability check to $phoneBIp ...")
-                val reachable = NetworkUtils.ping(phoneBIp, 2000)
-                if (!reachable) {
-                    // Ping 不可靠（Android 热点常阻 ICMP），改用单端口 TCP 探测
-                    val probeResult = NetworkDiagnostics.checkPort(phoneBIp, Constants.Port.HU_CMD, "CMD", 2000)
-                    if (!probeResult.isOpen) {
-                        val msg = "手机 B ($phoneBIp) 不可达，请检查热点连接。" +
-                                  "或在手机 B 上打开 CarWith → CarLife 连接 → 无线连接"
-                        LogUtils.w("$TAG: $msg")
-                        lastError.set(msg)
-                        listener?.onError(msg)
-                        ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, 0)
-                        updateState(HuState.DISCONNECTED, "Phone B unreachable")
-                        return@launch
-                    }
-                }
-                LogUtils.i("$TAG: Phone B reachable, proceeding with connection")
+                LogUtils.i("$TAG: Starting connection to $phoneBIp...")
 
                 // ========== 建立连接（按配置启用通道） ==========
                 val config = channelConfig
@@ -333,16 +316,22 @@ class HuRole(
                 // 通知上层端口检测结果（全部视为开放，由连接超时兜底）
                 listener?.onPortCheckResult(config.totalEnabled, config.totalEnabled, emptyList())
 
+                // 逐个连接通道（CarWith 的 TCP backlog 有限，密集连接会被拒绝）
                 for (type in config.allChannels) {
+                    if (state.get() == HuState.DISCONNECTED) return@launch
                     val autoRead = type != ChannelType.HU_CMD
                     val channel = createChannel(type, autoRead)
                     channels[type] = channel
+                    LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:${type.huPort}...")
                     channel.connect(phoneBIp)
-                    // 短暂延迟，避免 6 个 SYN 同时到达 CarWith 导致连接被拒
-                    if (type != config.allChannels.last()) delay(100)
+                    // 等待连接结果再连下一个，避免 SYN 风暴
+                    delay(500)
+                    if (channels[type]?.isConnected != true) {
+                        LogUtils.w("$TAG: ${type.name} not connected after 500ms, continuing...")
+                    }
                 }
 
-                LogUtils.i("$TAG: Connecting to phone B at $phoneBIp (${config.totalEnabled} channels)")
+                LogUtils.i("$TAG: All ${config.totalEnabled} channel connect requests sent to $phoneBIp")
 
                 // 启动连接超时定时器 — 仅检查必选通道（CMD + VIDEO + CTRL）
                 // 如果 VIDEO 已连接，即使可选通道未连也不算超时
