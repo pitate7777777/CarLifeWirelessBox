@@ -146,7 +146,7 @@ abstract class Channel(
             header[6] = ((serviceType shr 8) and 0xFF).toByte()
             header[7] = (serviceType and 0xFF).toByte()
 
-            synchronized(this) {
+            synchronized(writeLock) {
                 val out = outputStream ?: throw IllegalStateException("outputStream is null")
                 out.write(header)
                 out.write(protobufData)
@@ -165,9 +165,16 @@ abstract class Channel(
     /**
      * 读取一条 CarLife CMD 消息（阻塞）
      *
+     * CarLife CMD 通道使用 8 字节消息头：
+     * [data_len(2B)][reserved(2B)][service_type(4B)] + [protobuf_data]
+     *
+     * 注意：不使用 @Synchronized，避免与 sendCarLifeMsg() 的 synchronized(this) 锁竞争。
+     * 读操作使用 inputStream（read 线程），写操作使用 outputStream（send 线程），
+     * 两者操作不同的 I/O 流，天然线程安全，不需要互斥。
+     * 如果加锁，读线程阻塞时会阻止写线程发送握手消息，导致协议超时。
+     *
      * @return Pair(serviceType, protobufData) 或 null（连接断开）
      */
-    @Synchronized
     fun readCarLifeMsg(): Pair<Int, ByteArray>? {
         if (state != KConnectionState.CONNECTED) return null
 
@@ -214,9 +221,11 @@ abstract class Channel(
      * CarLife 媒体通道格式（12 字节）：
      * [data_len(4B)][timestamp(4B)][service_type(4B)] + [raw_data]
      *
+     * 注意：不使用 @Synchronized，避免与 sendCarLifeMediaMsg() 锁竞争。
+     * 读操作使用 inputStream，写操作使用 outputStream，天然线程安全。
+     *
      * @return Triple(serviceType, timestamp, rawData) 或 null（连接断开）
      */
-    @Synchronized
     fun readCarLifeMediaMsg(): Triple<Int, Int, ByteArray>? {
         if (state != KConnectionState.CONNECTED) return null
 
@@ -296,7 +305,7 @@ abstract class Channel(
             header[10] = ((serviceType shr 8) and 0xFF).toByte()
             header[11] = (serviceType and 0xFF).toByte()
 
-            synchronized(this) {
+            synchronized(writeLock) {
                 val out = outputStream ?: throw IllegalStateException("outputStream is null")
                 out.write(header)
                 out.write(rawData)
@@ -312,10 +321,16 @@ abstract class Channel(
         }
     }
 
+    // 写锁：保护 outputStream 写操作不被并发交错
+    // 使用独立于 this 的锁对象，避免与读操作的 synchronized 竞争
+    private val writeLock = Any()
+
     /**
      * 发送一帧数据（自动添加协议包头）
+     *
+     * 使用 writeLock 保护写操作，避免并发写入导致数据交错。
+     * 不使用 @Synchronized（锁 this），避免与 read() 的阻塞读操作锁竞争。
      */
-    @Synchronized
     private fun writeFrame(
         payloadType: Int,
         payload: ByteArray,
@@ -337,9 +352,11 @@ abstract class Channel(
             }
 
             val out = outputStream ?: throw IllegalStateException("outputStream is null")
-            out.write(headerBytes)
-            out.write(payload)
-            out.flush()
+            synchronized(writeLock) {
+                out.write(headerBytes)
+                out.write(payload)
+                out.flush()
+            }
 
             LogUtils.d("[$name] sent: type=$payloadType, len=${payload.size}")
         } catch (e: Exception) {
@@ -352,8 +369,10 @@ abstract class Channel(
     /**
      * 读取一条完整消息（阻塞）
      * 先读取协议包头，再读取载荷数据
+     *
+     * 不使用 @Synchronized，避免与 writeFrame() 锁竞争。
+     * 读操作使用 inputStream，写操作使用 outputStream，天然线程安全。
      */
-    @Synchronized
     fun read(): Pair<ChannelHeader, ByteArray>? {
         if (state != KConnectionState.CONNECTED) {
             return null

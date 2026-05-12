@@ -39,6 +39,23 @@
 - **问题**: `ErrorTracker` 已导入但未在代码中使用
 - **修复**: 删除未使用的 import
 
+### 🔧 Critical-1: Channel 读写锁竞争 — 无线连接卡在 Phase 1 根因
+
+- **文件**: `Channel.kt` — `readCarLifeMsg()` / `sendCarLifeMsg()` / `read()` / `writeFrame()`
+- **问题**: `readCarLifeMsg()` 标记 `@Synchronized`（锁 this），`sendCarLifeMsg()` 使用 `synchronized(this)`。两者锁同一个 Channel 实例。CMD 读取协程持锁阻塞在 `readExact(8)`（等待 CarWith 响应），发送协程无法获取锁发送 `HU_PROTOCOL_VERSION`。直到 5 秒 socket 超时后读操作才释放锁，但此时连接已断开。
+- **时序**:
+  ```
+  T+0ms    readCarLifeMsg() 获取锁，阻塞在 readExact(8)
+  T+100ms  sendCarLifeMsg() 尝试获取锁 → 阻塞
+  T+5000ms readExact() SocketTimeoutException → 释放锁
+           sendCarLifeMsg() 发送 HU_PROTOCOL_VERSION → 但已超时断开
+  ```
+- **修复**:
+  - `readCarLifeMsg()` / `readCarLifeMediaMsg()` / `read()`: 移除 `@Synchronized`
+  - `writeFrame()` / `sendCarLifeMsg()` / `sendCarLifeMediaMsg()`: 改用独立的 `writeLock` 对象
+  - 读操作使用 inputStream，写操作使用 outputStream，两者天然线程安全
+  - 只需要保护写操作不被并发交错（`writeLock`），不需要读写互斥
+
 ---
 
 ## 本次修复（第八轮）— 连接方向与端口修复
@@ -177,12 +194,12 @@
 
 | 严重程度 | 历史总计 | 已修复 | 本次新增 | 剩余建议 |
 |---------|---------|--------|---------|---------|
-| Critical | 10 | 10 | 0 | 0 |
+| Critical | 10 | 10 | **1** | 0 |
 | High | 14 | 14 | 0 | 0 |
 | Medium | 21 | 14 | 0 | 5 |
 | Low | 12 | 4 | **1** | 6 |
 | UI | 0 | 0 | **2** | 0 |
-| **总计** | **57** | **42** | **3** | **11** |
+| **总计** | **57** | **42** | **4** | **11** |
 
 ---
 

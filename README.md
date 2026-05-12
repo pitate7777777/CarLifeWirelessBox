@@ -170,7 +170,13 @@ MIT License
 
 ## 更新日志
 
-### 2026-05-13 — 统一界面风格 + 日志开关
+### 2026-05-13 — 无线连接 Phase 1 超时修复 + 统一界面风格 + 日志开关
+
+**Critical Fix — 无线连接卡在「等待版本匹配」根因**:
+- `Channel.kt` 的 `readCarLifeMsg()` 标记 `@Synchronized`，与 `sendCarLifeMsg()` 的 `synchronized(this)` 锁竞争
+- CMD 读取协程持锁阻塞 5 秒（socket timeout），发送协程无法获取锁发送 `HU_PROTOCOL_VERSION`
+- 修复：移除读方法的 `@Synchronized`，写操作改用独立 `writeLock` 对象，读写不再互斥
+- 涉及文件：`Channel.kt`
 
 **统一界面风格**:
 - 所有 Activity 统一使用 MaterialToolbar，顶部导航栏风格一致
