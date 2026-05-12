@@ -801,10 +801,12 @@ class ConnectionService : Service() {
     private fun getLastErrorMessage(): String {
         val mdError = mdRole?.getLastErrorMessage() ?: ""
         val huError = huRole?.getLastError() ?: ""
+        val huPhase = huRole?.getHandshakePhase() ?: ""
         return when {
             mdError.isNotEmpty() && huError.isNotEmpty() -> "车机: $mdError | 手机B: $huError"
             mdError.isNotEmpty() -> mdError
             huError.isNotEmpty() -> huError
+            huPhase.isNotEmpty() && huPhase != "未开始" -> "手机B握手: $huPhase"
             else -> ""
         }
     }

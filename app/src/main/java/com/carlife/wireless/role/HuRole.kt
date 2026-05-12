@@ -200,6 +200,9 @@ class HuRole(
         /** 连接超时（毫秒）— 仅检查 CMD + VIDEO 两个核心通道 */
         private const val CONNECT_TIMEOUT_MS = 15_000L
 
+        /** 握手超时（毫秒）— 从发送 HU_PROTOCOL_VERSION 到收到 VIDEO_ENCODER_START */
+        private const val HANDSHAKE_TIMEOUT_MS = 20_000L
+
         /**
          * 默认通道配置
          * - 必选: CMD（协议握手）、VIDEO（投屏画面）、CTRL（触摸控制）
@@ -262,8 +265,11 @@ class HuRole(
     private val handshakeStarted = AtomicBoolean(false)
     /** 最近一次错误信息（供 ConnectionService 读取并广播给 UI） */
     private val lastError = AtomicReference("")
+    /** 当前握手阶段（用于超时定位） */
+    private val handshakePhase = AtomicReference("未开始")
 
     fun getLastError(): String = lastError.get()
+    fun getHandshakePhase(): String = handshakePhase.get()
 
     // 通道配置
     var channelConfig: ChannelConfig = DEFAULT_CHANNEL_CONFIG
@@ -431,6 +437,7 @@ class HuRole(
         connectedChannelCount.set(0)
         requiredConnectedCount.set(0)
         handshakeStarted.set(false)
+        handshakePhase.set("未开始")
         LogUtils.i("$TAG: Disconnected: ${reason ?: "unknown"}")
     }
 
@@ -506,7 +513,10 @@ class HuRole(
                 "required=${requiredConnectedCount.get()}/${channelConfig.requiredCount}")
 
         // 必选通道全部连接 → 启动握手（AtomicBoolean 防止重复触发）
+        // 必须确保 CMD 通道已连接，否则握手无法进行
+        val cmdConnected = channels[ChannelType.HU_CMD]?.isConnected == true
         if (requiredConnectedCount.get() >= channelConfig.requiredCount
+            && cmdConnected
             && handshakeStarted.compareAndSet(false, true)) {
             val optionalPending = channelConfig.optionalChannels.count { channels[it]?.isConnected != true }
             if (optionalPending > 0) {
@@ -519,6 +529,18 @@ class HuRole(
                 delay(100)
                 sendProtocolVersion()
             }
+            // 握手超时检测（独立于连接超时）
+            launch {
+                delay(HANDSHAKE_TIMEOUT_MS)
+                if (state.get() != HuState.CONNECTED && handshakeStarted.get()) {
+                    val phase = handshakePhase.get()
+                    val errMsg = "CarLife 握手超时（卡在: $phase），请确认手机 B 的 CarWith 已进入无线连接模式"
+                    LogUtils.e("$TAG: Handshake timeout at phase: $phase")
+                    lastError.set(errMsg)
+                    listener?.onError(errMsg)
+                    disconnect("Handshake timeout at $phase")
+                }
+            }
         }
     }
 
@@ -529,12 +551,32 @@ class HuRole(
      * 格式：[data_len(2B)][reserved(2B)][service_type(4B)] + [protobuf_data]
      */
     private fun startCmdReadLoop() {
-        val ch = channels[ChannelType.HU_CMD] ?: return
+        val ch = channels[ChannelType.HU_CMD] ?: run {
+            LogUtils.e("$TAG: CMD channel not available for read loop!")
+            val errMsg = "CMD 通道未连接，无法开始握手"
+            lastError.set(errMsg)
+            listener?.onError(errMsg)
+            disconnect("CMD channel not available")
+            return
+        }
         cmdReadJob = scope.launch {
             LogUtils.i("$TAG: CMD read loop started (CarLife protocol)")
             while (ch.isConnected && state.get() != HuState.DISCONNECTED) {
-                val msg = ch.readCarLifeMsg() ?: break
+                val msg = ch.readCarLifeMsg()
+                if (msg == null) {
+                    // 连接断开或读取失败
+                    if (state.get() != HuState.DISCONNECTED) {
+                        val phase = handshakePhase.get()
+                        val errMsg = "CMD 通道断开（在: $phase），手机 B 的 CarWith 可能未进入无线连接模式"
+                        LogUtils.w("$TAG: CMD read returned null at $phase")
+                        lastError.set(errMsg)
+                        listener?.onError(errMsg)
+                        disconnect("CMD channel closed at $phase")
+                    }
+                    break
+                }
                 val (serviceType, data) = msg
+                LogUtils.d("$TAG: CMD received: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
                 handleCarLifeCmdMessage(serviceType, data)
             }
             LogUtils.i("$TAG: CMD read loop ended")
@@ -551,28 +593,33 @@ class HuRole(
             CarLifeMsg.VERSION_MATCH_STATUS -> {
                 // Phase 1 响应：版本匹配
                 LogUtils.i("$TAG: [Phase 1] VERSION_MATCH_STATUS received")
+                handshakePhase.set("Phase 2: 等待设备信息")
                 // 发送车机设备信息
                 sendHuInfo()
             }
             CarLifeMsg.MD_INFO -> {
                 // Phase 2 响应：手机设备信息
                 LogUtils.i("$TAG: [Phase 2] MD_INFO received")
+                handshakePhase.set("Phase 3: 等待认证")
                 // 发送认证请求
                 sendAuthenRequest()
             }
             CarLifeMsg.MD_AUTHEN_RESPONSE -> {
                 // Phase 3 响应：认证响应
+                handshakePhase.set("Phase 3: 认证响应")
                 handleAuthenResponse(data)
             }
             CarLifeMsg.MD_AUTHEN_RESULT -> {
                 // Phase 4：MD 认证结果
                 LogUtils.i("$TAG: [Phase 4] MD_AUTHEN_RESULT received")
+                handshakePhase.set("Phase 5: 等待特性配置")
                 // 发送 HU 认证结果（直接成功）
                 sendAuthenResult(true)
             }
             CarLifeMsg.MD_FEATURE_CONFIG_REQUEST -> {
                 // Phase 5：特性配置请求
                 LogUtils.i("$TAG: [Phase 5] FEATURE_CONFIG_REQUEST received")
+                handshakePhase.set("Phase 6: 等待编码器初始化")
                 sendFeatureConfigResponse()
             }
             CarLifeMsg.VIDEO_ENCODER_INIT_DONE -> {
@@ -601,7 +648,7 @@ class HuRole(
                 sendVideoEncoderStart()
             }
             else -> {
-                LogUtils.d("$TAG: Unhandled CMD: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+                LogUtils.w("$TAG: Unhandled CMD during handshake: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
                 // 其他 CMD 消息通知上层
                 val header = ChannelHeader.Cmd(serviceType, data.size, 0)
                 listener?.onControlReceived(header, data)
@@ -617,6 +664,7 @@ class HuRole(
      */
     private fun sendProtocolVersion() {
         updateState(HuState.AUTHENTICATING)
+        handshakePhase.set("Phase 1: 等待版本匹配")
 
         try {
             val version = CarlifeProtocolVersionProto.CarlifeProtocolVersion.newBuilder()
