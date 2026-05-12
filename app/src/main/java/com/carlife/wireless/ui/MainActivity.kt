@@ -203,6 +203,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnUsbGuide.setOnClickListener {
             startActivity(Intent(this, UsbGuideActivity::class.java))
         }
+
+        binding.btnWifiGuide.setOnClickListener {
+            startActivity(Intent(this, WifiGuideActivity::class.java))
+        }
     }
 
     private fun startCarLifeService() {

@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- 标题 -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📶 无线 CarLife 连接"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="通过手机 B 的 WiFi 热点连接 CarWith 无线投屏"
+            android:textSize="14sp"
+            android:textColor="?android:attr/textColorSecondary"
+            android:gravity="center"
+            android:layout_marginBottom="24dp" />
+
+        <!-- 步骤指示器 (5个圆点) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="24dp">
+
+            <View
+                android:id="@+id/dot_step_0"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/step_dot"
+                android:backgroundTint="#FF2196F3" />
+
+            <View
+                android:layout_width="24dp"
+                android:layout_height="2dp"
+                android:background="#FFBDBDBD" />
+
+            <View
+                android:id="@+id/dot_step_1"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/step_dot"
+                android:backgroundTint="#FFBDBDBD" />
+
+            <View
+                android:layout_width="24dp"
+                android:layout_height="2dp"
+                android:background="#FFBDBDBD" />
+
+            <View
+                android:id="@+id/dot_step_2"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/step_dot"
+                android:backgroundTint="#FFBDBDBD" />
+
+            <View
+                android:layout_width="24dp"
+                android:layout_height="2dp"
+                android:background="#FFBDBDBD" />
+
+            <View
+                android:id="@+id/dot_step_3"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/step_dot"
+                android:backgroundTint="#FFBDBDBD" />
+
+            <View
+                android:layout_width="24dp"
+                android:layout_height="2dp"
+                android:background="#FFBDBDBD" />
+
+            <View
+                android:id="@+id/dot_step_4"
+                android:layout_width="12dp"
+                android:layout_height="12dp"
+                android:background="@drawable/step_dot"
+                android:backgroundTint="#FFBDBDBD" />
+
+        </LinearLayout>
+
+        <!-- 步骤内容卡片 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="24dp">
+
+                <TextView
+                    android:id="@+id/tv_step_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="第 1 步：手机 B 开启 WiFi 热点"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="16dp" />
+
+                <TextView
+                    android:id="@+id/tv_step_description"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="在手机 B 上开启 WiFi 热点。"
+                    android:textSize="15sp"
+                    android:lineSpacingExtra="4dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- WiFi 连接信息卡片 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📊 连接信息"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/tv_connection_info"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="检测中..."
+                    android:textSize="13sp"
+                    android:fontFamily="monospace" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 操作按钮 -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_open_wifi_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="⚙️ 打开 WiFi 设置"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            app:icon="@drawable/ic_settings" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_open_hotspot_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📡 查看热点设置"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            app:icon="@drawable/ic_settings" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_retry"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🔄 刷新状态"
+            android:layout_marginBottom="12dp"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_start_service"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="🚀 启动 CarLife 服务"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_done"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="✅ 完成，开始使用"
+            android:layout_marginBottom="12dp"
+            android:visibility="gone"
+            app:backgroundTint="#FF4CAF50" />
+
+        <!-- 提示信息 -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="#FFF3E0">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="💡 常见问题"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="• 搜不到热点：确认手机 B 热点已开启，且在有效范围内\n• 连接后无画面：确认手机 B 已打开 CarWith 并选择无线连接\n• 连接不稳定：将两台手机靠近，减少 WiFi 干扰\n• 端口不通：检查手机 B 的 CarWith 是否已启动投屏\n• IP 不对：在设置中确认手机 B IP 为热点网关地址"
+                    android:textSize="13sp"
+                    android:lineSpacingExtra="4dp" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
+
+</ScrollView>

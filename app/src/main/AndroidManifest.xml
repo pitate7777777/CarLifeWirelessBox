@@ -158,6 +158,12 @@
             android:exported="false"
             android:screenOrientation="unspecified" />
 
+        <!-- ==================== WiFi 连接引导 Activity ==================== -->
+        <activity
+            android:name=".ui.WifiGuideActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified" />
+
         <!-- ==================== Receiver ==================== -->
         <!-- 开机自启 (可选) -->
         <receiver

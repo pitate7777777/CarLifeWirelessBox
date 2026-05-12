@@ -339,6 +339,16 @@
                 app:iconTint="#FF4CAF50"
                 style="@style/Widget.MaterialComponents.Button.TextButton" />
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_wifi_guide"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📶 无线 CarLife 连接引导"
+                android:textColor="#FF2196F3"
+                app:icon="@drawable/ic_settings"
+                app:iconTint="#FF2196F3"
+                style="@style/Widget.MaterialComponents.Button.TextButton" />
+
         </LinearLayout>
 
         <!-- 连接日志卡片 -->
