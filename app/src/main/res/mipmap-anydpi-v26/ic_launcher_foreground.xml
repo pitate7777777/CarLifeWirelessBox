@@ -1,5 +1,4 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
@@ -92,11 +91,18 @@
         android:pathData="M22,79 A1.5,1.5 0 1,1 22,82 A1.5,1.5 0 1,1 22,79z"
         android:strokeColor="#4FC3F7" android:strokeWidth="0.6"/>
 
-    <!-- 连接虚线 -->
+    <!-- 连接线（手机到车） -->
     <path android:strokeColor="#4FC3F7" android:strokeWidth="1.5" android:strokeAlpha="0.5"
         android:pathData="M33,62 Q42,52 46,56"
-        android:strokeLineCap="round"
-        android:strokeDashArray="3,2"/>
+        android:strokeLineCap="round"/>
+
+    <!-- 连接线上的数据流点 -->
+    <path android:fillColor="#00E5FF" android:fillAlpha="0.7"
+        android:pathData="M35,60.5 A1.2,1.2 0 1,1 35,62.9 A1.2,1.2 0 1,1 35,60.5z"/>
+    <path android:fillColor="#00E5FF" android:fillAlpha="0.5"
+        android:pathData="M39,57.5 A1,1 0 1,1 39,59.5 A1,1 0 1,1 39,57.5z"/>
+    <path android:fillColor="#00E5FF" android:fillAlpha="0.3"
+        android:pathData="M43,55 A0.8,0.8 0 1,1 43,56.6 A0.8,0.8 0 1,1 43,55z"/>
 
     <!-- 底部标签 -->
     <path android:fillColor="#FFFFFF" android:fillAlpha="0.6"
