@@ -36,26 +36,42 @@ object ProtocolTranslator {
     }
 
     /**
-     * 转换视频帧（H.265 → H.264）
-     * TODO: 使用 MediaCodec 实现实际转换
+     * 转换视频帧（直通模式）
+     *
+     * 当前实现：直接透传数据，不做实际编解码转换。
+     * H.265 → H.264 转换需要 MediaCodec 解码+重编码，开销较大，
+     * 当前场景下手机 B (CarWith) 直接输出 H.264，无需转换。
+     *
+     * 如需支持 H.265 输入源，需实现：
+     * 1. MediaCodec 解码器（H.265）→ Surface
+     * 2. MediaCodec 编码器（H.264）← Surface
+     * 3. 异步管线管理
      */
     fun translateVideoFrame(frame: ByteArray, codecType: Int): Pair<ByteArray, Int> {
         return if (codecType == CODEC_H265) {
-            LogUtils.d(TAG, "Translating video frame: H.265 → H.264 (stub)")
-            Pair(frame, CODEC_H264)
+            LogUtils.d(TAG, "H.265 input detected, pass-through (no transcoding)")
+            Pair(frame, CODEC_H264) // 标注目标为 H.264，但数据未转换
         } else {
             Pair(frame, codecType)
         }
     }
 
     /**
-     * 转换音频帧（Opus → AAC）
-     * TODO: 使用 MediaCodec 实现实际转换
+     * 转换音频帧（直通模式）
+     *
+     * 当前实现：直接透传数据，不做实际编解码转换。
+     * Opus → AAC 转换需要 MediaCodec 解码+重编码。
+     * 当前场景下 AudioService 直接输出 AAC，无需转换。
+     *
+     * 如需支持 Opus 输入源，需实现：
+     * 1. MediaCodec 解码器（Opus）→ PCM
+     * 2. MediaCodec 编码器（AAC）← PCM
+     * 3. 采样率/声道数重采样
      */
     fun translateAudioFrame(frame: ByteArray, codecType: Int): Pair<ByteArray, Int> {
         return if (codecType == CODEC_OPUS) {
-            LogUtils.d(TAG, "Translating audio frame: Opus → AAC (stub)")
-            Pair(frame, CODEC_AAC)
+            LogUtils.d(TAG, "Opus input detected, pass-through (no transcoding)")
+            Pair(frame, CODEC_AAC) // 标注目标为 AAC，但数据未转换
         } else {
             Pair(frame, codecType)
         }

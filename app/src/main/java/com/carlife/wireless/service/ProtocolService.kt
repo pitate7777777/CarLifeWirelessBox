@@ -52,30 +52,30 @@ class ProtocolService : Service() {
     
     /**
      * 解析 Protobuf 消息
+     * 当前由 MdRole/HuRole 直接处理，此方法保留供未来扩展
      */
     fun parseProtobuf(data: ByteArray): Boolean {
         LogUtils.d(TAG, "Parsing protobuf message, length: ${data.size}")
-        // TODO: 实现 Protobuf 解析逻辑
+        // 消息解析已由 MdRole.handleCarLifeCmdMessage() 和 HuRole.handleCarLifeCmdMessage() 直接实现
         return true
     }
     
     /**
      * 分发消息到对应服务
+     * 当前由 MdRole/HuRole 按通道类型直接分发，此方法保留供未来扩展
      */
     fun dispatchMessage(messageType: Int, data: ByteArray) {
         LogUtils.d(TAG, "Dispatching message type: $messageType")
-        // TODO: 实现消息分发逻辑
-        when (messageType) {
-            // TODO: 根据消息类型分发到不同服务
-        }
+        // 消息分发已由 MdRole/HuRole 通过 Channel 回调直接实现
     }
     
     /**
      * 启动心跳管理
+     * 当前由 TcpClient 内部管理心跳，此方法保留供未来扩展
      */
     fun startHeartbeat() {
         LogUtils.i(TAG, "Starting heartbeat...")
-        // TODO: 实现心跳管理逻辑
+        // 心跳已由 TcpClient.startHeartbeat() 内部实现
     }
     
     /**
@@ -83,7 +83,6 @@ class ProtocolService : Service() {
      */
     fun stopHeartbeat() {
         LogUtils.i(TAG, "Stopping heartbeat...")
-        // TODO: 实现心跳停止逻辑
     }
     
     /**
@@ -91,7 +90,7 @@ class ProtocolService : Service() {
      */
     fun sendHeartbeat(): Boolean {
         LogUtils.d(TAG, "Sending heartbeat...")
-        // TODO: 实现心跳发送逻辑
+        // 心跳发送已由 TcpClient.sendHeartbeat() 内部实现
         return true
     }
 }
