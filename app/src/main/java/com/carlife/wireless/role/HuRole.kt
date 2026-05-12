@@ -19,15 +19,11 @@ import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoCodecType
 import com.carlife.wireless.proto.CarlifeVideoEncoderInfoProto.VideoResolution
 import com.carlife.wireless.proto.CarlifeProtocolVersionProto
-import com.carlife.wireless.network.TcpServer
-import com.carlife.wireless.network.TcpServerListener
 import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -279,19 +275,16 @@ class HuRole(
     // 通道映射（按类型索引）
     private val channels = ConcurrentHashMap<ChannelType, Channel>()
 
-    // TcpServer 实例（反转连接：手机B主动连盒子）
-    private val tcpServers = ConcurrentHashMap<ChannelType, TcpServer>()
-
     // 协程作用域（IO 线程池 + SupervisorJob 保证子协程独立失败）
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     // CMD 通道读取协程
     @Volatile private var cmdReadJob: Job? = null
 
     /**
-     * 启动 TcpServer 等待手机 B 连接
+     * 主动连接手机 B 的 CarWith
      *
-     * 反转连接方向：Android 热点阻止客户端→热点主人的入站 TCP，
-     * 因此改为盒子启动 TcpServer，手机 B 主动连接。
+     * CarWith 作为 MD 角色在手机B上监听 MD 端口 (7200/8200/9200/9300)，
+     * HuRole 作为 HU 角色主动连接这些端口，完成 CarLife 协议握手。
      */
     fun connect() {
         if (state.get() != HuState.IDLE) {
@@ -310,78 +303,23 @@ class HuRole(
         scope.launch {
             try {
                 val config = channelConfig
-                val startLatch = CountDownLatch(config.allChannels.size)
-                val startFailed = AtomicBoolean(false)
 
-                LogUtils.i("$TAG: Starting TcpServers for ${config.totalEnabled} channels " +
-                        "(waiting for phone B to connect)...")
+                LogUtils.i("$TAG: Connecting to phone B CarWith at $phoneBIp " +
+                        "(${config.totalEnabled} channels)...")
 
-                // 为每个启用的通道启动 TcpServer
+                // 为每个启用的通道创建 TcpClient 并连接到手机B的 CarWith 端口
                 for (type in config.allChannels) {
                     val autoRead = type != ChannelType.HU_CMD
-                    val server = TcpServer(type, DeviceRole.HU, object : TcpServerListener {
-                        override fun onStarted(port: Int) {
-                            LogUtils.i("$TAG: TcpServer started on port $port (${type.name})")
-                            startLatch.countDown()
-                        }
-                        override fun onStopped(port: Int) {
-                            LogUtils.i("$TAG: TcpServer stopped on port $port")
-                        }
-                        override fun onClientConnected(port: Int, channel: Channel) {
-                            LogUtils.i("$TAG: Phone B connected on ${type.name} (port $port)")
-                            channel.callback = object : ChannelCallback {
-                                override fun onConnected(ch: Channel) {
-                                    LogUtils.i("$TAG: ${ch.name} connected")
-                                    onChannelConnected(ch.type)
-                                }
-                                override fun onDisconnected(ch: Channel, reason: String?) {
-                                    LogUtils.w("$TAG: ${ch.name} disconnected: $reason")
-                                    if (state.get() != HuState.DISCONNECTED) {
-                                        disconnect("${ch.name} disconnected")
-                                    }
-                                }
-                                override fun onDataReceived(ch: Channel, header: ChannelHeader, payload: ByteArray) {
-                                    handleChannelData(ch, header, payload)
-                                }
-                                override fun onError(ch: Channel, error: Throwable) {
-                                    LogUtils.e("$TAG: ${ch.name} error: ${error.message}")
-                                    listener?.onError("${ch.name}: ${error.message}")
-                                }
-                            }
-                            channels[type] = channel
-                            // 触发连接事件（启动读取循环等）
-                            channel.connect("", port)
-                        }
-                        override fun onClientDisconnected(port: Int, channel: Channel, reason: String?) {
-                            LogUtils.w("$TAG: Phone B disconnected from ${type.name}: $reason")
-                        }
-                        override fun onDataReceived(port: Int, channel: Channel, header: ChannelHeader, payload: ByteArray) {
-                            // 由 ChannelCallback 处理
-                        }
-                        override fun onError(port: Int, error: String) {
-                            LogUtils.e("$TAG: TcpServer error on ${type.name} (port $port): $error")
-                            startFailed.set(true)
-                            startLatch.countDown()
-                        }
-                    }, autoRead = autoRead)
+                    val channel = createChannel(type, autoRead)
+                    channels[type] = channel
 
-                    tcpServers[type] = server
-                    server.start()
+                    // 连接到手机B的 CarWith 端口（MD端口）
+                    val port = type.mdPort
+                    LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:$port")
+                    channel.connect(phoneBIp, port)
                 }
 
-                // 等待所有 TcpServer 就绪
-                val allStarted = startLatch.await(5, TimeUnit.SECONDS)
-                if (!allStarted || startFailed.get()) {
-                    val remaining = startLatch.count
-                    LogUtils.e("$TAG: TcpServer startup failed! $remaining servers not ready")
-                    lastError.set("TcpServer 启动失败，请检查端口是否被占用")
-                    listener?.onError("TcpServer 启动失败")
-                    updateState(HuState.DISCONNECTED, "TcpServer startup failed")
-                    return@launch
-                }
-
-                LogUtils.i("$TAG: All TcpServers started, waiting for phone B to connect...")
-                listener?.onPortCheckResult(config.totalEnabled, config.totalEnabled, emptyList())
+                LogUtils.i("$TAG: All channels connecting to phone B CarWith...")
 
                 // 连接超时检测
                 launch {
@@ -393,13 +331,13 @@ class HuRole(
 
                     if (!videoConnected) {
                         val connected = connectedChannelCount.get()
-                        val errMsg = "等待手机B连接超时（已连 $connected/${config.totalEnabled} 个通道），" +
-                                "请确认手机B已连接到本机热点并启动 CarWith"
+                        val errMsg = "连接手机B超时（已连 $connected/${config.totalEnabled} 个通道），" +
+                                "请确认手机B已打开 CarWith 并进入无线连接模式"
                         LogUtils.e("$TAG: Connection timeout! VIDEO not connected. Connected: $connected/${config.totalEnabled}")
                         lastError.set(errMsg)
                         listener?.onError(errMsg)
-                        ErrorTracker.recordConnectionTimeout("HuRole", "local", CONNECT_TIMEOUT_MS)
-                        disconnect("Connection timeout: waiting for phone B")
+                        ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, CONNECT_TIMEOUT_MS)
+                        disconnect("Connection timeout: cannot reach phone B CarWith")
                     } else if (!requiredOk) {
                         val missing = config.requiredChannels.filter { channels[it]?.isConnected != true }
                         LogUtils.w("$TAG: Some required channels not connected: ${missing.joinToString { it.name }}, but VIDEO is OK")
@@ -408,8 +346,8 @@ class HuRole(
                     }
                 }
             } catch (e: Exception) {
-                val errMsg = "TcpServer 启动失败: ${e.message}"
-                LogUtils.e(e, "$TAG: Failed to start TcpServers")
+                val errMsg = "连接手机B失败: ${e.message}"
+                LogUtils.e(e, "$TAG: Failed to connect to phone B")
                 lastError.set(errMsg)
                 listener?.onError(errMsg)
                 ErrorTracker.recordConnectionLost("HuRole", errMsg)
@@ -452,14 +390,6 @@ class HuRole(
         if (state.get() == HuState.DISCONNECTED) return
 
         updateState(HuState.DISCONNECTED, reason)
-
-        // 停止所有 TcpServer
-        tcpServers.values.forEach { server ->
-            try { server.release() } catch (e: Exception) {
-                LogUtils.e(e, "$TAG: Error releasing TcpServer")
-            }
-        }
-        tcpServers.clear()
 
         // 先关闭所有通道（关闭 socket 会中断阻塞的 read）
         channels.values.forEach { ch ->
