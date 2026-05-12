@@ -271,7 +271,8 @@ class WifiGuideActivity : AppCompatActivity() {
      */
     private fun checkPhoneBPorts(callback: (openPorts: Int, totalPorts: Int) -> Unit) {
         Thread {
-            val phoneBIp = SettingsManager.getPhoneBIp(this)
+            // 检查本机 HU 端口是否已监听（HuRole TcpServer）
+            val localIp = NetworkUtils.getLocalIpAddress() ?: "127.0.0.1"
             val ports = listOf(
                 Constants.Port.HU_CMD,
                 Constants.Port.HU_VIDEO,
@@ -284,7 +285,7 @@ class WifiGuideActivity : AppCompatActivity() {
             for (port in ports) {
                 try {
                     val socket = Socket()
-                    socket.connect(InetSocketAddress(phoneBIp, port), 1500)
+                    socket.connect(InetSocketAddress(localIp, port), 1500)
                     socket.close()
                     openCount++
                 } catch (_: Exception) {
@@ -318,27 +319,27 @@ class WifiGuideActivity : AppCompatActivity() {
 
         when (currentStep) {
             0 -> {
-                stepTitle?.text = "第 1 步：手机 B 开启 WiFi 热点"
-                stepDesc?.text = "请在手机 B（运行 CarWith 的手机）上操作：\n\n" +
-                        "1. 打开手机「设置」\n" +
+                stepTitle?.text = "第 1 步：本机开启 WiFi 热点"
+                stepDesc?.text = "请在本机（转接盒）上操作：\n\n" +
+                        "1. 打开「设置」\n" +
                         "2. 进入「热点和网络共享」或「个人热点」\n" +
                         "3. 开启 WiFi 热点\n\n" +
-                        "💡 记住热点名称和密码，下一步需要用本机连接。"
+                        "💡 记住热点名称和密码，手机 B 和车机都需要连接。"
                 btnWifi?.visibility = View.GONE
-                btnHotspot?.visibility = View.GONE
+                btnHotspot?.visibility = View.VISIBLE
                 btnRetry?.visibility = View.VISIBLE
                 btnStart?.visibility = View.GONE
                 btnDone?.visibility = View.GONE
             }
             1 -> {
-                stepTitle?.text = "第 2 步：本机连接热点"
-                stepDesc?.text = "WiFi 已开启，但尚未连接到手机 B 的热点。\n\n" +
-                        "请在本机上操作：\n" +
+                stepTitle?.text = "第 2 步：手机 B 连接本机热点"
+                stepDesc?.text = "本机热点已开启。\n\n" +
+                        "请在手机 B（运行 CarWith 的手机）上操作：\n" +
                         "1. 打开 WiFi 设置\n" +
-                        "2. 找到手机 B 的热点名称\n" +
+                        "2. 找到本机的热点名称\n" +
                         "3. 输入密码连接\n\n" +
-                        "💡 连接成功后会自动进入下一步。"
-                btnWifi?.visibility = View.VISIBLE
+                        "💡 连接成功后手机 B 将获得本机网络内的 IP 地址。"
+                btnWifi?.visibility = View.GONE
                 btnHotspot?.visibility = View.GONE
                 btnRetry?.visibility = View.VISIBLE
                 btnStart?.visibility = View.GONE
@@ -346,7 +347,7 @@ class WifiGuideActivity : AppCompatActivity() {
             }
             2 -> {
                 stepTitle?.text = "第 3 步：手机 B 启动 CarWith"
-                stepDesc?.text = "已连接到热点！请在手机 B 上操作：\n\n" +
+                stepDesc?.text = "请在手机 B 上操作：\n\n" +
                         "1. 打开 CarWith（或 CarLife）APP\n" +
                         "2. 点击「CarLife 连接」\n" +
                         "3. 选择「无线连接」模式\n" +
@@ -361,18 +362,18 @@ class WifiGuideActivity : AppCompatActivity() {
                 // 异步检查 CarWith 端口
                 checkPhoneBPorts { open, total ->
                     if (open > 0) {
-                        stepDesc?.text = "已连接到热点！CarWith 端口检测：$open/$total 已开放\n\n" +
+                        stepDesc?.text = "CarWith 端口检测：$open/$total 已开放\n\n" +
                                 "请在手机 B 上确认 CarWith 已启动无线投屏，然后点击下方按钮启动服务。"
                     }
                 }
             }
             3 -> {
                 stepTitle?.text = "第 4 步：等待连接建立"
-                stepDesc?.text = "CarLife 服务已启动，正在与手机 B 建立连接...\n\n" +
-                        "请在手机 B 的 CarWith 上确认连接请求。\n\n" +
+                stepDesc?.text = "CarLife 服务已启动，等待手机 B 连接到本机...\n\n" +
+                        "手机 B 的 CarWith 将主动连接本机的 IP 地址。\n\n" +
                         "💡 如果长时间未连接，请检查：\n" +
-                        "• 手机 B 的 CarWith 是否显示「等待连接」\n" +
-                        "• 两台手机是否在同一热点网络\n" +
+                        "• 手机 B 是否已连接到本机热点\n" +
+                        "• 手机 B 的 CarWith 是否显示「搜索设备」\n" +
                         "• 尝试重启 CarWith 的无线连接"
                 btnWifi?.visibility = View.GONE
                 btnHotspot?.visibility = View.GONE
@@ -384,7 +385,7 @@ class WifiGuideActivity : AppCompatActivity() {
                 stepTitle?.text = "✅ 连接成功！"
                 stepDesc?.text = "手机 B 已通过 WiFi 无线连接到转接盒。\n\n" +
                         "CarLife 投屏已就绪，车机将显示手机 B 的画面。\n\n" +
-                        "💡 投屏过程中请保持两台手机的 WiFi 连接稳定。"
+                        "💡 投屏过程中请保持手机 B 与本机热点的 WiFi 连接稳定。"
                 btnWifi?.visibility = View.GONE
                 btnHotspot?.visibility = View.GONE
                 btnRetry?.visibility = View.GONE
@@ -427,38 +428,11 @@ class WifiGuideActivity : AppCompatActivity() {
         sb.appendLine("WiFi: ${if (wifiConnected) "✅ 已连接" else "❌ 未连接"}")
         if (ssid != null) sb.appendLine("热点: $ssid")
 
-        // 本机 IP
+        // 本机 IP（手机 B 需要连接到此 IP）
         val localIp = NetworkUtils.getLocalIpAddress()
-        if (localIp != null) sb.appendLine("本机 IP: $localIp")
-
-        // 手机 B IP（自动检测的网关地址）
-        val phoneBIp = SettingsManager.getPhoneBIp(this)
-        sb.appendLine("手机 B IP: $phoneBIp")
-        val autoDetected = NetworkUtils.getActiveGatewayIp(this)
-        if (autoDetected != null && autoDetected != phoneBIp) {
-            sb.appendLine("检测到网关: $autoDetected")
-        }
-
-        // 检测手机 B 可达性（TCP 探测替代 ICMP ping，Android 热点 ICMP 常被阻断）
-        if (wifiConnected) {
-            // 尝试多个常用端口，任一成功即视为可达
-            val probePorts = listOf(7240, 8240, 9240)
-            var reachable = false
-            for (port in probePorts) {
-                try {
-                    val socket = java.net.Socket()
-                    socket.connect(java.net.InetSocketAddress(phoneBIp, port), 1500)
-                    socket.close()
-                    reachable = true
-                    break
-                } catch (_: Exception) {
-                }
-            }
-            if (!reachable) {
-                // 所有端口探测失败，回退到 ping
-                reachable = NetworkUtils.ping(phoneBIp, 2000)
-            }
-            sb.appendLine("手机 B: ${if (reachable) "✅ 可达" else "⚠️ 不可达"}")
+        if (localIp != null) {
+            sb.appendLine("本机 IP: $localIp")
+            sb.appendLine("📱 手机 B CarWith 请连接: $localIp")
         }
 
         // ConnectionService 状态
