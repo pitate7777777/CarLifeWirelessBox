@@ -10,8 +10,6 @@ import android.content.Intent
 import android.content.ServiceConnection
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
-import android.net.nsd.NsdManager
-import android.net.nsd.NsdServiceInfo
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.carlife.wireless.R
@@ -30,10 +28,14 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * 连接服务：负责 WiFi AP/热点启动、mDNS 广播、TCP 监听
+ * 连接服务：负责 TCP 监听、USB 状态监控
  *
  * 作为 MD（车机）角色时，启动 MdRole 监听 6 个端口
  * 协调 VideoService、AudioService、TouchService 的生命周期
+ *
+ * 连接方式：
+ * - 旧手机 → 手机B：WiFi 热点（Phone B IP 自动检测）
+ * - 旧手机 → 车机：USB 网络共享（192.168.42.x）
  */
 class ConnectionService : Service() {
 
@@ -74,8 +76,6 @@ class ConnectionService : Service() {
     private var mdRole: MdRole? = null
     private var huRole: HuRole? = null
     private var isRunning = false
-    private var nsdManager: NsdManager? = null
-    private var registrationListener: NsdManager.RegistrationListener? = null
 
     // MediaProjection
     private var mediaProjection: MediaProjection? = null
@@ -184,7 +184,6 @@ class ConnectionService : Service() {
 
     private fun startMdRole() {
         LogUtils.i(TAG, "启动 MD 角色（TCP 监听）")
-        startMdnsService()
 
         if (mdRole == null) {
             try {
@@ -212,11 +211,8 @@ class ConnectionService : Service() {
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "停止 MdRole 失败")
         }
-        stopMdnsService()
         broadcastState()
     }
-
-    // ==================== mDNS ====================
 
     // ==================== USB 网络共享 ====================
 
@@ -302,46 +298,6 @@ class ConnectionService : Service() {
     }
 
     fun getDynamicBitrate(): DynamicBitrate? = dynamicBitrate
-
-    private fun startMdnsService() {
-        try {
-            nsdManager = getSystemService(NSD_SERVICE) as NsdManager
-            val serviceInfo = NsdServiceInfo().apply {
-                serviceName = "CarLife Wireless Box"
-                serviceType = "_carlife._tcp."
-                port = 7200
-            }
-            registrationListener = object : NsdManager.RegistrationListener {
-                override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
-                    LogUtils.e(TAG, "mDNS 注册失败: $errorCode")
-                }
-                override fun onUnregistrationFailed(info: NsdServiceInfo, errorCode: Int) {
-                    LogUtils.e(TAG, "mDNS 注销失败: $errorCode")
-                }
-                override fun onServiceRegistered(info: NsdServiceInfo) {
-                    LogUtils.i(TAG, "mDNS 服务已注册: ${info.serviceName}")
-                }
-                override fun onServiceUnregistered(info: NsdServiceInfo) {
-                    LogUtils.i(TAG, "mDNS 服务已注销")
-                }
-            }
-            nsdManager?.registerService(serviceInfo, NsdManager.PROTOCOL_DNS_SD, registrationListener)
-        } catch (e: Exception) {
-            LogUtils.e(TAG, e, "启动 mDNS 广播失败")
-        }
-    }
-
-    private fun stopMdnsService() {
-        try {
-            registrationListener?.let {
-                nsdManager?.unregisterService(it)
-                registrationListener = null
-                nsdManager = null
-            }
-        } catch (e: Exception) {
-            LogUtils.e(TAG, e, "停止 mDNS 广播失败")
-        }
-    }
 
     // ==================== HU 角色 ====================
 
