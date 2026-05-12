@@ -110,7 +110,9 @@ class ConnectionService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         LogUtils.i(TAG, "ConnectionService started")
         startForegroundService()
+        // MdRole 和 HuRole 独立启动，互不依赖
         startMdRole()
+        startHuRole()
         startTouchService()
         startUsbMonitoring()
         isRunning = true
@@ -132,16 +134,12 @@ class ConnectionService : Service() {
 
     /**
      * 设置 MediaProjection（由 MainActivity 传递）
-     * 设置后会自动启动 VideoService 和 AudioService
+     * 设置后会检查双端是否就绪，就绪则自动启动音视频服务
      */
     fun setMediaProjection(projection: MediaProjection) {
         mediaProjection = projection
         LogUtils.i(TAG, "MediaProjection received")
-
-        // 如果 HuRole 已连接，立即启动音视频服务
-        if (huRole?.isConnected() == true) {
-            startVideoAndAudioServices()
-        }
+        tryStartVideoAndAudioServices()
     }
 
     // ==================== 通知 ====================
@@ -595,39 +593,60 @@ class ConnectionService : Service() {
     private fun onMdRoleStateChanged(newState: MdRole.MdState) {
         when (newState) {
             MdRole.MdState.READY -> {
-                LogUtils.i(TAG, "MdRole READY，启动 HuRole")
-                startHuRole()
+                LogUtils.i(TAG, "MdRole READY（车机已连接）")
+                updateNotification("车机已连接")
+                // 车机就绪后，检查是否可以启动音视频服务
+                tryStartVideoAndAudioServices()
             }
             MdRole.MdState.ERROR,
             MdRole.MdState.IDLE -> {
                 LogUtils.i(TAG, "MdRole 离开 READY")
-                stopHuRole()
                 stopVideoAndAudioServices()
             }
             else -> {}
         }
+        broadcastState()
     }
 
     private fun onHuRoleStateChanged(newState: HuState) {
         when (newState) {
             HuState.CONNECTED -> {
-                LogUtils.i(TAG, "HuRole CONNECTED，启动音视频服务")
-                huReconnectCount.set(0) // 连接成功，重置重试计数
+                LogUtils.i(TAG, "HuRole CONNECTED（手机B已连接）")
+                huReconnectCount.set(0)
                 cancelHuReconnect()
-                startVideoAndAudioServices()
+                updateNotification("手机B已连接")
+                // 手机B就绪后，检查是否可以启动音视频服务
+                tryStartVideoAndAudioServices()
             }
             HuState.DISCONNECTED -> {
                 LogUtils.i(TAG, "HuRole DISCONNECTED")
                 stopVideoAndAudioServices()
-                // 清除旧的 HuRole 引用，以便重连时创建新实例
                 try {
                     huRole?.disconnect("preparing for reconnect")
                 } catch (_: Exception) {}
                 huRole = null
-                // 尝试自动重连
+                // 尝试自动重连（独立于 MdRole）
                 scheduleHuReconnect()
             }
             else -> {}
+        }
+        broadcastState()
+    }
+
+    /**
+     * 检查双端是否都就绪，如果是则启动音视频服务
+     * 只有车机和手机B都连接成功后，才开始音视频采集和转发
+     */
+    private fun tryStartVideoAndAudioServices() {
+        val mdReady = mdRole?.isReady() == true
+        val huConnected = huRole?.isConnected() == true
+
+        if (mdReady && huConnected) {
+            LogUtils.i(TAG, "双端就绪，启动音视频服务")
+            updateNotification("投屏中：车机 ↔ 手机B")
+            startVideoAndAudioServices()
+        } else {
+            LogUtils.d(TAG, "等待双端就绪：车机=${if (mdReady) "✅" else "⏳"}，手机B=${if (huConnected) "✅" else "⏳"}")
         }
     }
 
@@ -689,23 +708,36 @@ class ConnectionService : Service() {
     fun isServiceRunning(): Boolean = isRunning
 
     fun getConnectionStateText(): String {
-        return when (mdRole?.getState()) {
+        val mdState = when (mdRole?.getState()) {
             MdRole.MdState.IDLE -> "空闲"
             MdRole.MdState.STARTING -> "启动中"
-            MdRole.MdState.WAITING_CONNECTION -> "等待连接"
-            MdRole.MdState.CONNECTED -> "已连接（部分）"
-            MdRole.MdState.ALL_CONNECTED -> "全部通道已连接"
-            MdRole.MdState.HANDSHAKING -> "握手中"
-            MdRole.MdState.READY -> "就绪"
-            MdRole.MdState.ERROR -> "错误"
-            null -> "未知"
+            MdRole.MdState.WAITING_CONNECTION -> "等待车机"
+            MdRole.MdState.CONNECTED -> "车机已连接（部分）"
+            MdRole.MdState.ALL_CONNECTED -> "车机全部通道已连接"
+            MdRole.MdState.HANDSHAKING -> "车机握手中"
+            MdRole.MdState.READY -> "车机就绪"
+            MdRole.MdState.ERROR -> "车机错误"
+            null -> "车机未启动"
         }
+        val huState = when (huRole?.getState()) {
+            HuState.IDLE -> "空闲"
+            HuState.CONNECTING -> "连接手机B中"
+            HuState.AUTHENTICATING -> "手机B认证中"
+            HuState.REGISTERING -> "手机B注册中"
+            HuState.NEGOTIATING -> "手机B协商中"
+            HuState.CONNECTED -> "手机B已连接"
+            HuState.DISCONNECTED -> "手机B未连接"
+            null -> "手机B未启动"
+        }
+        return "$mdState | $huState"
     }
 
     fun getConnectedChannelCount(): Int {
-        return mdRole?.let {
+        val mdCount = mdRole?.let {
             if (it.getState() == MdRole.MdState.READY) 6 else 0
         } ?: 0
+        // HuRole 通道数通过内部计数获取
+        return mdCount
     }
 
     private fun getLocalIpAddress(): String {
