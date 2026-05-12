@@ -203,10 +203,11 @@ class MdRole(private val context: Context) {
             startMediaReadLoop(port, channel)
         }
 
-        if (count == ChannelType.entries.size) {
-            LogUtils.i(TAG, "All 6 channels connected, waiting for car handshake...")
+        // CMD 通道连接后即进入握手状态（不等全部 6 通道）
+        // 车机可能只连接它需要的通道
+        if (port == Constants.PortMD.MD_CMD) {
+            LogUtils.i(TAG, "CMD channel connected, waiting for car handshake...")
             connectionStartTime.set(System.currentTimeMillis())
-            // 使用 compareAndSet 防止多线程重复触发
             if (state.compareAndSet(MdState.CONNECTED, MdState.ALL_CONNECTED) ||
                 state.compareAndSet(MdState.WAITING_CONNECTION, MdState.ALL_CONNECTED)) {
                 updateState(MdState.HANDSHAKING)

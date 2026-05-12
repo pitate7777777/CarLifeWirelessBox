@@ -29,6 +29,7 @@ import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
 import kotlinx.coroutines.*
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
@@ -158,20 +159,73 @@ class HuRole(
         private val MANUFACTURER: String = Build.MANUFACTURER ?: "Unknown"
         private val OS_VERSION: String = Build.VERSION.RELEASE ?: "unknown"
 
-        /** 6 通道连接超时（毫秒）— 超过此时间未全部连接则断开重试 */
-        private const val CONNECT_ALL_TIMEOUT_MS = 10_000L
+        /** 连接超时（毫秒）— 仅检查 CMD + VIDEO 两个核心通道 */
+        private const val CONNECT_TIMEOUT_MS = 10_000L
+
+        /**
+         * 默认通道配置
+         * - 必选: CMD（协议握手）、VIDEO（投屏画面）、CTRL（触摸控制）
+         * - 可选: MEDIA（音乐）、TTS（语音播报）、VR（语音识别）
+         */
+        val DEFAULT_CHANNEL_CONFIG = ChannelConfig()
+    }
+
+    /**
+     * 通道配置 — 控制哪些通道启用
+     *
+     * 必选通道未连接时会触发超时断开；
+     * 可选通道未连接不影响握手，静默跳过。
+     */
+    class ChannelConfig(
+        /** CMD 通道（协议握手）— 必须启用 */
+        val cmdEnabled: Boolean = true,
+        /** VIDEO 通道（投屏画面）— 必须启用 */
+        val videoEnabled: Boolean = true,
+        /** CTRL 通道（触摸控制）— 必须启用 */
+        val ctrlEnabled: Boolean = true,
+        /** MEDIA 通道（音乐转发）— 可选 */
+        val mediaEnabled: Boolean = true,
+        /** TTS 通道（语音播报）— 可选 */
+        val ttsEnabled: Boolean = false,
+        /** VR 通道（语音识别）— 可选 */
+        val vrEnabled: Boolean = false
+    ) {
+        /** 必选通道列表 */
+        val requiredChannels: List<ChannelType> = buildList {
+            if (cmdEnabled) add(ChannelType.HU_CMD)
+            if (videoEnabled) add(ChannelType.HU_VIDEO)
+            if (ctrlEnabled) add(ChannelType.HU_CTRL)
+        }
+
+        /** 可选通道列表 */
+        val optionalChannels: List<ChannelType> = buildList {
+            if (mediaEnabled) add(ChannelType.HU_MEDIA)
+            if (ttsEnabled) add(ChannelType.HU_TTS)
+            if (vrEnabled) add(ChannelType.HU_VR)
+        }
+
+        /** 所有启用的通道 */
+        val allChannels: List<ChannelType> = requiredChannels + optionalChannels
+
+        /** 启用的通道总数 */
+        val totalEnabled: Int get() = allChannels.size
+
+        /** 必选通道数 */
+        val requiredCount: Int get() = requiredChannels.size
+
+        fun isRequired(type: ChannelType): Boolean = type in requiredChannels
+        fun isEnabled(type: ChannelType): Boolean = type in allChannels
     }
 
     private val state = AtomicReference(HuState.IDLE)
     private val connectedChannelCount = AtomicInteger(0)
+    private val requiredConnectedCount = AtomicInteger(0)
 
-    // 6 个通道
-    @Volatile private var cmdChannel: Channel? = null
-    @Volatile private var videoChannel: Channel? = null
-    @Volatile private var mediaChannel: Channel? = null
-    @Volatile private var ttsChannel: Channel? = null
-    @Volatile private var vrChannel: Channel? = null
-    @Volatile private var ctrlChannel: Channel? = null
+    // 通道配置
+    var channelConfig: ChannelConfig = DEFAULT_CHANNEL_CONFIG
+
+    // 通道映射（按类型索引）
+    private val channels = ConcurrentHashMap<ChannelType, Channel>()
 
     // 协程作用域（IO 线程池 + SupervisorJob 保证子协程独立失败）
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -190,6 +244,7 @@ class HuRole(
 
         updateState(HuState.CONNECTING)
         connectedChannelCount.set(0)
+        requiredConnectedCount.set(0)
 
         // 清理可能残留的旧 Channel（如快速重连场景）
         disconnect("preparing new connection")
@@ -242,34 +297,45 @@ class HuRole(
                     }
                 }
 
-                // ========== 建立连接 ==========
-                LogUtils.i("$TAG: All CarWith ports ready, establishing connections...")
+                // ========== 建立连接（按配置启用通道） ==========
+                val config = channelConfig
+                LogUtils.i("$TAG: All CarWith ports ready, connecting ${config.totalEnabled} channels " +
+                        "(required: ${config.requiredChannels.joinToString { it.name }}, " +
+                        "optional: ${config.optionalChannels.joinToString { it.name }})")
 
-                cmdChannel = createChannel(ChannelType.HU_CMD, autoRead = false)
-                videoChannel = createChannel(ChannelType.HU_VIDEO)
-                mediaChannel = createChannel(ChannelType.HU_MEDIA)
-                ttsChannel = createChannel(ChannelType.HU_TTS)
-                vrChannel = createChannel(ChannelType.HU_VR)
-                ctrlChannel = createChannel(ChannelType.HU_CTRL)
+                for (type in config.allChannels) {
+                    val autoRead = type != ChannelType.HU_CMD
+                    val channel = createChannel(type, autoRead)
+                    channels[type] = channel
+                    channel.connect(phoneBIp)
+                }
 
-                cmdChannel?.connect(phoneBIp)
-                videoChannel?.connect(phoneBIp)
-                mediaChannel?.connect(phoneBIp)
-                ttsChannel?.connect(phoneBIp)
-                vrChannel?.connect(phoneBIp)
-                ctrlChannel?.connect(phoneBIp)
+                LogUtils.i("$TAG: Connecting to phone B at $phoneBIp (${config.totalEnabled} channels)")
 
-                LogUtils.i("$TAG: Connecting to phone B at $phoneBIp (6 channels)")
-
-                // 启动连接超时定时器
+                // 启动连接超时定时器 — 仅检查必选通道（CMD + VIDEO + CTRL）
+                // 如果 VIDEO 已连接，即使可选通道未连也不算超时
                 launch {
-                    delay(CONNECT_ALL_TIMEOUT_MS)
-                    if (connectedChannelCount.get() < 6 && state.get() != HuState.DISCONNECTED) {
+                    delay(CONNECT_TIMEOUT_MS)
+                    if (state.get() == HuState.DISCONNECTED) return@launch
+
+                    val videoConnected = channels[ChannelType.HU_VIDEO]?.isConnected == true
+                    val requiredOk = config.requiredChannels.all { channels[it]?.isConnected == true }
+
+                    if (!videoConnected) {
+                        // VIDEO 未连接 → 投屏无法工作，算超时
                         val connected = connectedChannelCount.get()
-                        LogUtils.e("$TAG: Connection timeout! Only $connected/6 channels connected after ${CONNECT_ALL_TIMEOUT_MS}ms")
-                        listener?.onError("连接超时：${connected}/6 通道已连接，请检查 CarWith 状态")
-                        ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, CONNECT_ALL_TIMEOUT_MS)
-                        disconnect("Connection timeout: $connected/6 channels")
+                        val required = requiredConnectedCount.get()
+                        LogUtils.e("$TAG: Connection timeout! VIDEO not connected. " +
+                                "Connected: $connected/${config.totalEnabled} total, $required/${config.requiredCount} required")
+                        listener?.onError("连接超时：视频通道未连接，请检查 CarWith 状态")
+                        ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, CONNECT_TIMEOUT_MS)
+                        disconnect("Connection timeout: VIDEO not connected")
+                    } else if (!requiredOk) {
+                        // VIDEO 已连接但其他必选通道缺失 → 警告但不中断
+                        val missing = config.requiredChannels.filter { channels[it]?.isConnected != true }
+                        LogUtils.w("$TAG: Some required channels not connected: ${missing.joinToString { it.name }}}, but VIDEO is OK")
+                    } else {
+                        LogUtils.i("$TAG: All required channels connected within timeout window")
                     }
                 }
             } catch (e: Exception) {
@@ -289,7 +355,7 @@ class HuRole(
         channel.callback = object : ChannelCallback {
             override fun onConnected(ch: Channel) {
                 LogUtils.i("$TAG: ${ch.name} connected")
-                onChannelConnected()
+                onChannelConnected(ch.type)
             }
 
             override fun onDisconnected(ch: Channel, reason: String?) {
@@ -316,17 +382,13 @@ class HuRole(
 
         updateState(HuState.DISCONNECTED, reason)
 
-        // 先关闭通道（关闭 socket 会中断阻塞的 read）
-        try {
-            cmdChannel?.disconnect("HuRole disconnect")
-            videoChannel?.disconnect("HuRole disconnect")
-            mediaChannel?.disconnect("HuRole disconnect")
-            ttsChannel?.disconnect("HuRole disconnect")
-            vrChannel?.disconnect("HuRole disconnect")
-            ctrlChannel?.disconnect("HuRole disconnect")
-        } catch (e: Exception) {
-            LogUtils.e(e, "$TAG: Error during disconnect")
+        // 先关闭所有通道（关闭 socket 会中断阻塞的 read）
+        channels.values.forEach { ch ->
+            try { ch.disconnect("HuRole disconnect") } catch (e: Exception) {
+                LogUtils.e(e, "$TAG: Error disconnecting ${ch.name}")
+            }
         }
+        channels.clear()
 
         // 取消所有协程（包括读取循环和连接协程）
         scope.cancel()
@@ -335,14 +397,8 @@ class HuRole(
         // 重建 scope 以支持后续 reconnect
         scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
-        cmdChannel = null
-        videoChannel = null
-        mediaChannel = null
-        ttsChannel = null
-        vrChannel = null
-        ctrlChannel = null
-
         connectedChannelCount.set(0)
+        requiredConnectedCount.set(0)
         LogUtils.i("$TAG: Disconnected: ${reason ?: "unknown"}")
     }
 
@@ -359,45 +415,60 @@ class HuRole(
      * 转发视频数据到手机 B
      */
     fun sendVideoData(header: ChannelHeader.Media, data: ByteArray): Boolean {
-        return videoChannel?.send(header.payloadType, data, header.timestamp) ?: false
+        return channels[ChannelType.HU_VIDEO]?.send(header.payloadType, data, header.timestamp) ?: false
     }
 
     /**
      * 转发音频数据到手机 B
      */
     fun sendMediaData(header: ChannelHeader.Media, data: ByteArray): Boolean {
-        return mediaChannel?.send(header.payloadType, data, header.timestamp) ?: false
+        return channels[ChannelType.HU_MEDIA]?.send(header.payloadType, data, header.timestamp) ?: false
     }
 
     /**
      * 转发 TTS 数据到手机 B
      */
     fun sendTtsData(header: ChannelHeader.Media, data: ByteArray): Boolean {
-        return ttsChannel?.send(header.payloadType, data, header.timestamp) ?: false
+        return channels[ChannelType.HU_TTS]?.send(header.payloadType, data, header.timestamp) ?: false
     }
 
     /**
      * 转发 VR 数据到手机 B（车机麦克风 → 手机 B 语音识别）
      */
     fun sendVrData(header: ChannelHeader.Media, data: ByteArray): Boolean {
-        return vrChannel?.send(header.payloadType, data, header.timestamp) ?: false
+        return channels[ChannelType.HU_VR]?.send(header.payloadType, data, header.timestamp) ?: false
     }
 
     /**
      * 转发控制指令到手机 B（触摸事件等）
      */
     fun sendControlData(header: ChannelHeader.Cmd, data: ByteArray): Boolean {
-        return ctrlChannel?.send(header.payloadType, data) ?: false
+        return channels[ChannelType.HU_CTRL]?.send(header.payloadType, data) ?: false
     }
 
     // ==================== 通道连接管理 ====================
 
-    private fun onChannelConnected() {
-        val count = connectedChannelCount.incrementAndGet()
-        LogUtils.d("$TAG: Channel connected, count=$count/6")
+    private fun onChannelConnected(type: ChannelType) {
+        val totalCount = connectedChannelCount.incrementAndGet()
+        val isRequired = channelConfig.isRequired(type)
 
-        if (count >= 6) {
-            LogUtils.i("$TAG: All 6 channels connected, starting CarLife handshake...")
+        if (isRequired) {
+            requiredConnectedCount.incrementAndGet()
+        }
+
+        LogUtils.d("$TAG: ${type.name} connected (required=$isRequired), " +
+                "total=$totalCount/${channelConfig.totalEnabled}, " +
+                "required=${requiredConnectedCount.get()}/${channelConfig.requiredCount}")
+
+        // 必选通道全部连接 → 启动握手
+        if (requiredConnectedCount.get() >= channelConfig.requiredCount) {
+            // 可选通道可能还在连接中，但不阻塞握手
+            val optionalPending = channelConfig.optionalChannels.count { channels[it]?.isConnected != true }
+            if (optionalPending > 0) {
+                LogUtils.i("$TAG: All required channels connected, $optionalPending optional channels pending. Starting handshake...")
+            } else {
+                LogUtils.i("$TAG: All channels connected, starting CarLife handshake...")
+            }
             // 启动 CMD 通道独立读取协程（使用 CarLife 消息格式）
             startCmdReadLoop()
             // 延迟发送协议版本
@@ -415,7 +486,7 @@ class HuRole(
      * 格式：[data_len(2B)][reserved(2B)][service_type(4B)] + [protobuf_data]
      */
     private fun startCmdReadLoop() {
-        val ch = cmdChannel ?: return
+        val ch = channels[ChannelType.HU_CMD] ?: return
         cmdReadJob = scope.launch {
             LogUtils.i("$TAG: CMD read loop started (CarLife protocol)")
             while (ch.isConnected && state.get() != HuState.DISCONNECTED) {
@@ -491,7 +562,7 @@ class HuRole(
                 .setMinorVersion(Constants.PROTOCOL_MINOR_VERSION)
                 .build()
 
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_PROTOCOL_VERSION, version.toByteArray())
+            channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.HU_PROTOCOL_VERSION, version.toByteArray())
             LogUtils.i("$TAG: [Phase 1] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 1] Failed to send protocol version")
@@ -517,7 +588,7 @@ class HuRole(
                 .setDeviceName(DEVICE_NAME)
                 .build()
 
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_INFO, deviceInfo.toByteArray())
+            channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.HU_INFO, deviceInfo.toByteArray())
             LogUtils.i("$TAG: [Phase 2] HU_INFO sent")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 2] Failed to send HU_INFO")
@@ -541,7 +612,7 @@ class HuRole(
                 .setDeviceModel(DEVICE_NAME)
                 .build()
 
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_AUTHEN_REQUEST, request.toByteArray())
+            channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.HU_AUTHEN_REQUEST, request.toByteArray())
             LogUtils.i("$TAG: [Phase 3] HU_AUTHEN_REQUEST sent")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 3] Failed to send authen request")
@@ -579,7 +650,7 @@ class HuRole(
                 )
                 .build()
 
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_AUTHEN_RESULT, result.toByteArray())
+            channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.HU_AUTHEN_RESULT, result.toByteArray())
             LogUtils.i("$TAG: [Phase 4] HU_AUTHEN_RESULT sent (result=$success)")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 4] Failed to send authen result")
@@ -608,7 +679,7 @@ class HuRole(
                 .setConnectionTimeout(30)
                 .build()
 
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.HU_FEATURE_CONFIG_RESPONSE, config.toByteArray())
+            channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.HU_FEATURE_CONFIG_RESPONSE, config.toByteArray())
             LogUtils.i("$TAG: [Phase 5] FEATURE_CONFIG_RESPONSE sent")
 
             // 发送视频编码器初始化
@@ -647,7 +718,7 @@ class HuRole(
                 .setHardwareEncoder(true)
                 .build()
 
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.VIDEO_ENCODER_INIT, info.toByteArray())
+            channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.VIDEO_ENCODER_INIT, info.toByteArray())
             LogUtils.i("$TAG: [Phase 6] VIDEO_ENCODER_INIT sent")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 6] Failed to send VIDEO_ENCODER_INIT")
@@ -662,7 +733,7 @@ class HuRole(
      */
     private fun sendVideoEncoderStart() {
         try {
-            cmdChannel?.sendCarLifeMsg(CarLifeMsg.VIDEO_ENCODER_START, ByteArray(0))
+            channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.VIDEO_ENCODER_START, ByteArray(0))
             LogUtils.i("$TAG: [Phase 7] VIDEO_ENCODER_START sent")
 
             updateState(HuState.CONNECTED)
