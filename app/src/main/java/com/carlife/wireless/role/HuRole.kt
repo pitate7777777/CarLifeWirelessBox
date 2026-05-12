@@ -322,8 +322,8 @@ class HuRole(
                     val autoRead = type != ChannelType.HU_CMD
                     val channel = createChannel(type, autoRead)
                     channels[type] = channel
-                    LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:${type.huPort}...")
-                    channel.connect(phoneBIp)
+                    LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:${type.mdPort}...")
+                    channel.connect(phoneBIp, type.mdPort)
                     // 等待连接结果再连下一个，避免 SYN 风暴
                     delay(500)
                     if (channels[type]?.isConnected != true) {

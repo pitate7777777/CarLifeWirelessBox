@@ -1,14 +1,22 @@
 # CarLifeWirelessBox 源码审查报告
 
 **审查日期**: 2026-05-12（第六轮）  
-**审查范围**: HuRole 编译错误修复  
+**审查范围**: HuRole 编译错误 + 端口连接错误  
 **修复状态**: ✅ 已修复 | 🔧 本次新增 | ⬜ 建议改进
 
 ---
 
 ## 本次修复（第六轮）
 
-### 🔧 Critical-1: HuRole.kt 编译错误 — `launch` 作用域外调用
+### 🔧 Critical-1: HuRole 连接端口错误（无线连接卡住第 4 步根因）
+
+- **文件**: `HuRole.kt` — `connect()` → `channel.connect(phoneBIp)`
+- **问题**: HU 端连接手机 B 时使用了 HU 端口（7240, 8240, 9240...），但 MdRole（手机 B）在 MD 端口（7200, 8200, 9200...）上监听。HU 连的是自己的端口，手机 B 根本没在这些端口上监听，导致连接永远无法建立。
+- **根因**: `Channel.connect(host)` 默认端口为 `type.getPort(role)`，HU 角色的 role=HU，所以返回 HU 端口。但 HU 作为客户端应连接 MD 的监听端口。
+- **修复**: `channel.connect(phoneBIp)` → `channel.connect(phoneBIp, type.mdPort)`
+- **影响**: 无线连接完全无法工作，卡在"等待连接"。
+
+### 🔧 Critical-2: HuRole.kt 编译错误 — `launch` 作用域外调用
 
 - **文件**: `HuRole.kt` — `onChannelConnected()` (line 527)
 - **问题**: 握手超时检测使用了裸 `launch { ... }`，但 `onChannelConnected()` 是普通成员函数，不是 `CoroutineScope`。Kotlin 编译器报 `Unresolved reference: None of the following candidates is applicable because of receiver type mismatch`。
