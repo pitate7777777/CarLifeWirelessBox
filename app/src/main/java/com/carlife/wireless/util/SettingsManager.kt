@@ -59,11 +59,12 @@ object SettingsManager {
 
     /**
      * 获取手机 B 的 IP 地址
+     * 默认值为热点网关地址（192.168.43.1）
      */
     fun getPhoneBIp(context: Context): String {
         val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
-        return prefs.getString("phone_b_ip", Constants.IpAddress.USB_TETHERING_LOCAL)
-            ?: Constants.IpAddress.USB_TETHERING_LOCAL
+        return prefs.getString("phone_b_ip", Constants.IpAddress.HOTSPOT_GATEWAY)
+            ?: Constants.IpAddress.HOTSPOT_GATEWAY
     }
 
     /**

@@ -32,6 +32,8 @@ object Constants {
     // IP地址定义
     object IpAddress {
         const val USB_TETHERING_LOCAL = "192.168.42.129"
+        /** Android WiFi 热点默认网关 */
+        const val HOTSPOT_GATEWAY = "192.168.43.1"
     }
 
     // 视频参数

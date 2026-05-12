@@ -164,7 +164,7 @@ object NetworkDiagnostics {
      */
     fun runDiagnostics(
         context: Context,
-        phoneBIp: String = Constants.IpAddress.USB_TETHERING_LOCAL,
+        phoneBIp: String = Constants.IpAddress.HOTSPOT_GATEWAY,
         connectTimeoutMs: Int = 2000
     ): DiagResult {
         LogUtils.i(TAG, "Starting network diagnostics for $phoneBIp...")

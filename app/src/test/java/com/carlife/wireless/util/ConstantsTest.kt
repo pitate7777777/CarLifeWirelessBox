@@ -114,6 +114,11 @@ class ConstantsTest {
         assertEquals("192.168.42.129", Constants.IpAddress.USB_TETHERING_LOCAL)
     }
 
+    @Test
+    fun `hotspot gateway IP is 192_168_43_1`() {
+        assertEquals("192.168.43.1", Constants.IpAddress.HOTSPOT_GATEWAY)
+    }
+
     // ==================== Video parameters ====================
 
     @Test

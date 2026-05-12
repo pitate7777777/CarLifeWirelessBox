@@ -145,7 +145,7 @@ object CarLifeMsg {
  */
 class HuRole(
     val context: Context,
-    val phoneBIp: String = Constants.IpAddress.USB_TETHERING_LOCAL,
+    val phoneBIp: String = Constants.IpAddress.HOTSPOT_GATEWAY,
     var listener: HuRoleListener? = null
 ) {
     companion object {

@@ -205,8 +205,8 @@ class SettingsManagerTest {
     // ==================== getPhoneBIp / setPhoneBIp ====================
 
     @Test
-    fun `getPhoneBIp returns default USB tethering IP`() {
-        assertEquals(Constants.IpAddress.USB_TETHERING_LOCAL, SettingsManager.getPhoneBIp(context))
+    fun `getPhoneBIp returns default hotspot gateway IP`() {
+        assertEquals(Constants.IpAddress.HOTSPOT_GATEWAY, SettingsManager.getPhoneBIp(context))
     }
 
     @Test

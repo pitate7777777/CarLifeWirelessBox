@@ -122,8 +122,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.etPort.setText(port.toString())
 
         // 加载手机 B IP
-        val phoneBIp = prefs.getString("phone_b_ip", com.carlife.wireless.util.Constants.IpAddress.USB_TETHERING_LOCAL)
-            ?: com.carlife.wireless.util.Constants.IpAddress.USB_TETHERING_LOCAL
+        val phoneBIp = prefs.getString("phone_b_ip", com.carlife.wireless.util.Constants.IpAddress.HOTSPOT_GATEWAY)
+            ?: com.carlife.wireless.util.Constants.IpAddress.HOTSPOT_GATEWAY
         binding.etPhoneBIp.setText(phoneBIp)
     }
     
@@ -222,7 +222,7 @@ class SettingsActivity : AppCompatActivity() {
         val framerate = binding.spinnerFramerate.selectedItem.toString()
         val sampleRate = binding.spinnerSampleRate.selectedItem.toString()
         val port = binding.etPort.text.toString().toIntOrNull() ?: 8234
-        val phoneBIp = binding.etPhoneBIp.text.toString().trim().ifEmpty { com.carlife.wireless.util.Constants.IpAddress.USB_TETHERING_LOCAL }
+        val phoneBIp = binding.etPhoneBIp.text.toString().trim().ifEmpty { com.carlife.wireless.util.Constants.IpAddress.HOTSPOT_GATEWAY }
 
         // 验证端口号范围
         if (port !in 1024..65535) {

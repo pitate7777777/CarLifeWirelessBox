@@ -108,4 +108,35 @@ object NetworkUtils {
             false
         }
     }
+
+    /**
+     * 获取 WiFi 热点的网关地址
+     * Android 热点默认子网为 192.168.43.0/24，网关为 192.168.43.1
+     * 也尝试从 wlan0 接口的实际配置中读取网关
+     * @return 热点网关 IP 地址，默认返回 192.168.43.1
+     */
+    fun getHotspotGateway(): String {
+        try {
+            // 尝试从 wlan0 接口获取网关（热点通常使用 wlan0）
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val networkInterface = interfaces.nextElement()
+                val interfaceName = networkInterface.displayName?.lowercase() ?: ""
+                if (interfaceName.contains("wlan") || interfaceName.contains("ap")) {
+                    val addresses = networkInterface.interfaceAddresses
+                    for (addr in addresses) {
+                        val address = addr.address
+                        if (!address.isLoopbackAddress && address is java.net.Inet4Address) {
+                            val ip = address.hostAddress ?: continue
+                            // 热点网关通常是子网中 .1 的地址
+                            val prefix = ip.substringBeforeLast(".")
+                            return "$prefix.1"
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+        }
+        return Constants.IpAddress.HOTSPOT_GATEWAY
+    }
 }

@@ -78,8 +78,8 @@ class NetworkDiagActivity : AppCompatActivity() {
 
     private fun getPhoneBIp(): String {
         val prefs = getSharedPreferences("carlife_settings", MODE_PRIVATE)
-        return prefs.getString("phone_b_ip", Constants.IpAddress.USB_TETHERING_LOCAL)
-            ?: Constants.IpAddress.USB_TETHERING_LOCAL
+        return prefs.getString("phone_b_ip", Constants.IpAddress.HOTSPOT_GATEWAY)
+            ?: Constants.IpAddress.HOTSPOT_GATEWAY
     }
 
     /**
