@@ -238,6 +238,8 @@ class MainActivity : AppCompatActivity() {
         binding.tvStatus.text = getString(R.string.status_disconnected)
         previewHelper.stopPreview()
         addLog("服务已停止")
+        // 延迟刷新按钮状态（等 onDestroy 完成后再检查 isServiceActive）
+        binding.btnStart.postDelayed({ updateUI() }, 300)
     }
 
     // ==================== MediaProjection ====================
