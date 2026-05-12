@@ -66,25 +66,21 @@ object NetworkDiagnostics {
             sb.appendLine("═══════════════════════════════════════")
             sb.appendLine()
 
-            // WiFi 状态
-            sb.appendLine("📶 WiFi 状态")
+            // WiFi 状态（本机 → 手机 B 热点）
+            sb.appendLine("📶 WiFi 连接（本机 → 手机 B 热点）")
             sb.appendLine("  连接状态: ${if (wifiConnected) "✅ 已连接" else "❌ 未连接"}")
             if (wifiSsid != null) sb.appendLine("  网络名称: $wifiSsid")
             sb.appendLine()
 
-            // 热点检测
-            sb.appendLine("📱 热点连接")
-            sb.appendLine("  手机 B IP: $phoneBIp")
-            sb.appendLine("  连接状态: ${if (hotspotConnected) "✅ 已连接到热点" else "❌ 未连接到热点"}")
+            // 手机 B 检测
+            sb.appendLine("📱 手机 B（CarWith 发射端）")
+            sb.appendLine("  IP 地址: $phoneBIp")
+            sb.appendLine("  热点连接: ${if (hotspotConnected) "✅ 已连接" else "❌ 未连接"}")
+            sb.appendLine("  Ping 测试: ${if (pingReachable) "✅ 可达" else "❌ 不可达"}")
             sb.appendLine()
 
-            // Ping 测试
-            sb.appendLine("🏓 Ping 测试")
-            sb.appendLine("  ${phoneBIp}: ${if (pingReachable) "✅ 可达" else "❌ 不可达"}")
-            sb.appendLine()
-
-            // 端口检测
-            sb.appendLine("🔌 CarWith 端口检测")
+            // CarWith 端口检测（手机 B 上的服务）
+            sb.appendLine("🔌 CarWith 端口（手机 B 上的服务）")
             sb.appendLine("  目标: $phoneBIp")
             for (result in portResults) {
                 val icon = if (result.isOpen) "✅" else "❌"
@@ -95,7 +91,7 @@ object NetworkDiagnostics {
             sb.appendLine()
 
             // 本机网络信息
-            sb.appendLine("🖥️ 本机网络")
+            sb.appendLine("📦 本机（转接盒）")
             sb.appendLine("  本地 IP: ${localIp ?: "未知"}")
             for (info in networkInterfaces) {
                 sb.appendLine("  ${info.name}: ${info.ip} (${info.type})")

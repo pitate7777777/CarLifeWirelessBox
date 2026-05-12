@@ -324,15 +324,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateSignalInfo(signalLevel: String, dynamicBitrateKbps: Int) {
-        val (label, emoji) = when (signalLevel) {
-            "EXCELLENT" -> "极好" to "📶"
-            "GOOD" -> "良好" to "📶"
-            "FAIR" -> "一般" to "📶"
-            "WEAK" -> "较差" to "📶"
-            "TERRIBLE" -> "极差" to "📶"
-            else -> "未连接" to "📵"
+        val label = when (signalLevel) {
+            "EXCELLENT" -> "极好"
+            "GOOD" -> "良好"
+            "FAIR" -> "一般"
+            "WEAK" -> "较差"
+            "TERRIBLE" -> "极差"
+            else -> "未连接"
         }
-        binding.tvSignal.text = "$emoji 信号: $label"
+        binding.tvSignal.text = "信号: $label"
 
         if (dynamicBitrateKbps > 0) {
             binding.tvDynamicBitrate.text = "码率: ${dynamicBitrateKbps}kbps"

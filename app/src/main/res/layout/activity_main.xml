@@ -82,28 +82,44 @@
                     android:text="未连接"
                     android:textSize="14sp" />
 
+                <!-- 📦 本机信息 -->
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="6dp"
+                    android:background="?android:attr/listDivider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📦 本机（转接盒）"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#FFE65100"
+                    android:layout_marginBottom="4dp" />
+
                 <TextView
                     android:id="@+id/tv_ip_address"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
                     android:text="IP: --"
-                    android:textSize="14sp" />
+                    android:textSize="13sp" />
 
                 <TextView
                     android:id="@+id/tv_channels"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="2dp"
                     android:text="通道: 0/6"
-                    android:textSize="14sp" />
+                    android:textSize="13sp" />
 
-                <!-- USB 状态 -->
+                <!-- 🚗 车机信息 -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="6dp"
                     android:background="?android:attr/listDivider" />
 
                 <LinearLayout
@@ -120,32 +136,49 @@
                         android:backgroundTint="#FFBDBDBD" />
 
                     <TextView
-                        android:id="@+id/tv_usb_state"
-                        android:layout_width="0dp"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:layout_marginStart="8dp"
-                        android:text="USB: 未连接"
-                        android:textSize="14sp" />
+                        android:layout_marginStart="6dp"
+                        android:text="🚗 车机"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:textColor="#FF1565C0" />
 
                 </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tv_usb_state"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="USB: 未连接"
+                    android:textSize="13sp" />
 
                 <TextView
                     android:id="@+id/tv_car_ip"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="2dp"
                     android:text="车机 IP: --"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:visibility="gone" />
 
-                <!-- WiFi 信号 + 动态码率 -->
+                <!-- 📶 WiFi 信号（手机 B 热点） -->
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:layout_marginTop="8dp"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginTop="10dp"
+                    android:layout_marginBottom="6dp"
                     android:background="?android:attr/listDivider" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📶 WiFi 信号（手机 B 热点）"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:textColor="#FF2E7D32"
+                    android:layout_marginBottom="4dp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -158,7 +191,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="📶 信号: --"
+                        android:text="信号: --"
                         android:textSize="13sp" />
 
                     <TextView
