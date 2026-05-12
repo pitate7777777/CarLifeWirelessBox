@@ -13,6 +13,9 @@ import android.os.Handler
 import android.os.Looper
 import com.carlife.wireless.util.LogUtils
 import kotlinx.coroutines.*
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
@@ -44,6 +47,9 @@ class UsbTetheringManager(private val context: Context) {
         private const val SCAN_START = 1
         private const val SCAN_END = 254
         private const val SCAN_TIMEOUT_MS = 500
+
+        /** 并行扫描每批数量 */
+        private const val SCAN_BATCH_SIZE = 16
     }
 
     enum class UsbState {
@@ -187,6 +193,10 @@ class UsbTetheringManager(private val context: Context) {
     /**
      * 扫描 USB 网络中的车机设备
      * 在 192.168.42.1 ~ 192.168.42.254 范围内扫描开放 CarLife 端口的设备
+     *
+     * 使用并行扫描（每批 16 个 IP），大幅缩短扫描时间：
+     * - 串行扫描: 最坏 254 × 500ms = 127 秒
+     * - 并行扫描: 最坏 254/16 × 500ms ≈ 8 秒
      */
     fun scanForCarDevice(callback: (String?) -> Unit) {
         scope.launch {
@@ -199,31 +209,63 @@ class UsbTetheringManager(private val context: Context) {
                 return@launch
             }
 
-            // 扫描 7200 端口（CarLife CMD 端口）
-            for (i in SCAN_START..SCAN_END) {
-                val ip = "$USB_NETWORK_PREFIX.$i"
-                if (ip == localIp) continue // 跳过自己
+            // 优先扫描常见 IP（车机通常在前几个地址）
+            val priorityIps = listOf(1, 2, 100, 129, 10, 20, 50, 150, 200)
+            val foundIp = scanBatch(priorityIps.map { "$USB_NETWORK_PREFIX.$it" }.filter { it != localIp })
+            if (foundIp != null) {
+                reportCarFound(foundIp, callback)
+                return@launch
+            }
 
-                try {
-                    val socket = java.net.Socket()
-                    socket.connect(java.net.InetSocketAddress(ip, 7200), SCAN_TIMEOUT_MS)
-                    socket.close()
-                    LogUtils.i(TAG, "发现车机设备: $ip (CarLife CMD 端口开放)")
-                    carIp = ip
-                    currentState = UsbState.CAR_CONNECTED
-                    withContext(Dispatchers.Main) {
-                        listener?.onCarDeviceFound(ip)
-                        listener?.onUsbStateChanged(currentState, ip)
-                        callback(ip)
-                    }
+            // 并行扫描剩余 IP（每批 SCAN_BATCH_SIZE 个）
+            val remainingIps = (SCAN_START..SCAN_END)
+                .map { "$USB_NETWORK_PREFIX.$it" }
+                .filter { it != localIp && it !in priorityIps.map { p -> "$USB_NETWORK_PREFIX.$p" } }
+
+            for (batch in remainingIps.chunked(SCAN_BATCH_SIZE)) {
+                val found = scanBatch(batch)
+                if (found != null) {
+                    reportCarFound(found, callback)
                     return@launch
-                } catch (_: Exception) {
-                    // 端口未开放，继续扫描
                 }
             }
 
             LogUtils.w(TAG, "未发现车机设备")
             withContext(Dispatchers.Main) { callback(null) }
+        }
+    }
+
+    /**
+     * 并行扫描一批 IP 地址
+     * @return 发现的车机 IP，或 null
+     */
+    private suspend fun scanBatch(ips: List<String>): String? = coroutineScope {
+        val results = ips.map { ip ->
+            async {
+                try {
+                    java.net.Socket().use { socket ->
+                        socket.connect(java.net.InetSocketAddress(ip, 7200), SCAN_TIMEOUT_MS)
+                        ip // 连接成功，返回 IP
+                    }
+                } catch (_: Exception) {
+                    null // 连接失败
+                }
+            }
+        }
+        results.awaitAll().firstOrNull { it != null }
+    }
+
+    /**
+     * 报告发现车机设备
+     */
+    private suspend fun reportCarFound(ip: String, callback: (String?) -> Unit) {
+        LogUtils.i(TAG, "发现车机设备: $ip (CarLife CMD 端口开放)")
+        carIp = ip
+        currentState = UsbState.CAR_CONNECTED
+        withContext(Dispatchers.Main) {
+            listener?.onCarDeviceFound(ip)
+            listener?.onUsbStateChanged(currentState, ip)
+            callback(ip)
         }
     }
 

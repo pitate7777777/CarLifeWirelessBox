@@ -2,12 +2,9 @@ package com.carlife.wireless.network
 
 import android.content.Context
 import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
-import android.net.wifi.WifiInfo
-import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Handler
-import android.os.Looper
+import android.os.HandlerThread
 import com.carlife.wireless.util.LogUtils
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -63,7 +60,9 @@ class DynamicBitrate(private val context: Context) {
         fun onBitrateChanged(newBitrateKbps: Int, signalLevel: SignalLevel, rssi: Int)
     }
 
-    private val handler = Handler(Looper.getMainLooper())
+    /** 后台线程，避免检测和回调阻塞主线程 */
+    private val handlerThread = HandlerThread("DynamicBitrate").apply { start() }
+    private val handler = Handler(handlerThread.looper)
     private var listener: BitrateChangeListener? = null
     private var isRunning = false
 
@@ -102,6 +101,7 @@ class DynamicBitrate(private val context: Context) {
         checkRunnable = null
         upgradeRunnable = null
         pendingUpgradeLevel.set(null)
+        handlerThread.quitSafely()
         LogUtils.i(TAG, "动态码率调节停止")
     }
 
@@ -111,12 +111,21 @@ class DynamicBitrate(private val context: Context) {
 
     /**
      * 获取当前 Wi-Fi RSSI
+     * API 31+ 使用 NetworkCapabilities.getSignalStrength()
+     * 低版本回退到 WifiManager.connectionInfo.rssi
      */
     fun getWifiRssi(): Int {
         return try {
-            val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-            @Suppress("DEPRECATION")
-            wifiManager.connectionInfo.rssi
+            if (Build.VERSION.SDK_INT >= 31) {
+                val cm = context.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+                val network = cm.activeNetwork
+                val caps = network?.let { cm.getNetworkCapabilities(it) }
+                caps?.signalStrength ?: -100
+            } else {
+                val wifiManager = context.applicationContext.getSystemService(Context.WIFI_SERVICE) as android.net.wifi.WifiManager
+                @Suppress("DEPRECATION")
+                wifiManager.connectionInfo.rssi
+            }
         } catch (e: Exception) {
             LogUtils.w(TAG, "获取 RSSI 失败: ${e.message}")
             -100

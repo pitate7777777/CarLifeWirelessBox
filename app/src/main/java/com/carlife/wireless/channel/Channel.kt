@@ -79,7 +79,8 @@ abstract class Channel(
     var callback: ChannelCallback? = null
 
     // 协程作用域（IO 线程池 + SupervisorJob）
-    protected val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    // 注意：disconnect() 会 cancel scope，connect() 需要检查并重建
+    protected var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     val name: String get() = "${role.name}_${type.name}"
     val isConnected: Boolean get() = state == KConnectionState.CONNECTED
@@ -427,6 +428,16 @@ abstract class Channel(
     }
 
     /**
+     * 确保 scope 处于活跃状态
+     * disconnect() 会 cancel scope，再次 connect() 前需要重建
+     */
+    protected fun ensureScopeActive() {
+        if (!scope.isActive) {
+            scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+        }
+    }
+
+    /**
      * 启动读取循环（在后台协程调用）
      */
     protected fun startReadLoop() {
@@ -483,6 +494,7 @@ private class TcpChannel(
         }
 
         updateState(KConnectionState.CONNECTING)
+        ensureScopeActive()
 
         scope.launch {
             try {
@@ -543,6 +555,7 @@ class TcpServerChannel(
         }
 
         updateState(KConnectionState.CONNECTING)
+        ensureScopeActive()
 
         try {
             connectedSocket.soTimeout = 5000

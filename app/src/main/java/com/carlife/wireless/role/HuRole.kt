@@ -157,6 +157,9 @@ class HuRole(
         private val DEVICE_NAME: String = Build.MODEL ?: "Android Box"
         private val MANUFACTURER: String = Build.MANUFACTURER ?: "Unknown"
         private val OS_VERSION: String = Build.VERSION.RELEASE ?: "unknown"
+
+        /** 6 通道连接超时（毫秒）— 超过此时间未全部连接则断开重试 */
+        private const val CONNECT_ALL_TIMEOUT_MS = 10_000L
     }
 
     private val state = AtomicReference(HuState.IDLE)
@@ -257,6 +260,18 @@ class HuRole(
                 ctrlChannel?.connect(phoneBIp)
 
                 LogUtils.i("$TAG: Connecting to phone B at $phoneBIp (6 channels)")
+
+                // 启动连接超时定时器
+                launch {
+                    delay(CONNECT_ALL_TIMEOUT_MS)
+                    if (connectedChannelCount.get() < 6 && state.get() != HuState.DISCONNECTED) {
+                        val connected = connectedChannelCount.get()
+                        LogUtils.e("$TAG: Connection timeout! Only $connected/6 channels connected after ${CONNECT_ALL_TIMEOUT_MS}ms")
+                        listener?.onError("连接超时：${connected}/6 通道已连接，请检查 CarWith 状态")
+                        ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, CONNECT_ALL_TIMEOUT_MS)
+                        disconnect("Connection timeout: $connected/6 channels")
+                    }
+                }
             } catch (e: Exception) {
                 LogUtils.e(e, "$TAG: Failed to initialize connections")
                 listener?.onError("Connection initialization failed: ${e.message}")
