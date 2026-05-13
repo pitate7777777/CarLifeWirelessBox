@@ -155,6 +155,7 @@ app/src/main/java/com/carlife/wireless/
 - `docs/项目技术文档.md` — CarLife 协议技术调研（协议解析、开源项目分析）
 - `docs/参考app分析.md` — 百度 CarLife 参考 APP 分析（反编译报告）
 - `docs/CarProjection对比分析.md` — 与参考项目 CarProjection 的对比分析
+- `docs/PROTOCOL_GATEWAY_DESIGN.md` — 协议网关设计方案（长远备用计划：支持手机B使用新版 CarLife）
 
 ## 参考项目
 
