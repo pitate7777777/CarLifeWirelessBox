@@ -464,8 +464,11 @@ class MdRole(private val context: Context) {
                 .setMinorVersion(Constants.PROTOCOL_MINOR_VERSION)
                 .build()
 
-            sendCmdMessage(HU_PROTOCOL_VERSION, version.toByteArray())
-            android.util.Log.e("CarLifeWireless", "[MdRole] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
+            val protoBytes = version.toByteArray()
+            android.util.Log.e("CarLifeWireless", "[MdRole] Proto bytes: ${protoBytes.size}B, hex=${protoBytes.joinToString("") { "%02x".format(it) }}")
+
+            sendCmdMessage(HU_PROTOCOL_VERSION, protoBytes)
+            android.util.Log.e("CarLifeWireless", "[MdRole] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION}), protoLen=${protoBytes.size}")
             LogUtils.i(TAG, "[Phase 1] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
         } catch (e: Exception) {
             android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_PROTOCOL_VERSION: ${e.message}")
