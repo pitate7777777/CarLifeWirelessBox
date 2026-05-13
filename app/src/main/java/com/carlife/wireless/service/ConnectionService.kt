@@ -37,9 +37,11 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * 连接服务：负责 WiFi AP/热点启动、mDNS 广播、TCP 监听
+ * 连接服务：负责 WiFi AP/热点启动、mDNS 广播、TCP 连接
  *
- * 作为 MD（车机）角色时，启动 MdRole 监听 6 个端口
+ * 作为桥接盒角色：
+ * - MdRole 作为客户端连接手机 B 的 CarWith（HU 端口）
+ * - HuRole 作为服务端监听车机连接（MD 端口）
  * 协调 VideoService、AudioService、TouchService 的生命周期
  */
 class ConnectionService : Service() {
@@ -130,9 +132,13 @@ class ConnectionService : Service() {
         LogUtils.i(TAG, "ConnectionService started")
         isServiceActive = true
         startForegroundService()
-        // MdRole 必须先就绪（TcpServer 绑定端口），再启动 HuRole 连接
+        // MdRole 和 HuRole 同时启动：
+        // - MdRole 主动连接手机 B 的 CarWith（HU 端口）
+        // - HuRole 监听车机连接（MD 端口）
         serviceScope.launch {
             startMdRole()
+        }
+        serviceScope.launch {
             startHuRole()
         }
         startTouchService()
@@ -225,7 +231,7 @@ class ConnectionService : Service() {
     // ==================== MD 角色 ====================
 
     private fun startMdRole() {
-        LogUtils.i(TAG, "启动 MD 角色（TCP 监听）")
+        LogUtils.i(TAG, "启动 MD 角色（连接手机 B CarWith）")
         startMdnsService()
 
         if (mdRole == null) {
@@ -236,12 +242,12 @@ class ConnectionService : Service() {
                     onMdRoleStateChanged(newState)
                 }
                 mdRole?.start()
-                LogUtils.i(TAG, "MdRole 已启动，监听 6 个端口")
-                updateNotification("已启动，监听 6 个端口")
+                LogUtils.i(TAG, "MdRole 已启动，正在连接手机 B CarWith")
+                updateNotification("正在连接手机 B...")
                 broadcastState()
             } catch (e: Exception) {
                 LogUtils.e(TAG, e, "启动 MdRole 失败")
-                updateNotification("启动失败: ${e.message}")
+                updateNotification("连接手机B失败: ${e.message}")
             }
         }
     }

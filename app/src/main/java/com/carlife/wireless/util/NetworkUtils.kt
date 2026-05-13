@@ -29,63 +29,45 @@ object NetworkUtils {
 
     /**
      * 获取本地IP地址
-     *
-     * 优先返回 WiFi/wlan 接口的 IP（手机 B 通过 WiFi 热点连接），
-     * 其次返回 USB 网卡 IP（rndis0/usb0），
-     * 最后返回其他非回环 IPv4 地址。
-     *
-     * 之前的逻辑优先返回 USB IP，导致 mDNS 注册了错误的 IP（如 10.88.30.41），
-     * 手机 B 通过 WiFi 热点连接时无法解析到正确地址（应为 192.168.43.102）。
+     * 同时检查Wi-Fi IP和USB网卡IP（rndis0/usb0）
+     * @return IP地址字符串，如果没有则返回null
      */
     fun getLocalIpAddress(): String? {
         try {
-            val allInterfaces = NetworkInterface.getNetworkInterfaces() ?: return null
-
-            // 收集所有非回环 IPv4 地址，按接口类型分组
-            var wifiIp: String? = null
-            var usbIp: String? = null
-            var otherIp: String? = null
-
-            while (allInterfaces.hasMoreElements()) {
-                val networkInterface = allInterfaces.nextElement()
-                if (!networkInterface.isUp || networkInterface.isLoopback) continue
-
+            val interfaces = NetworkInterface.getNetworkInterfaces()
+            while (interfaces.hasMoreElements()) {
+                val networkInterface = interfaces.nextElement()
                 val interfaceName = networkInterface.displayName?.lowercase() ?: ""
-                val addresses = networkInterface.inetAddresses
 
-                while (addresses.hasMoreElements()) {
-                    val address = addresses.nextElement()
-                    if (address.isLoopbackAddress || address !is java.net.Inet4Address) continue
-
-                    val ip = address.hostAddress ?: continue
-
-                    when {
-                        // WiFi / 热点接口 (wlan0, swlan0, ap0, softap)
-                        interfaceName.contains("wlan") || interfaceName.contains("swlan") ||
-                        interfaceName.contains("ap") || interfaceName.contains("softap") -> {
-                            if (wifiIp == null) wifiIp = ip
-                        }
-                        // USB 网络接口 (rndis0, usb0, eth)
-                        interfaceName.contains("rndis") || interfaceName.contains("usb") ||
-                        interfaceName.contains("eth") -> {
-                            if (usbIp == null) usbIp = ip
-                        }
-                        // 其他接口
-                        else -> {
-                            if (otherIp == null) otherIp = ip
+                // 优先检查USB网络接口
+                if (interfaceName.contains("rndis") || interfaceName.contains("usb") ||
+                    interfaceName.contains("eth")) {
+                    val addresses = networkInterface.inetAddresses
+                    while (addresses.hasMoreElements()) {
+                        val address = addresses.nextElement()
+                        if (!address.isLoopbackAddress && address is java.net.Inet4Address) {
+                            return address.hostAddress
                         }
                     }
                 }
             }
 
-            // 优先级：WiFi > USB > 其他
-            val result = wifiIp ?: usbIp ?: otherIp
-            LogUtils.d("getLocalIpAddress: wifi=$wifiIp, usb=$usbIp, other=$otherIp → $result")
-            return result
+            // 如果没找到USB网络接口，再检查所有接口（包括Wi-Fi）
+            val allInterfaces = NetworkInterface.getNetworkInterfaces()
+            while (allInterfaces.hasMoreElements()) {
+                val networkInterface = allInterfaces.nextElement()
+                val addresses = networkInterface.inetAddresses
+                while (addresses.hasMoreElements()) {
+                    val address = addresses.nextElement()
+                    if (!address.isLoopbackAddress && address is java.net.Inet4Address) {
+                        return address.hostAddress
+                    }
+                }
+            }
         } catch (e: Exception) {
-            LogUtils.w("getLocalIpAddress failed: ${e.message}")
-            return null
+            e.printStackTrace()
         }
+        return null
     }
 
     /**

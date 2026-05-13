@@ -7,8 +7,6 @@ import com.carlife.wireless.channel.ChannelCallback
 import com.carlife.wireless.channel.ChannelType
 import com.carlife.wireless.channel.DeviceRole
 import com.carlife.wireless.model.ChannelHeader
-import com.carlife.wireless.network.TcpServer
-import com.carlife.wireless.network.TcpServerListener
 import com.carlife.wireless.proto.CarlifeAuthenRequestProto
 import com.carlife.wireless.proto.CarlifeAuthenResponseProto
 import com.carlife.wireless.proto.CarlifeAuthenResultProto
@@ -22,33 +20,23 @@ import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * MD 角色实现（车机侧）
+ * MD 角色实现（转接盒侧）
  *
- * MD (Mobile Device) 角色作为服务端，监听来自车机的连接。
- * 启动 6 个 TcpServer 实例，分别监听不同端口。
+ * MD (Mobile Device) 角色作为客户端，主动连接手机 B 的 CarWith 服务端。
+ * 手机 B 的 CarWith 监听 HU 端口 (7240/8240/9240/9241/9242/9340)，
+ * MdRole 连接到这些端口，完成 CarLife 协议握手并接收音视频流。
  *
- * CarLife 握手流程（MD 视角，由车机 HU 发起）：
- * 1. Car(HU) → Box(MD): HU_PROTOCOL_VERSION — 协议版本
- * 2. Box(MD) → Car(HU): VERSION_MATCH_STATUS — 版本匹配确认
- * 3. Car(HU) → Box(MD): HU_INFO — 车机设备信息
- * 4. Box(MD) → Car(HU): MD_INFO — 转接盒设备信息
- * 5. Car(HU) → Box(MD): HU_AUTHEN_REQUEST — 认证请求
- * 6. Box(MD) → Car(HU): MD_AUTHEN_RESPONSE — 认证响应（直接成功）
- * 7. Car(HU) → Box(MD): HU_AUTHEN_RESULT — 认证结果
- * 8. Box(MD) → Car(HU): MD_AUTHEN_RESULT — MD 认证结果
- * 9. Box(MD) → Car(HU): MD_FEATURE_CONFIG_REQUEST — 特性配置请求
- * 10. Car(HU) → Box(MD): HU_FEATURE_CONFIG_RESPONSE — 特性配置响应
- * 11. Car(HU) → Box(MD): VIDEO_ENCODER_INIT — 视频编码器参数
- * 12. Box(MD) → Car(HU): VIDEO_ENCODER_INIT_DONE — 编码器就绪确认
- * 13. Car(HU) → Box(MD): VIDEO_ENCODER_START — 开始传输
+ * 连接流程：
+ * 1. MdRole 作为客户端连接到手机 B CarWith 的 6 个 HU 端口
+ * 2. 手机 B CarWith 发起 CarLife 握手（HU_PROTOCOL_VERSION）
+ * 3. MdRole 响应握手（VERSION_MATCH_STATUS, MD_INFO 等）
+ * 4. 握手完成后，手机 B 发送音视频流，MdRole 接收并转发到车机
  */
 class MdRole(private val context: Context) {
 
@@ -74,6 +62,9 @@ class MdRole(private val context: Context) {
         private const val HU_FEATURE_CONFIG_RESPONSE = 0x00018052
         private const val MD_REGISTER_TYPE           = 0x00010001
         private const val HU_REGISTER_RESPONSE       = 0x00018002
+
+        /** 默认通道配置 */
+        val DEFAULT_CHANNEL_CONFIG = HuRole.ChannelConfig()
     }
 
     enum class MdState {
@@ -89,7 +80,6 @@ class MdRole(private val context: Context) {
 
     private val state = AtomicReference(MdState.IDLE)
     @Volatile private var stateListener: ((MdState) -> Unit)? = null
-    private val tcpServers: MutableMap<Int, TcpServer> = ConcurrentHashMap()
     private val channels: MutableMap<Int, Channel> = ConcurrentHashMap()
     private val connectedCount = AtomicInteger(0)
     @Volatile private var huRole: HuRole? = null
@@ -98,6 +88,8 @@ class MdRole(private val context: Context) {
     private val lastErrorMessage = AtomicReference("")
     /** 车机编码器配置缓存（同步给 HuRole 以匹配手机B编码参数） */
     @Volatile private var cachedCarEncoderConfig: HuRole.CarEncoderConfig? = null
+    /** 通道配置（控制哪些通道启用） */
+    var channelConfig: HuRole.ChannelConfig = DEFAULT_CHANNEL_CONFIG
     // 协程作用域（IO 线程池 + SupervisorJob 保证子协程独立失败）
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     @Volatile private var cmdReadJob: Job? = null
@@ -131,59 +123,60 @@ class MdRole(private val context: Context) {
         updateState(MdState.STARTING)
 
         try {
-            val startLatch = CountDownLatch(MD_PORTS.size)
-            val startFailed = AtomicBoolean(false)
+            val phoneBIp = SettingsManager.getPhoneBIp(context)
+            val config = channelConfig ?: DEFAULT_CHANNEL_CONFIG
 
-            MD_PORTS.forEach { port ->
-                // 所有通道禁用默认 ChannelHeader 读取，使用 CarLife 格式专用读取循环
-                val server = TcpServer(port, object : TcpServerListener {
-                    override fun onStarted(port: Int) {
-                        LogUtils.i(TAG, "TcpServer started on port $port (${PORT_NAMES[port]})")
-                        startLatch.countDown()
+            LogUtils.i(TAG, "Connecting to phone B CarWith at $phoneBIp (${config.totalEnabled} channels)...")
+
+            // 主动连接手机 B 的 CarWith HU 端口（而非监听 MD 端口）
+            // 手机 B 的 CarWith 作为服务端监听 HU 端口，转接盒作为客户端连接
+            for (type in config.allChannels) {
+                val autoRead = type != ChannelType.HU_CMD
+                val channel = Channel.create(type, DeviceRole.MOBILE, autoRead)
+                channels[type.mdPort] = channel
+
+                val port = type.huPort
+                LogUtils.i(TAG, "Connecting ${type.name} to $phoneBIp:$port (autoRead=$autoRead)")
+
+                channel.callback = object : ChannelCallback {
+                    override fun onConnected(ch: Channel) {
+                        handleClientConnected(ch.type.mdPort, ch)
                     }
-                    override fun onStopped(port: Int) {
-                        LogUtils.i(TAG, "TcpServer stopped on port $port")
+                    override fun onDisconnected(ch: Channel, reason: String?) {
+                        handleClientDisconnected(ch.type.mdPort, reason)
                     }
-                    override fun onClientConnected(port: Int, channel: Channel) {
-                        handleClientConnected(port, channel)
-                    }
-                    override fun onClientDisconnected(port: Int, channel: Channel, reason: String?) {
-                        handleClientDisconnected(port, reason)
-                    }
-                    override fun onDataReceived(port: Int, channel: Channel, header: ChannelHeader, payload: ByteArray) {
+                    override fun onDataReceived(ch: Channel, header: ChannelHeader, payload: ByteArray) {
                         // 不使用此回调，由专用读取循环处理
                     }
-                    override fun onError(port: Int, error: String) {
-                        LogUtils.e(TAG, "Error on port $port (${PORT_NAMES[port]}): $error")
-                        lastErrorMessage.set("Port ${PORT_NAMES[port]}: $error")
-                        startFailed.set(true)
-                        startLatch.countDown()  // 出错也要释放 latch，避免永久阻塞
-                        updateState(MdState.ERROR)
+                    override fun onError(ch: Channel, error: Throwable) {
+                        LogUtils.e(TAG, "${ch.name} error: ${error.message}")
+                        lastErrorMessage.set("${ch.name}: ${error.message}")
                     }
-                }, autoRead = false)
+                }
 
-                tcpServers[port] = server
-                server.start()
-            }
-
-            // 等待所有 TcpServer 真正绑定端口就绪（最多 5 秒）
-            val allStarted = startLatch.await(5, TimeUnit.SECONDS)
-            if (!allStarted) {
-                val remaining = startLatch.count
-                LogUtils.e(TAG, "TcpServer startup timeout! $remaining servers not ready")
-                updateState(MdState.ERROR)
-                return
-            }
-            if (startFailed.get()) {
-                LogUtils.e(TAG, "Some TcpServers failed to start")
-                return
+                channel.connect(phoneBIp, port)
             }
 
             updateState(MdState.WAITING_CONNECTION)
-            LogUtils.i(TAG, "All ${MD_PORTS.size} TcpServers started, waiting for connections...")
+            LogUtils.i(TAG, "All ${config.totalEnabled} channels connecting to phone B...")
+
+            // 连接超时检测
+            scope.launch {
+                delay(15_000)
+                if (state.get() == MdState.WAITING_CONNECTION || state.get() == MdState.CONNECTED) {
+                    val connected = connectedChannelCount.get()
+                    if (connected == 0) {
+                        val errMsg = "连接手机B超时（已连 $connected/${config.totalEnabled} 个通道），" +
+                                "请确认手机B CarWith 已启动无线连接模式"
+                        LogUtils.e(TAG, errMsg)
+                        lastErrorMessage.set(errMsg)
+                        updateState(MdState.ERROR)
+                    }
+                }
+            }
 
         } catch (e: Exception) {
-            LogUtils.e(TAG, e, "Failed to start TcpServers")
+            LogUtils.e(TAG, e, "Failed to connect to phone B")
             updateState(MdState.ERROR)
         }
     }
@@ -191,14 +184,9 @@ class MdRole(private val context: Context) {
     fun stop() {
         LogUtils.i(TAG, "Stopping MdRole...")
 
-        // 先关闭所有通道（关闭 socket 会中断阻塞的 read 操作）
+        // 关闭所有通道
         channels.values.forEach { it.disconnect("MdRole stopped") }
         channels.clear()
-
-        // 先释放 TcpServer（关闭 ServerSocket 释放端口），再取消协程
-        // 顺序不能反：如果先 cancel scope，TcpServer 的 finally 块可能不执行
-        tcpServers.values.forEach { it.release() }
-        tcpServers.clear()
 
         // 取消所有协程（包括读取循环）
         scope.cancel()
