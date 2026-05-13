@@ -171,6 +171,27 @@ MIT License
 
 ## 更新日志
 
+### 2026-05-14 — 修复无线连接卡在第 4 步：MdRole/HuRole 双重连接冲突
+
+**问题**: 无线连接卡在第 4 步（启动 CarLife 服务后握手超时）。
+
+**根因分析（Phone B logcat）**:
+- `ConnectionService.onStartCommand()` 同时启动 MdRole 和 HuRole
+- **两者都连接 Phone B 的同一组 HU 端口**（7240/8240/9240/9241/9242/9340）
+- CarWith 期望只有 1 个 HU 客户端，实际收到 2 个 → 协议状态机混乱
+- MdRole 和 HuRole 各自发 `HU_PROTOCOL_VERSION`，Phone B 收到重复握手消息
+- Phone B 的 CarWith（`com.miui.carlink` + `com.baidu.carlife.xiaomi`）只创建 Bluetooth RFCOMM socket，未创建 TCP socket → 无线模式需要单独触发
+
+**修复**:
+- `ConnectionService.onStartCommand()`: 移除 MdRole 自动启动，只启动 HuRole 连接手机 B
+- `ConnectionService.tryStartVideoAndAudioServices()`: 只检查 HuRole 连接状态（移除 mdReady 依赖）
+- `ConnectionService.getConnectedChannelCount()`: 改用 HuRole 连接状态判断
+- mDNS 服务仍然启动，供手机 B 发现本设备
+- MdRole 保留用于车机侧（USB 网络共享），不再自动连接 Phone B
+
+**涉及文件**:
+- `ConnectionService.kt` — 启动逻辑、就绪判断、通道计数
+
 ### 2026-05-13 — 无线连接 Phase 1 超时修复 + 统一界面风格 + 日志开关
 
 **Critical Fix — 无线连接卡在「等待版本匹配」根因**:

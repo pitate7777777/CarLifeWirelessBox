@@ -132,18 +132,19 @@ class ConnectionService : Service() {
         LogUtils.i(TAG, "ConnectionService started")
         isServiceActive = true
         startForegroundService()
-        // MdRole 和 HuRole 同时启动：
-        // - MdRole 主动连接手机 B 的 CarWith（HU 端口）
-        // - HuRole 监听车机连接（MD 端口）
-        serviceScope.launch {
-            startMdRole()
-        }
+        // 只启动 HuRole 连接手机 B 的 CarWith（HU 端口）
+        // MdRole 不在此启动——它用于车机侧连接（USB 网络共享），
+        // 而非手机 B 侧。之前 MdRole 和 HuRole 同时连接 Phone B 的
+        // 同一组 HU 端口（7240/8240/9240...），导致 CarWith 收到
+        // 双重 HU 连接，协议状态机混乱，握手卡住。
         serviceScope.launch {
             startHuRole()
         }
         startTouchService()
         startUsbMonitoring()
         startUdpDiscovery()
+        // mDNS 仍然启动，供手机 B 发现本设备
+        startMdnsService()
         isRunning = true
         return START_STICKY
     }
@@ -730,19 +731,20 @@ class ConnectionService : Service() {
     }
 
     /**
-     * 检查双端是否都就绪，如果是则启动音视频服务
-     * 只有车机和手机B都连接成功后，才开始音视频采集和转发
+     * 检查手机B是否已连接，就绪则启动音视频服务
+     *
+     * 只检查 HuRole（手机B连接）状态。MdRole 用于车机侧（USB），
+     * 与手机B的无线连接无关，不应阻塞音视频服务启动。
      */
     private fun tryStartVideoAndAudioServices() {
-        val mdReady = mdRole?.isReady() == true
         val huConnected = huRole?.isConnected() == true
 
-        if (mdReady && huConnected) {
-            LogUtils.i(TAG, "双端就绪，启动音视频服务")
+        if (huConnected) {
+            LogUtils.i(TAG, "手机B已连接，启动音视频服务")
             updateNotification("投屏中：车机 ↔ 手机B")
             startVideoAndAudioServices()
         } else {
-            LogUtils.d(TAG, "等待双端就绪：车机=${if (mdReady) "✅" else "⏳"}，手机B=${if (huConnected) "✅" else "⏳"}")
+            LogUtils.d(TAG, "等待手机B连接...")
         }
     }
 
@@ -838,11 +840,8 @@ class ConnectionService : Service() {
     }
 
     fun getConnectedChannelCount(): Int {
-        val mdCount = mdRole?.let {
-            if (it.getState() == MdRole.MdState.READY) 6 else 0
-        } ?: 0
-        // HuRole 通道数通过内部计数获取
-        return mdCount
+        // HuRole 连接状态：CONNECTED 表示所有通道已建立
+        return if (huRole?.isConnected() == true) 6 else 0
     }
 
     private fun getLocalIpAddress(): String {
