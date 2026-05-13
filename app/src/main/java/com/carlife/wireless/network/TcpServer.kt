@@ -100,7 +100,7 @@ class TcpServer(
         this._customPort = port
     }
 
-    private var _customPort: Int? = null
+    @Volatile private var _customPort: Int? = null
     private val customPort: Int get() = _customPort ?: type.getPort(role)
 
     companion object {

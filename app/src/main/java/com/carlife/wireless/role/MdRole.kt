@@ -582,25 +582,24 @@ class MdRole(private val context: Context) {
                     "codecs=0x${Integer.toHexString(carConfig.supportedCodecs)}, " +
                     "res=0x${Integer.toHexString(carConfig.resolution)}, " +
                     "fps=${carConfig.fps}, bitrate=${carConfig.bitrateKbps}kbps")
-        } catch (e: Exception) {
-            LogUtils.w(TAG, "[Phase 7] Failed to parse VIDEO_ENCODER_INIT: ${e.message}")
-        }
 
-        // 回复编码器初始化完成（使用车机的参数）
-        try {
+            // 回复编码器初始化完成（使用车机请求的参数，而非硬编码）
+            // 车机期望 MD 确认它将使用这些参数
             val done = CarlifeVideoEncoderInfoProto.CarlifeVideoEncoderInfo.newBuilder()
-                .setSupportedCodecs(1 shl CarlifeVideoEncoderInfoProto.VideoCodecType.VIDEO_CODEC_H264.number)
-                .setPreferredCodec(CarlifeVideoEncoderInfoProto.VideoCodecType.VIDEO_CODEC_H264)
-                .setCurrentResolutionEnum(CarlifeVideoEncoderInfoProto.VideoResolution.RES_480P)
-                .setCurrentFps(Constants.Video.DEFAULT_FPS)
-                .setBitrateKbps(SettingsManager.getBitrate(context) / 1000)
-                .setIFrameInterval(2)
-                .setHardwareEncoder(true)
+                .setSupportedCodecs(info.supportedCodecs)
+                .setPreferredCodec(info.preferredCodec)
+                .setCurrentResolution(info.currentResolution)
+                .setCurrentResolutionEnum(info.currentResolutionEnum)
+                .addSupportedResolutions(info.currentResolutionEnum)
+                .setCurrentFps(info.currentFps)
+                .setBitrateKbps(info.bitrateKbps)
+                .setIFrameInterval(info.iFrameInterval)
+                .setHardwareEncoder(info.hardwareEncoder)
                 .build()
             sendCmdMessage(VIDEO_ENCODER_INIT_DONE, done.toByteArray())
-            LogUtils.i(TAG, "[Phase 7] VIDEO_ENCODER_INIT_DONE sent")
+            LogUtils.i(TAG, "[Phase 7] VIDEO_ENCODER_INIT_DONE sent (matched car params)")
         } catch (e: Exception) {
-            LogUtils.e(TAG, e, "[Phase 7] Failed to send VIDEO_ENCODER_INIT_DONE")
+            LogUtils.e(TAG, e, "[Phase 7] Failed to handle VIDEO_ENCODER_INIT")
             ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase7-VideoEncoderInitDone")
         }
     }

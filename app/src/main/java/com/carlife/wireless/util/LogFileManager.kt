@@ -26,9 +26,17 @@ object LogFileManager {
     private const val LOG_FILE_PREFIX = "carlife_"
     private const val LOG_FILE_SUFFIX = ".log"
     private const val MAX_LOG_FILES = 7 // 保留最近7天的日志
+    private const val AUTO_FLUSH_INTERVAL_MS = 3000L // 自动刷新间隔
     
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
     private val timeFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
+    
+    // 缓存当前日志文件的 Writer，避免每行都开关文件
+    @Volatile private var cachedWriter: FileWriter? = null
+    @Volatile private var cachedWriterDate: String? = null
+    @Volatile private var cachedWriterContext: Context? = null
+    private val writeLock = Any()
+    private var lastFlushTime = 0L
     
     /**
      * 获取日志目录（app-specific，无需权限）
@@ -59,20 +67,74 @@ object LogFileManager {
     }
     
     /**
-     * 写入日志到文件（异步，不阻塞主线程）
+     * 获取或创建当天的缓存 Writer
+     * 日期变化时自动关闭旧 Writer，创建新的
+     */
+    private fun getOrCreateWriter(context: Context): FileWriter? {
+        val today = dateFormat.format(Date())
+        
+        // 日期未变化且 Writer 有效 → 直接返回
+        if (cachedWriter != null && cachedWriterDate == today) {
+            return cachedWriter
+        }
+        
+        // 日期变化或首次创建 → 关闭旧 Writer，创建新的
+        synchronized(writeLock) {
+            // 双重检查
+            if (cachedWriter != null && cachedWriterDate == today) {
+                return cachedWriter
+            }
+            
+            // 关闭旧 Writer
+            try { cachedWriter?.close() } catch (_: Exception) {}
+            cachedWriter = null
+            cachedWriterDate = null
+            
+            // 创建新 Writer
+            return try {
+                val logFile = getTodayLogFile(context)
+                val writer = FileWriter(logFile, true)
+                cachedWriter = writer
+                cachedWriterDate = today
+                cachedWriterContext = context
+                lastFlushTime = System.currentTimeMillis()
+                writer
+            } catch (e: IOException) {
+                Log.e(TAG, "Failed to create log writer", e)
+                null
+            }
+        }
+    }
+    
+    /**
+     * 写入日志到文件（使用缓存 Writer，定期 flush）
      */
     fun writeLog(context: Context, level: String, tag: String, message: String) {
         try {
             val timestamp = timeFormat.format(Date())
             val logLine = "[$timestamp] $level/$tag: $message\n"
             
-            val logFile = getTodayLogFile(context)
-            FileWriter(logFile, true).use { writer ->
+            val writer = getOrCreateWriter(context) ?: return
+            
+            synchronized(writeLock) {
                 writer.append(logLine)
+                
+                // 定期 flush，避免日志丢失
+                val now = System.currentTimeMillis()
+                if (now - lastFlushTime > AUTO_FLUSH_INTERVAL_MS) {
+                    writer.flush()
+                    lastFlushTime = now
+                }
             }
             
         } catch (e: IOException) {
-            e.printStackTrace()
+            // Writer 可能已失效，清除缓存下次重建
+            synchronized(writeLock) {
+                try { cachedWriter?.close() } catch (_: Exception) {}
+                cachedWriter = null
+                cachedWriterDate = null
+            }
+            Log.e(TAG, "Failed to write log", e)
         }
     }
     
@@ -120,6 +182,7 @@ object LogFileManager {
      */
     fun clearAllLogs(context: Context): Boolean {
         return try {
+            flush()
             val logFiles = getLogFiles(context)
             logFiles.forEach { it.delete() }
             LogUtils.i(TAG, "已清空所有日志")
@@ -127,6 +190,34 @@ object LogFileManager {
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "清空日志失败")
             false
+        }
+    }
+    
+    /**
+     * 刷新缓存的 Writer（确保日志写入磁盘）
+     * 在 Service 停止时调用
+     */
+    fun flush() {
+        synchronized(writeLock) {
+            try {
+                cachedWriter?.flush()
+            } catch (_: Exception) {}
+        }
+    }
+    
+    /**
+     * 关闭缓存的 Writer（释放文件句柄）
+     * 在 Application.onTerminate() 或不再需要日志时调用
+     */
+    fun close() {
+        synchronized(writeLock) {
+            try {
+                cachedWriter?.flush()
+                cachedWriter?.close()
+            } catch (_: Exception) {}
+            cachedWriter = null
+            cachedWriterDate = null
+            cachedWriterContext = null
         }
     }
     

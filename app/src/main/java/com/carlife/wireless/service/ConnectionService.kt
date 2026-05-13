@@ -22,6 +22,7 @@ import com.carlife.wireless.role.HuRoleListener
 import com.carlife.wireless.role.HuState
 import com.carlife.wireless.role.MdRole
 import com.carlife.wireless.usb.UsbTetheringManager
+import com.carlife.wireless.util.LogFileManager
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.SettingsManager
 import kotlinx.coroutines.CoroutineScope
@@ -149,6 +150,7 @@ class ConnectionService : Service() {
         stopUsbMonitoring()
         isRunning = false
         stopForeground(STOP_FOREGROUND_REMOVE)
+        LogFileManager.flush()
     }
 
     /**

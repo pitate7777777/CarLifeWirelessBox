@@ -61,8 +61,8 @@ class DynamicBitrate(private val context: Context) {
     }
 
     /** 后台线程，避免检测和回调阻塞主线程 */
-    private val handlerThread = HandlerThread("DynamicBitrate").apply { start() }
-    private val handler = Handler(handlerThread.looper)
+    private var handlerThread: HandlerThread? = null
+    private var handler: Handler? = null
     private var listener: BitrateChangeListener? = null
     private var isRunning = false
 
@@ -90,18 +90,26 @@ class DynamicBitrate(private val context: Context) {
     fun start() {
         if (isRunning) return
         isRunning = true
+
+        // 每次 start 重建 HandlerThread（quitSafely 后线程不可复用）
+        val thread = HandlerThread("DynamicBitrate").apply { start() }
+        handlerThread = thread
+        handler = Handler(thread.looper)
+
         LogUtils.i(TAG, "动态码率调节启动")
         scheduleCheck()
     }
 
     fun stop() {
         isRunning = false
-        checkRunnable?.let { handler.removeCallbacks(it) }
-        upgradeRunnable?.let { handler.removeCallbacks(it) }
+        checkRunnable?.let { handler?.removeCallbacks(it) }
+        upgradeRunnable?.let { handler?.removeCallbacks(it) }
         checkRunnable = null
         upgradeRunnable = null
         pendingUpgradeLevel.set(null)
-        handlerThread.quitSafely()
+        handlerThread?.quitSafely()
+        handlerThread = null
+        handler = null
         LogUtils.i(TAG, "动态码率调节停止")
     }
 
@@ -151,8 +159,9 @@ class DynamicBitrate(private val context: Context) {
      */
     private fun scheduleCheck() {
         if (!isRunning) return
+        val h = handler ?: return
         checkRunnable = Runnable { checkAndUpdate() }
-        handler.postDelayed(checkRunnable!!, CHECK_INTERVAL_MS)
+        h.postDelayed(checkRunnable!!, CHECK_INTERVAL_MS)
     }
 
     /**
@@ -196,8 +205,9 @@ class DynamicBitrate(private val context: Context) {
      * 调度延迟升级
      */
     private fun scheduleUpgrade(level: SignalLevel, rssi: Int) {
+        val h = handler ?: return
         pendingUpgradeLevel.set(level)
-        upgradeRunnable?.let { handler.removeCallbacks(it) }
+        upgradeRunnable?.let { h.removeCallbacks(it) }
         upgradeRunnable = Runnable {
             if (isRunning && pendingUpgradeLevel.get() == level) {
                 val base = baseBitrate.get()
@@ -207,14 +217,14 @@ class DynamicBitrate(private val context: Context) {
                 pendingUpgradeLevel.set(null)
             }
         }
-        handler.postDelayed(upgradeRunnable!!, UPGRADE_DELAY_MS)
+        h.postDelayed(upgradeRunnable!!, UPGRADE_DELAY_MS)
     }
 
     /**
      * 取消待执行的升级
      */
     private fun cancelPendingUpgrade() {
-        upgradeRunnable?.let { handler.removeCallbacks(it) }
+        upgradeRunnable?.let { handler?.removeCallbacks(it) }
         upgradeRunnable = null
         pendingUpgradeLevel.set(null)
     }
