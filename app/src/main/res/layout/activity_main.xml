@@ -329,52 +329,19 @@
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_settings"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/settings"
-                    android:layout_marginBottom="12dp"
-                    app:icon="@drawable/ic_settings"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_diag"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="🔍 网络诊断"
-                    android:textColor="@color/color_car"
-                    app:icon="@drawable/ic_settings"
-                    app:iconTint="@color/color_car"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_view_logs"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/view_logs"
-                    android:textColor="@color/color_log"
-                    android:layout_marginBottom="12dp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
-
-                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_usb_guide"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="🔗 USB 连接引导"
-                    android:textColor="@color/color_success"
-                    app:icon="@drawable/ic_settings"
-                    app:iconTint="@color/color_success"
-                    style="@style/Widget.MaterialComponents.Button.TextButton" />
+                    android:layout_marginBottom="12dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_wifi_guide"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="📶 无线 CarLife 连接引导"
-                    android:textColor="@color/color_wifi"
-                    app:icon="@drawable/ic_settings"
-                    app:iconTint="@color/color_wifi"
-                    style="@style/Widget.MaterialComponents.Button.TextButton" />
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
             </LinearLayout>
 

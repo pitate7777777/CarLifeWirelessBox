@@ -195,18 +195,6 @@ class MainActivity : AppCompatActivity() {
             stopCarLifeService()
         }
 
-        binding.btnSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
-        }
-
-        binding.btnDiag.setOnClickListener {
-            startActivity(Intent(this, NetworkDiagActivity::class.java))
-        }
-
-        binding.btnViewLogs.setOnClickListener {
-            startActivity(Intent(this, LogViewerActivity::class.java))
-        }
-
         // "查看全部" 日志链接
         binding.tvLogMore.setOnClickListener {
             startActivity(Intent(this, LogViewerActivity::class.java))
@@ -441,6 +429,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
+            R.id.action_network_diag -> {
+                startActivity(Intent(this, NetworkDiagActivity::class.java)); true
+            }
+            R.id.action_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java)); true
+            }
             R.id.action_view_logs -> {
                 startActivity(Intent(this, LogViewerActivity::class.java)); true
             }
@@ -448,9 +442,6 @@ class MainActivity : AppCompatActivity() {
                 com.carlife.wireless.util.LogFileManager.clearAllLogs(this)
                 logBuffer.clear(); binding.tvLog.text = "日志已清空"
                 Toast.makeText(this, "日志已清空", Toast.LENGTH_SHORT).show(); true
-            }
-            R.id.action_settings -> {
-                startActivity(Intent(this, SettingsActivity::class.java)); true
             }
             else -> super.onOptionsItemSelected(item)
         }
