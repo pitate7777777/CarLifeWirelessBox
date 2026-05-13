@@ -17,6 +17,7 @@ import androidx.core.app.NotificationCompat
 import com.carlife.wireless.R
 import com.carlife.wireless.model.ChannelHeader
 import com.carlife.wireless.network.DynamicBitrate
+import com.carlife.wireless.network.UdpDiscoveryService
 import com.carlife.wireless.role.HuRole
 import com.carlife.wireless.role.HuRoleListener
 import com.carlife.wireless.role.HuState
@@ -101,6 +102,9 @@ class ConnectionService : Service() {
     // 动态码率
     private var dynamicBitrate: DynamicBitrate? = null
 
+    // UDP 广播发现服务（mDNS 备用方案）
+    private var udpDiscoveryService: UdpDiscoveryService? = null
+
     // 子服务引用
     private var videoService: VideoService? = null
     private var audioService: AudioService? = null
@@ -133,6 +137,7 @@ class ConnectionService : Service() {
         }
         startTouchService()
         startUsbMonitoring()
+        startUdpDiscovery()
         isRunning = true
         return START_STICKY
     }
@@ -148,6 +153,7 @@ class ConnectionService : Service() {
         stopAllServices()
         stopMdRole()
         stopUsbMonitoring()
+        stopUdpDiscovery()
         isRunning = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         LogFileManager.flush()
@@ -197,6 +203,23 @@ class ConnectionService : Service() {
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
             .build()
+    }
+
+    // ==================== UDP 广播发现 ====================
+
+    private fun startUdpDiscovery() {
+        if (udpDiscoveryService != null) return
+        try {
+            udpDiscoveryService = UdpDiscoveryService().apply { start() }
+            LogUtils.i(TAG, "UDP discovery service started")
+        } catch (e: Exception) {
+            LogUtils.e(TAG, e, "启动 UDP 发现服务失败")
+        }
+    }
+
+    private fun stopUdpDiscovery() {
+        udpDiscoveryService?.stop()
+        udpDiscoveryService = null
     }
 
     // ==================== MD 角色 ====================
@@ -325,11 +348,27 @@ class ConnectionService : Service() {
     private fun startMdnsService() {
         try {
             nsdManager = getSystemService(NSD_SERVICE) as NsdManager
+
+            // 获取本机 IP 地址，设置到 mDNS 服务中
+            // host=null 会导致某些设备无法通过 mDNS 解析到 IP
+            val localIp = com.carlife.wireless.util.NetworkUtils.getLocalIpAddress()
             val serviceInfo = NsdServiceInfo().apply {
                 serviceName = "CarLife Wireless Box"
                 serviceType = "_carlife._tcp."
                 port = 7200
+                // 设置主机地址，确保 mDNS 能正确解析到本机 IP
+                if (localIp != null) {
+                    try {
+                        host = java.net.InetAddress.getByName(localIp)
+                        LogUtils.i(TAG, "mDNS host set to: $localIp")
+                    } catch (e: Exception) {
+                        LogUtils.w(TAG, "Failed to set mDNS host: ${e.message}")
+                    }
+                } else {
+                    LogUtils.w(TAG, "Local IP is null, mDNS host not set")
+                }
             }
+
             registrationListener = object : NsdManager.RegistrationListener {
                 override fun onRegistrationFailed(info: NsdServiceInfo, errorCode: Int) {
                     LogUtils.e(TAG, "mDNS 注册失败: $errorCode")
@@ -338,7 +377,7 @@ class ConnectionService : Service() {
                     LogUtils.e(TAG, "mDNS 注销失败: $errorCode")
                 }
                 override fun onServiceRegistered(info: NsdServiceInfo) {
-                    LogUtils.i(TAG, "mDNS 服务已注册: ${info.serviceName}")
+                    LogUtils.i(TAG, "mDNS 服务已注册: ${info.serviceName}, host=$localIp, port=7200")
                 }
                 override fun onServiceUnregistered(info: NsdServiceInfo) {
                     LogUtils.i(TAG, "mDNS 服务已注销")
