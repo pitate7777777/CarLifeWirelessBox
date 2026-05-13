@@ -10,6 +10,7 @@ import com.carlife.wireless.model.ChannelHeader
 import com.carlife.wireless.proto.CarlifeAuthenRequestProto
 import com.carlife.wireless.proto.CarlifeAuthenResponseProto
 import com.carlife.wireless.proto.CarlifeAuthenResultProto
+import com.carlife.wireless.proto.CarlifeAuthMethodProto.AuthMethod
 import com.carlife.wireless.proto.CarlifeDeviceInfoProto
 import com.carlife.wireless.proto.CarlifeFeatureConfigProto
 import com.carlife.wireless.proto.CarlifeProtocolVersionProto
@@ -213,6 +214,7 @@ class MdRole(private val context: Context) {
     }
 
     private fun handleClientConnected(port: Int, channel: Channel) {
+        android.util.Log.e("CarLifeWireless", "[MdRole] handleClientConnected: port=$port (${PORT_NAMES[port]})")
         LogUtils.i(TAG, "Client connected on port $port (${PORT_NAMES[port]})")
 
         channels[port] = channel
@@ -226,30 +228,27 @@ class MdRole(private val context: Context) {
         // 启动 CarLife 格式读取循环
         when (port) {
             Constants.PortMD.MD_CMD -> {
-                // CMD 通道：8 字节 CarLife CMD 格式（车机发起握手）
+                // CMD 通道：8 字节 CarLife CMD 格式
                 startCmdReadLoop(channel)
+
+                // CMD 连接后立即发起握手！
+                // 手机 B 的 CarWith 期望转接盒先发送 HU_PROTOCOL_VERSION
+                connectionStartTime.set(System.currentTimeMillis())
+                if (state.compareAndSet(MdState.CONNECTED, MdState.ALL_CONNECTED) ||
+                    state.compareAndSet(MdState.WAITING_CONNECTION, MdState.ALL_CONNECTED)) {
+                    updateState(MdState.HANDSHAKING)
+                }
+                // 延迟 100ms 等待其他通道就绪，然后发送协议版本
+                scope.launch {
+                    delay(100)
+                    sendProtocolVersion()
+                }
             }
             Constants.PortMD.MD_CTRL -> {
-                // CTRL 通道：双向格式不同
-                // 车机→本机：CarLife CMD 格式（8字节，触摸事件）
-                // 本机→车机：CarLife CMD 格式（8字节，控制响应）
-                // 统一使用 CMD 格式读取
                 startCmdReadLoop(channel)
             }
             else -> {
-                // VIDEO/MEDIA/TTS/VR 通道：12 字节 CarLife 媒体格式
                 startMediaReadLoop(port, channel)
-            }
-        }
-
-        // CMD 通道连接后即进入握手状态（不等全部 6 通道）
-        // 车机可能只连接它需要的通道
-        if (port == Constants.PortMD.MD_CMD) {
-            LogUtils.i(TAG, "CMD channel connected, waiting for car handshake...")
-            connectionStartTime.set(System.currentTimeMillis())
-            if (state.compareAndSet(MdState.CONNECTED, MdState.ALL_CONNECTED) ||
-                state.compareAndSet(MdState.WAITING_CONNECTION, MdState.ALL_CONNECTED)) {
-                updateState(MdState.HANDSHAKING)
             }
         }
     }
@@ -349,40 +348,96 @@ class MdRole(private val context: Context) {
 
     /**
      * 处理 CarLife CMD 通道消息（握手协议）
-     * 车机 (HU) 发送的消息由 MdRole (MD) 响应
+     *
+     * 握手流程（转接盒作为 HU 角色主动发起）：
+     * 1. Box(HU) → PhoneB(MD): HU_PROTOCOL_VERSION
+     * 2. PhoneB(MD) → Box(HU): VERSION_MATCH_STATUS  ← 处理这里
+     * 3. Box(HU) → PhoneB(MD): HU_INFO
+     * 4. PhoneB(MD) → Box(HU): MD_INFO               ← 处理这里
+     * 5. Box(HU) → PhoneB(MD): HU_AUTHEN_REQUEST
+     * 6. PhoneB(MD) → Box(HU): MD_AUTHEN_RESPONSE     ← 处理这里
+     * 7. Box(HU) → PhoneB(MD): HU_AUTHEN_RESULT
+     * 8. PhoneB(MD) → Box(HU): MD_AUTHEN_RESULT       ← 处理这里
+     * 9. PhoneB(MD) → Box(HU): MD_FEATURE_CONFIG_REQUEST ← 处理这里
+     * 10. Box(HU) → PhoneB(MD): HU_FEATURE_CONFIG_RESPONSE
+     * 11. Box(HU) → PhoneB(MD): VIDEO_ENCODER_INIT
+     * 12. PhoneB(MD) → Box(HU): VIDEO_ENCODER_INIT_DONE ← 处理这里
+     * 13. Box(HU) → PhoneB(MD): VIDEO_ENCODER_START
      */
     private fun handleCarLifeCmdMessage(serviceType: Int, data: ByteArray) {
         when (serviceType) {
+            // === 手机B发来的 MD 响应消息 ===
+            VERSION_MATCH_STATUS -> {
+                // Phase 2: 收到版本匹配 → 发送 HU_INFO
+                android.util.Log.e("CarLifeWireless", "[MdRole] VERSION_MATCH_STATUS received")
+                LogUtils.i(TAG, "[Phase 2] VERSION_MATCH_STATUS received")
+                sendHuInfo()
+            }
+            MD_INFO -> {
+                // Phase 4: 收到手机B设备信息 → 发送 HU_AUTHEN_REQUEST
+                try {
+                    val info = CarlifeDeviceInfoProto.CarlifeDeviceInfo.parseFrom(data)
+                    android.util.Log.e("CarLifeWireless", "[MdRole] MD_INFO: ${info.manufacturer} ${info.model}")
+                    LogUtils.i(TAG, "[Phase 4] Phone B MD_INFO: ${info.manufacturer} ${info.model}")
+                } catch (e: Exception) {
+                    LogUtils.w(TAG, "[Phase 4] Failed to parse MD_INFO: ${e.message}")
+                }
+                sendHuAuthenRequest()
+            }
+            MD_AUTHEN_RESPONSE -> {
+                // Phase 6: 收到认证响应 → 发送 HU_AUTHEN_RESULT
+                android.util.Log.e("CarLifeWireless", "[MdRole] MD_AUTHEN_RESPONSE received")
+                LogUtils.i(TAG, "[Phase 6] MD_AUTHEN_RESPONSE received")
+                try {
+                    val response = CarlifeAuthenResponseProto.CarlifeAuthenResponse.parseFrom(data)
+                    LogUtils.i(TAG, "[Phase 6] MD_AUTHEN_RESPONSE: success=${response.success}")
+                } catch (e: Exception) {
+                    LogUtils.w(TAG, "[Phase 6] Failed to parse MD_AUTHEN_RESPONSE: ${e.message}")
+                }
+                sendHuAuthenResult(true)
+            }
+            MD_AUTHEN_RESULT -> {
+                // Phase 8: 收到手机B认证结果 → 等待特性配置请求
+                android.util.Log.e("CarLifeWireless", "[MdRole] MD_AUTHEN_RESULT received")
+                LogUtils.i(TAG, "[Phase 8] MD_AUTHEN_RESULT received")
+            }
+            MD_FEATURE_CONFIG_REQUEST -> {
+                // Phase 9: 收到特性配置请求 → 发送 HU_FEATURE_CONFIG_RESPONSE
+                android.util.Log.e("CarLifeWireless", "[MdRole] MD_FEATURE_CONFIG_REQUEST received")
+                LogUtils.i(TAG, "[Phase 9] MD_FEATURE_CONFIG_REQUEST received")
+                sendHuFeatureConfigResponse()
+            }
+            VIDEO_ENCODER_INIT_DONE -> {
+                // Phase 12: 收到编码器初始化完成 → 发送 VIDEO_ENCODER_START
+                android.util.Log.e("CarLifeWireless", "[MdRole] VIDEO_ENCODER_INIT_DONE received")
+                LogUtils.i(TAG, "[Phase 12] VIDEO_ENCODER_INIT_DONE received")
+                sendVideoEncoderStart()
+            }
+
+            // === 保留原有处理（车机发来的 HU 消息） ===
             HU_PROTOCOL_VERSION -> {
-                // Phase 1: 收到车机协议版本 → 回复版本匹配
                 handleHuProtocolVersion(data)
             }
             HU_INFO -> {
-                // Phase 2: 收到车机设备信息 → 回复转接盒设备信息
                 handleHuInfo(data)
             }
             HU_AUTHEN_REQUEST -> {
-                // Phase 3: 收到认证请求 → 回复认证响应
                 handleHuAuthenRequest(data)
             }
             HU_AUTHEN_RESULT -> {
-                // Phase 4: 收到认证结果 → 回复 MD 认证结果
                 handleHuAuthenResult(data)
             }
             HU_FEATURE_CONFIG_RESPONSE -> {
-                // Phase 6: 收到特性配置响应 → 等待 VIDEO_ENCODER_INIT
                 handleHuFeatureConfigResponse(data)
             }
             VIDEO_ENCODER_INIT -> {
-                // Phase 7: 收到视频编码器初始化 → 回复 INIT_DONE
                 handleVideoEncoderInit(data)
             }
             VIDEO_ENCODER_START -> {
-                // Phase 8: 车机发出开始传输指令
                 handleVideoEncoderStart()
             }
             else -> {
-                // 其他 CMD 消息（触摸控制等）→ 转发到手机 B
+                // 其他 CMD 消息（触摸控制等）→ 转发
                 if (handshakeCompleted.get()) {
                     val hu = huRole
                     if (hu != null) {
@@ -392,15 +447,187 @@ class MdRole(private val context: Context) {
                         LogUtils.w(TAG, "HU role not set, cannot forward CMD 0x${Integer.toHexString(serviceType)}")
                     }
                 } else {
-                    LogUtils.d(TAG, "Unhandled CMD from car: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+                    LogUtils.d(TAG, "Unhandled CMD: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
                 }
             }
         }
     }
 
     /**
-     * Phase 1: 处理车机协议版本
-     * 解析版本号，回复 VERSION_MATCH_STATUS
+     * 发送协议版本到手机 B（主动发起握手）
+     * 手机 B 的 CarWith 期望转接盒先发送 HU_PROTOCOL_VERSION
+     */
+    private fun sendProtocolVersion() {
+        try {
+            val version = CarlifeProtocolVersionProto.CarlifeProtocolVersion.newBuilder()
+                .setMajorVersion(Constants.PROTOCOL_MAJOR_VERSION)
+                .setMinorVersion(Constants.PROTOCOL_MINOR_VERSION)
+                .build()
+
+            sendCmdMessage(HU_PROTOCOL_VERSION, version.toByteArray())
+            android.util.Log.e("CarLifeWireless", "[MdRole] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
+            LogUtils.i(TAG, "[Phase 1] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
+        } catch (e: Exception) {
+            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_PROTOCOL_VERSION: ${e.message}")
+            LogUtils.e(TAG, e, "[Phase 1] Failed to send HU_PROTOCOL_VERSION")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase1-ProtocolVersion")
+        }
+    }
+
+    /**
+     * Phase 3: 发送车机设备信息到手机 B
+     * HU_INFO (0x00018003)
+     */
+    private fun sendHuInfo() {
+        try {
+            val deviceInfo = CarlifeDeviceInfoProto.CarlifeDeviceInfo.newBuilder()
+                .setDeviceType(CarlifeDeviceInfoProto.DeviceType.DEVICE_TYPE_HEAD_UNIT)
+                .setOsType(CarlifeDeviceInfoProto.OsType.OS_ANDROID)
+                .setOsVersion(Build.VERSION.RELEASE ?: "unknown")
+                .setManufacturer(Build.MANUFACTURER ?: "Unknown")
+                .setModel(Build.MODEL ?: "CarLife Box")
+                .setDeviceId(Build.SERIAL ?: "box-001")
+                .setDeviceName("CarLife Wireless Box")
+                .build()
+
+            sendCmdMessage(HU_INFO, deviceInfo.toByteArray())
+            android.util.Log.e("CarLifeWireless", "[MdRole] HU_INFO sent")
+            LogUtils.i(TAG, "[Phase 3] HU_INFO sent")
+        } catch (e: Exception) {
+            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_INFO: ${e.message}")
+            LogUtils.e(TAG, e, "[Phase 3] Failed to send HU_INFO")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase3-HuInfo")
+        }
+    }
+
+    /**
+     * Phase 5: 发送认证请求到手机 B
+     * HU_AUTHEN_REQUEST (0x00018048)
+     */
+    private fun sendHuAuthenRequest() {
+        try {
+            val request = CarlifeAuthenRequestProto.CarlifeAuthenRequest.newBuilder()
+                .setMethod(AuthMethod.AUTH_METHOD_NONE)
+                .setDeviceId(Build.SERIAL ?: "box-001")
+                .setDeviceName("CarLife Wireless Box")
+                .setDeviceModel(Build.MODEL ?: "CarLife Box")
+                .build()
+
+            sendCmdMessage(HU_AUTHEN_REQUEST, request.toByteArray())
+            android.util.Log.e("CarLifeWireless", "[MdRole] HU_AUTHEN_REQUEST sent")
+            LogUtils.i(TAG, "[Phase 5] HU_AUTHEN_REQUEST sent")
+        } catch (e: Exception) {
+            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_AUTHEN_REQUEST: ${e.message}")
+            LogUtils.e(TAG, e, "[Phase 5] Failed to send HU_AUTHEN_REQUEST")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase5-AuthenRequest")
+        }
+    }
+
+    /**
+     * Phase 7: 发送认证结果到手机 B
+     * HU_AUTHEN_RESULT (0x0001804A)
+     */
+    private fun sendHuAuthenResult(success: Boolean) {
+        try {
+            val result = CarlifeAuthenResultProto.CarlifeAuthenResult.newBuilder()
+                .setResult(
+                    if (success) CarlifeAuthenResultProto.AuthenResultCode.AUTHEN_RESULT_SUCCESS
+                    else CarlifeAuthenResultProto.AuthenResultCode.AUTHEN_RESULT_FAILED
+                )
+                .build()
+
+            sendCmdMessage(HU_AUTHEN_RESULT, result.toByteArray())
+            android.util.Log.e("CarLifeWireless", "[MdRole] HU_AUTHEN_RESULT sent (result=$success)")
+            LogUtils.i(TAG, "[Phase 7] HU_AUTHEN_RESULT sent (result=$success)")
+        } catch (e: Exception) {
+            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_AUTHEN_RESULT: ${e.message}")
+            LogUtils.e(TAG, e, "[Phase 7] Failed to send HU_AUTHEN_RESULT")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase7-AuthenResult")
+        }
+    }
+
+    /**
+     * Phase 10: 发送特性配置响应到手机 B
+     * HU_FEATURE_CONFIG_RESPONSE (0x00018052)
+     */
+    private fun sendHuFeatureConfigResponse() {
+        try {
+            val config = CarlifeFeatureConfigProto.CarlifeFeatureConfig.newBuilder()
+                .setVideoEnabled(true)
+                .setAudioEnabled(true)
+                .setTouchEnabled(true)
+                .setMusicEnabled(true)
+                .setNavigationEnabled(true)
+                .setVoiceEnabled(true)
+                .setMaxVideoBitrate(5000)
+                .setMaxAudioBitrate(256)
+                .setConnectionTimeout(30)
+                .build()
+
+            sendCmdMessage(HU_FEATURE_CONFIG_RESPONSE, config.toByteArray())
+            android.util.Log.e("CarLifeWireless", "[MdRole] HU_FEATURE_CONFIG_RESPONSE sent")
+            LogUtils.i(TAG, "[Phase 10] HU_FEATURE_CONFIG_RESPONSE sent")
+
+            // 发送视频编码器初始化
+            sendVideoEncoderInitToPhoneB()
+        } catch (e: Exception) {
+            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_FEATURE_CONFIG_RESPONSE: ${e.message}")
+            LogUtils.e(TAG, e, "[Phase 10] Failed to send HU_FEATURE_CONFIG_RESPONSE")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase10-FeatureConfigResponse")
+        }
+    }
+
+    /**
+     * Phase 11: 发送视频编码器初始化到手机 B
+     * VIDEO_ENCODER_INIT (0x00018007)
+     */
+    private fun sendVideoEncoderInitToPhoneB() {
+        try {
+            val info = CarlifeVideoEncoderInfoProto.CarlifeVideoEncoderInfo.newBuilder()
+                .setSupportedCodecs((1 shl 1))  // H.264
+                .setPreferredCodec(CarlifeVideoEncoderInfoProto.VideoCodecType.VIDEO_CODEC_H264)
+                .setCurrentResolution((1 shl 1))  // 480P
+                .setCurrentResolutionEnum(CarlifeVideoEncoderInfoProto.VideoResolution.RES_480P)
+                .addSupportedResolutions(CarlifeVideoEncoderInfoProto.VideoResolution.RES_480P)
+                .setCurrentFps(30)
+                .setBitrateKbps(2000)
+                .setIFrameInterval(2)
+                .setHardwareEncoder(true)
+                .build()
+
+            sendCmdMessage(VIDEO_ENCODER_INIT, info.toByteArray())
+            android.util.Log.e("CarLifeWireless", "[MdRole] VIDEO_ENCODER_INIT sent")
+            LogUtils.i(TAG, "[Phase 11] VIDEO_ENCODER_INIT sent")
+        } catch (e: Exception) {
+            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send VIDEO_ENCODER_INIT: ${e.message}")
+            LogUtils.e(TAG, e, "[Phase 11] Failed to send VIDEO_ENCODER_INIT")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase11-VideoEncoderInit")
+        }
+    }
+
+    /**
+     * Phase 13: 发送视频编码器启动到手机 B
+     * VIDEO_ENCODER_START (0x00018009)
+     */
+    private fun sendVideoEncoderStart() {
+        try {
+            sendCmdMessage(VIDEO_ENCODER_START, ByteArray(0))
+            android.util.Log.e("CarLifeWireless", "[MdRole] VIDEO_ENCODER_START sent — handshake complete!")
+            LogUtils.i(TAG, "[Phase 13] VIDEO_ENCODER_START sent — handshake complete!")
+
+            handshakeCompleted.set(true)
+            updateState(MdState.READY)
+            LogUtils.i(TAG, "===== Phone B connected and ready =====")
+        } catch (e: Exception) {
+            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send VIDEO_ENCODER_START: ${e.message}")
+            LogUtils.e(TAG, e, "[Phase 13] Failed to send VIDEO_ENCODER_START")
+            ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase13-VideoEncoderStart")
+        }
+    }
+
+    /**
+     * Phase 1: 处理手机B的协议版本响应
+     * 解析版本号，回复 HU_INFO
      */
     private fun handleHuProtocolVersion(data: ByteArray) {
         try {
