@@ -126,6 +126,9 @@ class MdRole(private val context: Context) {
             val phoneBIp = SettingsManager.getPhoneBIp(context)
             val config = channelConfig ?: DEFAULT_CHANNEL_CONFIG
 
+            // 直接使用 Log.e 确保在 logcat 中可见（不依赖 LogUtils 的 consoleLog 开关）
+            android.util.Log.e("CarLifeWireless", "[MdRole] START: phoneBIp=$phoneBIp, channels=${config.totalEnabled}")
+
             LogUtils.i(TAG, "Connecting to phone B CarWith at $phoneBIp (${config.totalEnabled} channels)...")
 
             // 主动连接手机 B 的 CarWith HU 端口（而非监听 MD 端口）
@@ -136,19 +139,23 @@ class MdRole(private val context: Context) {
                 channels[type.mdPort] = channel
 
                 val port = type.huPort
+                android.util.Log.e("CarLifeWireless", "[MdRole] Connecting ${type.name} to $phoneBIp:$port")
                 LogUtils.i(TAG, "Connecting ${type.name} to $phoneBIp:$port (autoRead=$autoRead)")
 
                 channel.callback = object : ChannelCallback {
                     override fun onConnected(ch: Channel) {
+                        android.util.Log.e("CarLifeWireless", "[MdRole] ${ch.name} CONNECTED!")
                         handleClientConnected(ch.type.mdPort, ch)
                     }
                     override fun onDisconnected(ch: Channel, reason: String?) {
+                        android.util.Log.e("CarLifeWireless", "[MdRole] ${ch.name} DISCONNECTED: $reason")
                         handleClientDisconnected(ch.type.mdPort, reason)
                     }
                     override fun onDataReceived(ch: Channel, header: ChannelHeader, payload: ByteArray) {
                         // 不使用此回调，由专用读取循环处理
                     }
                     override fun onError(ch: Channel, error: Throwable) {
+                        android.util.Log.e("CarLifeWireless", "[MdRole] ${ch.name} ERROR: ${error.message}")
                         LogUtils.e(TAG, "${ch.name} error: ${error.message}")
                         lastErrorMessage.set("${ch.name}: ${error.message}")
                     }
