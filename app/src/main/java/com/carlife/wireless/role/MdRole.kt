@@ -164,7 +164,7 @@ class MdRole(private val context: Context) {
             scope.launch {
                 delay(15_000)
                 if (state.get() == MdState.WAITING_CONNECTION || state.get() == MdState.CONNECTED) {
-                    val connected = connectedChannelCount.get()
+                    val connected = connectedCount.get()
                     if (connected == 0) {
                         val errMsg = "连接手机B超时（已连 $connected/${config.totalEnabled} 个通道），" +
                                 "请确认手机B CarWith 已启动无线连接模式"
