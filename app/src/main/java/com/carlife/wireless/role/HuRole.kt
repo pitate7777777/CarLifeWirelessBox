@@ -195,11 +195,13 @@ class HuRole(
         private val MANUFACTURER: String = Build.MANUFACTURER ?: "Unknown"
         private val OS_VERSION: String = Build.VERSION.RELEASE ?: "unknown"
 
-        /** 连接超时（毫秒）— 仅检查 CMD + VIDEO 两个核心通道 */
-        private const val CONNECT_TIMEOUT_MS = 15_000L
+        /** 连接超时（毫秒）— 仅检查 CMD + VIDEO 两个核心通道
+         *  无线连接流程需要：mDNS 发现 + CarWith 启动 + TCP 连接建立，15 秒不够。
+         *  增大到 30 秒以覆盖慢速网络和首次连接场景。 */
+        private const val CONNECT_TIMEOUT_MS = 30_000L
 
         /** 握手超时（毫秒）— 从发送 HU_PROTOCOL_VERSION 到收到 VIDEO_ENCODER_START */
-        private const val HANDSHAKE_TIMEOUT_MS = 20_000L
+        private const val HANDSHAKE_TIMEOUT_MS = 30_000L
 
         /**
          * 默认通道配置
@@ -287,8 +289,11 @@ class HuRole(
      * HuRole 作为 HU 角色主动连接这些端口，完成 CarLife 协议握手。
      */
     fun connect() {
-        if (state.get() != HuState.IDLE) {
-            LogUtils.w("$TAG: Cannot connect, current state: ${state.get()}")
+        // 允许从 IDLE 或 DISCONNECTED 状态发起连接
+        // 之前只允许 IDLE，导致超时断开后无法重连（DISCONNECTED 状态被拒绝）
+        val currentState = state.get()
+        if (currentState != HuState.IDLE && currentState != HuState.DISCONNECTED) {
+            LogUtils.w("$TAG: Cannot connect, current state: $currentState")
             return
         }
 

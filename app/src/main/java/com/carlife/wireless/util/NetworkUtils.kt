@@ -146,6 +146,44 @@ object NetworkUtils {
     }
 
     /**
+     * 从 ARP 表中扫描活跃设备 IP
+     * 当连接到手机热点时，ARP 表中通常只有网关（手机）和本机两个条目。
+     * 此方法返回与本机同子网的所有活跃 IP（排除本机和广播地址）。
+     *
+     * @param context 上下文
+     * @return 活跃设备 IP 列表（通常只有一个：手机热点的 IP）
+     */
+    fun scanArpDevices(context: Context): List<String> {
+        val result = mutableListOf<String>()
+        val localIp = getLocalIpAddress() ?: return result
+        val localPrefix = localIp.substringBeforeLast(".")
+
+        try {
+            val br = java.io.BufferedReader(java.io.FileReader("/proc/net/arp"))
+            br.useLines { lines ->
+                lines.drop(1).forEach { line ->
+                    val parts = line.trim().split(Regex("\\s+"))
+                    if (parts.size >= 6) {
+                        val ip = parts[0]
+                        val flags = parts[2]
+                        // flags & 2 = ATF_COM (complete ARP entry = reachable)
+                        val flagInt = flags.toIntOrNull(16) ?: 0
+                        if (flagInt and 0x02 != 0) {
+                            val ipPrefix = ip.substringBeforeLast(".")
+                            if (ipPrefix == localPrefix && ip != localIp) {
+                                result.add(ip)
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            LogUtils.w(TAG, "ARP scan failed: ${e.message}")
+        }
+        return result
+    }
+
+    /**
      * 获取 WiFi 热点的网关地址（兼容旧逻辑）
      *
      * 优先使用 ConnectivityManager 获取真实网关；

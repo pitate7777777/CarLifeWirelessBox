@@ -121,6 +121,9 @@ class WifiGuideActivity : AppCompatActivity() {
         ContextCompat.registerReceiver(this, stateReceiver, stateFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
 
         // WiFi 状态广播
+        // 注意：WiFi 状态变化是系统广播（uid=-1），必须使用 RECEIVER_EXPORTED 才能接收。
+        // 使用 RECEIVER_NOT_EXPORTED 会导致系统广播被拒绝，WifiGuideActivity 无法检测到
+        // 热点连接状态变化，卡在第 2 步无法推进。
         wifiReceiver = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 handler.post {
@@ -134,7 +137,11 @@ class WifiGuideActivity : AppCompatActivity() {
             addAction(WifiManager.NETWORK_STATE_CHANGED_ACTION)
             addAction("android.net.wifi.STATE_CHANGE")
         }
-        ContextCompat.registerReceiver(this, wifiReceiver, wifiFilter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.registerReceiver(this, wifiReceiver, wifiFilter, ContextCompat.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(wifiReceiver, wifiFilter)
+        }
     }
 
     /**
@@ -156,9 +163,11 @@ class WifiGuideActivity : AppCompatActivity() {
         val wifiConnected = isWifiConnected()
         val ssid = getCurrentSsid()
         val phoneBIp = SettingsManager.getPhoneBIp(this)
-        val serviceRunning = ConnectionService.instance != null
+        val serviceRunning = ConnectionService.isServiceActive
 
         // 检测是否连接到手机 B 的热点
+        // isLikelyHotspot 不仅检查 SSID，还通过网关和子网匹配判断，
+        // 所以即使 WiFi 广播被拒绝，只要 WiFi 已连接就能正确检测。
         val isHotspotConnected = wifiConnected && isLikelyHotspot(ssid)
 
         // 获取连接信息用于判断
@@ -170,6 +179,17 @@ class WifiGuideActivity : AppCompatActivity() {
             if (!detectedGateway.isNullOrEmpty() && detectedGateway != phoneBIp) {
                 LogUtils.i(TAG, "Auto-detected gateway IP: $detectedGateway (was: $phoneBIp)")
                 SettingsManager.setPhoneBIp(this, detectedGateway)
+            }
+            // 如果网关检测失败，尝试从 ARP 表中发现手机 B 的 IP
+            if (detectedGateway.isNullOrEmpty()) {
+                val arpDevices = NetworkUtils.scanArpDevices(this)
+                if (arpDevices.isNotEmpty()) {
+                    val detectedIp = arpDevices.first()
+                    if (detectedIp != phoneBIp) {
+                        LogUtils.i(TAG, "ARP-detected phone B IP: $detectedIp (was: $phoneBIp)")
+                        SettingsManager.setPhoneBIp(this, detectedIp)
+                    }
+                }
             }
         }
 
@@ -371,12 +391,14 @@ class WifiGuideActivity : AppCompatActivity() {
                 }
             }
             3 -> {
+                val currentPhoneBIp = SettingsManager.getPhoneBIp(this)
                 stepTitle?.text = "第 4 步：等待连接建立"
                 stepDesc?.text = "CarLife 服务已启动，等待手机 B 连接到本机...\n\n" +
-                        "手机 B 的 CarWith 将主动连接本机的 IP 地址。\n\n" +
+                        "手机 B 的 CarWith 将连接到: $currentPhoneBIp\n\n" +
                         "💡 如果长时间未连接，请检查：\n" +
                         "• 手机 B 是否已连接到本机热点\n" +
-                        "• 手机 B 的 CarWith 是否显示「搜索设备」\n" +
+                        "• 手机 B 的 CarWith 是否已启动并选择「无线连接」\n" +
+                        "• 尝试在手机 B 的 CarWith 中手动输入 IP: ${NetworkUtils.getLocalIpAddress() ?: "..."}\n" +
                         "• 尝试重启 CarWith 的无线连接"
                 btnWifi?.visibility = View.GONE
                 btnHotspot?.visibility = View.GONE
