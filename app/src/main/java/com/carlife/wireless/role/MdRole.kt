@@ -459,6 +459,7 @@ class MdRole(private val context: Context) {
                 // v2.3.0 新增消息 — 车机发来的 HU 消息
                 when (serviceType) {
                     HU_REGISTER_RESPONSE -> {
+                        // 本地处理：注册响应，握手阶段已处理，无需转发
                         LogUtils.i(TAG, "HU_REGISTER_RESPONSE received, len=${data.size}")
                     }
                     HU_MODULE_CONTROL -> {
@@ -474,15 +475,19 @@ class MdRole(private val context: Context) {
                         }
                     }
                     HU_CAR_DATA_SUBSCRIBE_DONE -> {
+                        // 本地处理：数据订阅确认，转接盒内部管理，无需转发手机B
                         LogUtils.i(TAG, "HU_CAR_DATA_SUBSCRIBE_DONE received")
                     }
                     HU_CARLIFE_DATA_SUBSCRIBE -> {
+                        // 本地处理：车机请求订阅 CarLife 数据，由转接盒响应
                         LogUtils.i(TAG, "HU_CARLIFE_DATA_SUBSCRIBE received, len=${data.size}")
                     }
                     HU_CARLIFE_DATA_SUBSCRIBE_START -> {
+                        // 本地处理：CarLife 数据订阅开始
                         LogUtils.i(TAG, "HU_CARLIFE_DATA_SUBSCRIBE_START received")
                     }
                     HU_CARLIFE_DATA_SUBSCRIBE_STOP -> {
+                        // 本地处理：CarLife 数据订阅停止
                         LogUtils.i(TAG, "HU_CARLIFE_DATA_SUBSCRIBE_STOP received")
                     }
                     HU_BT_HFP_INDICATION -> {
@@ -516,9 +521,11 @@ class MdRole(private val context: Context) {
                         }
                     }
                     HU_ERROR_CODE -> {
+                        // 本地处理：记录车机上报的错误码，无需转发
                         LogUtils.w(TAG, "HU_ERROR_CODE received, len=${data.size}")
                     }
                     HU_VIDEO_ENCODER_JPEG -> {
+                        // 本地处理：JPEG 编码器请求，当前不支持，仅记录
                         LogUtils.i(TAG, "HU_VIDEO_ENCODER_JPEG received, len=${data.size}")
                     }
                     HU_VEHICLE_CONTROL_INFO -> {
@@ -528,9 +535,11 @@ class MdRole(private val context: Context) {
                         }
                     }
                     HU_STATISTIC_INFO -> {
+                        // 本地处理：连接统计信息，用于调试，无需转发
                         LogUtils.d(TAG, "HU_STATISTIC_INFO received, len=${data.size}")
                     }
                     HU_CONNECT_STATISTIC -> {
+                        // 本地处理：连接统计数据，用于诊断，无需转发
                         LogUtils.d(TAG, "HU_CONNECT_STATISTIC received, len=${data.size}")
                     }
                     else -> {
