@@ -22,7 +22,8 @@ import com.carlife.wireless.databinding.ActivityMainBinding
 import com.carlife.wireless.service.ConnectionService
 import com.carlife.wireless.util.LogUtils
 import java.net.NetworkInterface
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
 /**
  * 主 Activity

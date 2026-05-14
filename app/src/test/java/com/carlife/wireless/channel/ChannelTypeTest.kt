@@ -198,4 +198,13 @@ class ChannelTypeTest {
     fun `DeviceRole MOBILE exists`() {
         assertNotNull(DeviceRole.MOBILE)
     }
+
+    // ==================== Port offset pattern ====================
+
+    @Test
+    fun `HU ports are exactly 40 more than MD ports`() {
+        ChannelType.entries.forEach { type ->
+            assertEquals("${type.name}: huPort should be mdPort + 40", type.mdPort + 40, type.huPort)
+        }
+    }
 }

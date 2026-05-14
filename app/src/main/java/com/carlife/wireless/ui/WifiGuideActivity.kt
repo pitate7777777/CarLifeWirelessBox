@@ -311,7 +311,8 @@ class WifiGuideActivity : AppCompatActivity() {
                         socket.connect(InetSocketAddress(localIp, port), 1500)
                     }
                     openCount++
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    // 端口未监听，属于正常情况，无需告警
                 }
             }
             handler.post {

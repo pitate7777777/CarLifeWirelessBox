@@ -4,7 +4,13 @@ import com.carlife.wireless.model.ChannelHeader
 import com.carlife.wireless.model.KConnectionState
 import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.LogUtils
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.isActive
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.Socket

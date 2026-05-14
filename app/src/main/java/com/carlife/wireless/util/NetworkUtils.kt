@@ -212,7 +212,8 @@ object NetworkUtils {
                     }
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            LogUtils.d(TAG, "getHotspotGateway wlan0 fallback failed: ${e.message}")
         }
 
         // 方法 3: 默认值

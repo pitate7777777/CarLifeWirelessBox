@@ -9,7 +9,13 @@ import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkDiagnostics
 import com.carlife.wireless.util.SettingsManager
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 
 /**
  * 网络诊断 Activity

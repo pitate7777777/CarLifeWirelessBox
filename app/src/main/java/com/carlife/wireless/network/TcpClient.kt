@@ -6,7 +6,13 @@ import com.carlife.wireless.proto.CarlifeHeartbeatProto
 import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.LogUtils
 import com.carlife.wireless.util.NetworkUtils
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.cancel
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
@@ -43,6 +49,8 @@ class TcpClient(
     private var socket: Socket? = null
     private var inputStream: InputStream? = null
     private var outputStream: OutputStream? = null
+    /** I/O 锁：保护 socket/stream 的读写和关闭不并发交错 */
+    private val ioLock = Any()
 
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val isConnected = AtomicBoolean(false)
@@ -351,7 +359,7 @@ class TcpClient(
      * 发送原始字节（内部使用）
      */
     private fun sendDataRaw(data: ByteArray): Boolean {
-        synchronized(this) {
+        synchronized(ioLock) {
             if (!isConnected.get()) return false
             val output = outputStream ?: return false
             output.write(data)
@@ -370,7 +378,7 @@ class TcpClient(
         stopHeartbeat()
 
         // 关闭流放在 synchronized 块中，防止与 sendDataRaw 并发写入已关闭的流
-        synchronized(this) {
+        synchronized(ioLock) {
             try { inputStream?.close() } catch (_: Exception) {}
             try { outputStream?.close() } catch (_: Exception) {}
             try { socket?.close() } catch (_: Exception) {}
