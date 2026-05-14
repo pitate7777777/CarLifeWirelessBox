@@ -63,6 +63,9 @@ class MainActivity : AppCompatActivity() {
     // 视频预览
     private val previewHelper = VideoPreviewHelper()
 
+    /** 标记是否已完成首次自动连接尝试，避免 onResume 重复触发 */
+    private var autoConnectAttempted = false
+
     /** MediaProjection 请求 launcher */
     private val mediaProjectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -154,10 +157,18 @@ class MainActivity : AppCompatActivity() {
             binding.tvPreviewFps
         )
 
-        checkAndRequestPermissions()
         setupListeners()
         updateUI()
         updateIPAddress()
+
+        // 自动连接流程：权限 → MediaProjection → 启动服务
+        if (hasAllPermissions()) {
+            // 权限已授予 → 直接尝试自动连接
+            tryAutoConnect()
+        } else {
+            // 首次启动 → 请求权限，授权后自动连接
+            checkAndRequestPermissions()
+        }
     }
 
     override fun onResume() {
@@ -165,6 +176,16 @@ class MainActivity : AppCompatActivity() {
         updateUI()
         uiHandler.postDelayed(periodicRefreshRunnable, 5000)
         checkAccessibilityService()
+
+        // 服务正在运行 → 重置标记，下次停止后重新打开可再次自动连接
+        if (isServiceRunning()) {
+            autoConnectAttempted = false
+        }
+
+        // 从设置页返回时，如果服务未运行且开启了自动连接，重新触发
+        if (!isServiceRunning() && !autoConnectAttempted) {
+            tryAutoConnect()
+        }
     }
 
     override fun onPause() {
@@ -177,6 +198,49 @@ class MainActivity : AppCompatActivity() {
         uiHandler.removeCallbacks(periodicRefreshRunnable)
         unregisterReceiver(stateReceiver)
         previewHelper.release()
+    }
+
+    // ==================== 自动连接 ====================
+
+    /**
+     * 尝试自动连接
+     *
+     * 条件：
+     * 1. 设置中开启了"自动连接"
+     * 2. 服务未在运行
+     * 3. 所有权限已授予
+     *
+     * 流程：启动 ConnectionService → 请求 MediaProjection 授权
+     * 用户只需在系统弹窗中点一次"允许"，后续每次打开 APP 都会自动连接。
+     */
+    private fun tryAutoConnect() {
+        autoConnectAttempted = true
+
+        val autoConnect = com.carlife.wireless.util.SettingsManager.isAutoConnectEnabled(this)
+        if (!autoConnect) {
+            LogUtils.d(TAG, "Auto-connect disabled in settings")
+            return
+        }
+        if (isServiceRunning()) {
+            LogUtils.d(TAG, "Service already running, skip auto-connect")
+            return
+        }
+        if (!hasAllPermissions()) {
+            LogUtils.d(TAG, "Permissions not granted yet, skip auto-connect")
+            return
+        }
+
+        LogUtils.i(TAG, "Auto-connect: starting service...")
+        addLog("自动连接中...")
+
+        // 启动前台服务（HuRole 开始连接手机 B）
+        val intent = Intent(this, ConnectionService::class.java)
+        startForegroundService(intent)
+        binding.tvStatus.text = getString(R.string.status_connecting)
+
+        // 请求 MediaProjection（屏幕采集授权）
+        // 系统会弹出确认弹窗，用户点"允许"后自动注入到已运行的 Service
+        requestMediaProjection()
     }
 
     // ==================== UI 交互 ====================
@@ -215,6 +279,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        autoConnectAttempted = true
         requestMediaProjection()
 
         val intent = Intent(this, ConnectionService::class.java)
@@ -383,6 +448,8 @@ class MainActivity : AppCompatActivity() {
             }
             if (denied.isEmpty()) {
                 Toast.makeText(this, "权限已授予", Toast.LENGTH_SHORT).show()
+                // 权限全部授予后，自动启动连接
+                tryAutoConnect()
             } else {
                 val permanent = denied.filter { !shouldShowRequestPermissionRationale(it) }
                 if (permanent.isNotEmpty()) showPermissionDeniedDialog(permanent)

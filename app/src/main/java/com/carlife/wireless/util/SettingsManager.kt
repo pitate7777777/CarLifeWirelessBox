@@ -171,6 +171,25 @@ object SettingsManager {
         }
     }
 
+    // ==================== 自动连接配置 ====================
+
+    /**
+     * 获取自动连接开关状态
+     * 开启后打开 APP 自动启动服务并请求 MediaProjection
+     */
+    fun isAutoConnectEnabled(context: Context): Boolean {
+        val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
+        return prefs.getBoolean("auto_connect", true)
+    }
+
+    /**
+     * 设置自动连接开关
+     */
+    fun setAutoConnectEnabled(context: Context, enabled: Boolean) {
+        val prefs = context.getSharedPreferences("carlife_settings", Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("auto_connect", enabled).apply()
+    }
+
     // ==================== 日志开关配置 ====================
 
     /**

@@ -139,6 +139,9 @@ class SettingsActivity : AppCompatActivity() {
         binding.switchChannelTts.isChecked = channelConfig.ttsEnabled
         binding.switchChannelVr.isChecked = channelConfig.vrEnabled
 
+        // 加载自动连接开关
+        binding.switchAutoConnect.isChecked = SettingsManager.isAutoConnectEnabled(this)
+
         // 加载日志开关配置
         binding.switchConsoleLog.isChecked = SettingsManager.isConsoleLogEnabled(this)
         binding.switchFileLog.isChecked = SettingsManager.isFileLogEnabled(this)
@@ -272,6 +275,11 @@ class SettingsActivity : AppCompatActivity() {
         )
         SettingsManager.saveChannelConfig(this, channelConfig)
         LogUtils.i(TAG, "Channel config saved: media=${channelConfig.mediaEnabled}, tts=${channelConfig.ttsEnabled}, vr=${channelConfig.vrEnabled}")
+
+        // 保存自动连接开关
+        val autoConnectEnabled = binding.switchAutoConnect.isChecked
+        SettingsManager.setAutoConnectEnabled(this, autoConnectEnabled)
+        LogUtils.i(TAG, "Auto-connect saved: $autoConnectEnabled")
 
         // 保存日志开关配置
         val consoleLogEnabled = binding.switchConsoleLog.isChecked
