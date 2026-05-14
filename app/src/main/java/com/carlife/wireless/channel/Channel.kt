@@ -522,11 +522,11 @@ private class TcpChannel(
         ensureScopeActive()
 
         scope.launch {
+            val sock = Socket()
             try {
                 LogUtils.i("[$name] connecting to $host:$port...")
                 // 使用 Socket() + connect(InetSocketAddress, timeout) 而非 Socket(host, port)
                 // 与 NetworkDiagnostics 保持一致的连接方式，避免 Android 8 上构造函数行为差异
-                val sock = Socket()
                 sock.connect(java.net.InetSocketAddress(host, port), 10000)
                 sock.soTimeout = 5000
 

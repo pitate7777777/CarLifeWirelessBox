@@ -90,13 +90,13 @@ class TcpClient(
         retryCount.set(0)
 
         while (retryCount.get() <= Constants.Reconnect.MAX_RETRY) {
+            val newSocket = Socket()
             try {
                 if (!NetworkUtils.isWifiConnected(context)) {
                     listener?.onError("Wi-Fi not connected")
                     break
                 }
 
-                val newSocket = Socket()
                 newSocket.soTimeout = READ_TIMEOUT
                 newSocket.connect(java.net.InetSocketAddress(host, port), CONNECT_TIMEOUT)
 

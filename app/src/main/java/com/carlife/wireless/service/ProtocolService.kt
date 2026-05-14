@@ -12,6 +12,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * 协议服务 — 协议统计、握手追踪、健康监控
@@ -133,7 +134,7 @@ class ProtocolService : Service() {
     data class ProtocolEvent(
         val timestamp: Long = System.currentTimeMillis(),
         val type: EventType,
-        val channel: Channel?,
+        val channel: Channel? = null,
         val message: String,
         val detail: String = ""
     ) {
