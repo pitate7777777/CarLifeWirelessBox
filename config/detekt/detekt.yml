@@ -1,0 +1,38 @@
+# detekt 配置 — CarLife Wireless Box
+# 文档: https://detekt.dev/docs/gettingstarted/configuration
+
+build:
+  maxIssues: 0  # 零容忍
+
+complexity:
+  LongMethod:
+    threshold: 60
+  LongParameterList:
+    functionThreshold: 8
+    constructorThreshold: 10
+  ComplexMethod:
+    threshold: 15
+  TooManyFunctions:
+    thresholdInFiles: 30
+    thresholdInClasses: 25
+
+style:
+  MagicNumber:
+    active: false  # 协议中大量魔数，关闭此项
+  ReturnCount:
+    max: 4
+  MaxLineLength:
+    maxLineLength: 140
+  ForbiddenComment:
+    active: false  # 允许 TODO 注释
+
+naming:
+  FunctionNaming:
+    # 允许反引号测试方法名
+    ignoreAnnotated: ['Test']
+  VariableNaming:
+    active: false  # 允许 DEVICE_ID 等大写变量
+
+exceptions:
+  TooGenericExceptionCaught:
+    active: false  # 网络代码需要捕获通用异常

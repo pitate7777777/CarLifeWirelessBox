@@ -58,7 +58,7 @@ object NetworkUtils {
             }
             return fallback
         } catch (e: Exception) {
-            e.printStackTrace()
+            LogUtils.w(TAG, "getLocalIpAddress failed: ${e.message}")
         }
         return null
     }
@@ -85,7 +85,7 @@ object NetworkUtils {
                 }
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            LogUtils.w(TAG, "isUsbTetheringEnabled failed: ${e.message}")
         }
         return false
     }
