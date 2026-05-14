@@ -138,7 +138,7 @@ class MdRole(private val context: Context) {
 
         try {
             val phoneBIp = SettingsManager.getPhoneBIp(context)
-            val config = channelConfig ?: DEFAULT_CHANNEL_CONFIG
+            val config = channelConfig
 
             // 直接使用 Log.e 确保在 logcat 中可见（不依赖 LogUtils 的 consoleLog 开关）
 
@@ -148,29 +148,29 @@ class MdRole(private val context: Context) {
             // 手机 B 的 CarWith 作为服务端监听 HU 端口，转接盒作为客户端连接
             for (type in config.allChannels) {
                 val autoRead = type != ChannelType.HU_CMD
-                val channel = Channel.create(type, DeviceRole.MOBILE, autoRead)
-                channels[type.mdPort] = channel
+                val newChannel = Channel.create(type, DeviceRole.MOBILE, autoRead)
+                channels[type.mdPort] = newChannel
 
                 val port = type.huPort
                 LogUtils.i(TAG, "Connecting ${type.name} to $phoneBIp:$port (autoRead=$autoRead)")
 
-                channel.callback = object : ChannelCallback {
-                    override fun onConnected(ch: Channel) {
-                        handleClientConnected(ch.type.mdPort, ch)
+                newChannel.callback = object : ChannelCallback {
+                    override fun onConnected(channel: Channel) {
+                        handleClientConnected(channel.type.mdPort, channel)
                     }
-                    override fun onDisconnected(ch: Channel, reason: String?) {
-                        handleClientDisconnected(ch.type.mdPort, reason)
+                    override fun onDisconnected(channel: Channel, reason: String?) {
+                        handleClientDisconnected(channel.type.mdPort, reason)
                     }
-                    override fun onDataReceived(ch: Channel, header: ChannelHeader, payload: ByteArray) {
+                    override fun onDataReceived(channel: Channel, header: ChannelHeader, payload: ByteArray) {
                         // 不使用此回调，由专用读取循环处理
                     }
-                    override fun onError(ch: Channel, error: Throwable) {
-                        LogUtils.e(TAG, "${ch.name} error: ${error.message}")
-                        lastErrorMessage.set("${ch.name}: ${error.message}")
+                    override fun onError(channel: Channel, error: Throwable) {
+                        LogUtils.e(TAG, "${channel.name} error: ${error.message}")
+                        lastErrorMessage.set("${channel.name}: ${error.message}")
                     }
                 }
 
-                channel.connect(phoneBIp, port)
+                newChannel.connect(phoneBIp, port)
             }
 
             updateState(MdState.WAITING_CONNECTION)

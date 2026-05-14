@@ -368,6 +368,7 @@ class ConnectionService : Service() {
                 // 设置主机地址，确保 mDNS 能正确解析到本机 IP
                 if (localIp != null) {
                     try {
+                        @Suppress("DEPRECATION")
                         host = java.net.InetAddress.getByName(localIp)
                         LogUtils.i(TAG, "mDNS host set to: $localIp")
                     } catch (e: Exception) {

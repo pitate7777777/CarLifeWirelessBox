@@ -113,7 +113,7 @@ class UsbGuideActivity : AppCompatActivity() {
     /**
      * USB 状态变化回调
      */
-    private fun onUsbStateChanged(state: UsbTetheringManager.UsbState, carIp: String?) {
+    private fun onUsbStateChanged(state: UsbTetheringManager.UsbState, @Suppress("UNUSED_PARAMETER") carIp: String?) {
         when (state) {
             UsbTetheringManager.UsbState.DISCONNECTED -> {
                 currentStep = 0
@@ -138,7 +138,7 @@ class UsbGuideActivity : AppCompatActivity() {
         updateUI()
     }
 
-    private fun onCarFound(carIp: String) {
+    private fun onCarFound(@Suppress("UNUSED_PARAMETER") carIp: String) {
         currentStep = 3
         updateUI()
     }

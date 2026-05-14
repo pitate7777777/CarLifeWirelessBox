@@ -118,15 +118,15 @@ class TcpClient(
             } catch (e: SocketTimeoutException) {
                 LogUtils.e("$TAG: Connection timeout: ${e.message}")
                 try { newSocket.close() } catch (_: Exception) {}
-                handleConnectionFailure(e, host, port)
+                handleConnectionFailure(e)
             } catch (e: IOException) {
                 LogUtils.e("$TAG: Connection failed: ${e.message}")
                 try { newSocket.close() } catch (_: Exception) {}
-                handleConnectionFailure(e, host, port)
+                handleConnectionFailure(e)
             } catch (e: Exception) {
                 LogUtils.e(e, "$TAG: Unexpected error: ${e.message}")
                 try { newSocket.close() } catch (_: Exception) {}
-                handleConnectionFailure(e, host, port)
+                handleConnectionFailure(e)
             }
         }
 
@@ -136,7 +136,7 @@ class TcpClient(
         }
     }
 
-    private suspend fun handleConnectionFailure(e: Exception, host: String, port: Int) {
+    private suspend fun handleConnectionFailure(e: Exception) {
         val currentRetry = retryCount.incrementAndGet()
         if (currentRetry > Constants.Reconnect.MAX_RETRY) {
             listener?.onError("Max retries reached: ${e.message}")

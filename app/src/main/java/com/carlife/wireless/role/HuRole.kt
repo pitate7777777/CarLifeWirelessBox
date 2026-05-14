@@ -348,9 +348,9 @@ class HuRole(
                 LogUtils.i("$TAG: All ${config.totalEnabled} channels connecting, waiting for connections...")
 
                 // 连接超时检测
-                launch {
+                launch timeout@{
                     delay(CONNECT_TIMEOUT_MS)
-                    if (state.get() == HuState.DISCONNECTED) return@launch
+                    if (state.get() == HuState.DISCONNECTED) return@timeout
 
                     val videoConnected = channels[ChannelType.HU_VIDEO]?.isConnected == true
                     val requiredOk = config.requiredChannels.all { channels[it]?.isConnected == true }
@@ -386,32 +386,32 @@ class HuRole(
      * 创建通道并设置回调
      */
     private fun createChannel(type: ChannelType, autoRead: Boolean = true): Channel {
-        val channel = Channel.create(type, DeviceRole.HU, autoRead)
-        channel.callback = object : ChannelCallback {
-            override fun onConnected(ch: Channel) {
-                LogUtils.i("$TAG: ${ch.name} connected")
-                onChannelConnected(ch.type)
+        val newChannel = Channel.create(type, DeviceRole.HU, autoRead)
+        newChannel.callback = object : ChannelCallback {
+            override fun onConnected(channel: Channel) {
+                LogUtils.i("$TAG: ${channel.name} connected")
+                onChannelConnected(channel.type)
             }
 
-            override fun onDisconnected(ch: Channel, reason: String?) {
-                LogUtils.w("$TAG: ${ch.name} disconnected: $reason")
+            override fun onDisconnected(channel: Channel, reason: String?) {
+                LogUtils.w("$TAG: ${channel.name} disconnected: $reason")
                 // 单通道断开不立即断开全部，让超时检测决定
                 // 只有 CMD 通道断开才立即断开（握手必须依赖 CMD）
-                if (ch.type == ChannelType.HU_CMD && state.get() != HuState.DISCONNECTED) {
+                if (channel.type == ChannelType.HU_CMD && state.get() != HuState.DISCONNECTED) {
                     disconnect("CMD channel disconnected: $reason")
                 }
             }
 
-            override fun onDataReceived(ch: Channel, header: ChannelHeader, payload: ByteArray) {
-                handleChannelData(ch, header, payload)
+            override fun onDataReceived(channel: Channel, header: ChannelHeader, payload: ByteArray) {
+                handleChannelData(channel, header, payload)
             }
 
-            override fun onError(ch: Channel, error: Throwable) {
-                LogUtils.e("$TAG: ${ch.name} error: ${error.message}")
-                listener?.onError("${ch.name}: ${error.message}")
+            override fun onError(channel: Channel, error: Throwable) {
+                LogUtils.e("$TAG: ${channel.name} error: ${error.message}")
+                listener?.onError("${channel.name}: ${error.message}")
             }
         }
-        return channel
+        return newChannel
     }
 
     fun disconnect(reason: String? = null) {

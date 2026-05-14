@@ -68,7 +68,7 @@ object NetworkUtils {
      * @param context 上下文
      * @return true if USB tethering is enabled
      */
-    fun isUsbTetheringEnabled(context: Context): Boolean {
+    fun isUsbTetheringEnabled(@Suppress("UNUSED_PARAMETER") context: Context): Boolean {
         try {
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
@@ -146,7 +146,7 @@ object NetworkUtils {
      * @param context 上下文
      * @return 活跃设备 IP 列表（通常只有一个：手机热点的 IP）
      */
-    fun scanArpDevices(context: Context): List<String> {
+    fun scanArpDevices(@Suppress("UNUSED_PARAMETER") context: Context): List<String> {
         val result = mutableListOf<String>()
         val localIp = getLocalIpAddress() ?: return result
         val localPrefix = localIp.substringBeforeLast(".")

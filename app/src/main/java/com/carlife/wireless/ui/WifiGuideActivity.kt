@@ -231,6 +231,7 @@ class WifiGuideActivity : AppCompatActivity() {
     /**
      * 获取当前连接的 SSID
      */
+    @Suppress("DEPRECATION")
     private fun getCurrentSsid(): String? {
         try {
             val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
@@ -252,7 +253,7 @@ class WifiGuideActivity : AppCompatActivity() {
      * 2. 通过本机 IP 与手机 B IP 的子网匹配判断
      * 注意：不能仅凭 WiFi 已连接就返回 true（可能连的是普通路由器）
      */
-    private fun isLikelyHotspot(ssid: String?): Boolean {
+    private fun isLikelyHotspot(@Suppress("UNUSED_PARAMETER") ssid: String?): Boolean {
         val phoneBIp = SettingsManager.getPhoneBIp(this)
 
         // 方法 1: 通过系统 API 获取当前 WiFi 的网关地址
