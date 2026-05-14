@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CarLife Wireless Box</string>
+    <string name="start_service">启动 CarLife 服务</string>
+    <string name="stop_service">停止 CarLife 服务</string>
+    <string name="settings">设置</string>
+    <string name="connection_status">连接状态</string>
+    <string name="status_connecting">连接中...</string>
+    <string name="status_connected">已连接</string>
+    <string name="status_disconnected">未连接</string>
+    <string name="video_resolution">视频分辨率</string>
+    <string name="video_bitrate">视频码率</string>
+    <string name="video_bitrate_value">%1$d kbps</string>
+    <string name="audio_sample_rate">音频采样率</string>
+    <string name="video_framerate">视频帧率</string>
+    <string name="audio_sample_rate_label">音频采样率</string>
+    <string name="tcp_port">TCP 端口</string>
+    <string name="phone_b_ip_label">手机 B 的 IP 地址</string>
+    <string name="phone_b_ip_hint">例如: 192.168.43.1</string>
+    <string name="phone_b_ip_helper">手机 B 开启热点后的网关地址，通常为 192.168.43.1</string>
+    <string name="save">保存</string>
+
+    <!-- 对话框相关 -->
+    <string name="dialog_custom_resolution_title">自定义分辨率</string>
+    <string name="dialog_confirm">确定</string>
+    <string name="dialog_cancel">取消</string>
+    <string name="dialog_width_label">宽度 (480-2560，偶数)</string>
+    <string name="dialog_height_label">高度 (480-2560，偶数)</string>
+    <string name="dialog_width_hint">例如: 1280</string>
+    <string name="dialog_height_hint">例如: 720</string>
+
+    <!-- Toast 消息 -->
+    <string name="toast_custom_resolution_set">自定义分辨率: %1$s</string>
+    <string name="toast_resolution_range_error">宽高必须在 480~2560 范围内且为偶数</string>
+    <string name="toast_invalid_input">请输入有效的宽高值</string>
+    <string name="toast_port_range_error">端口号必须在 1024-65535 范围内</string>
+    <string name="toast_ip_empty">请输入 IP 地址</string>
+    <string name="toast_connect_success">连接成功（延迟: %1$s）</string>
+    <string name="toast_connect_failed">连接失败: %1$s:%2$d 不可达</string>
+    <string name="toast_service_started">CarLife 服务已启动</string>
+    <string name="toast_service_stopped">CarLife 服务已停止</string>
+
+    <!-- 分辨率选项 -->
+    <string name="resolution_custom">自定义...</string>
+
+    <!-- 无障碍服务 -->
+    <string name="accessibility_service_description">CarLife Wireless Box 需要此权限来将车机的触摸操作传回手机。开启后，您可以在车机屏幕上直接操控手机。</string>
+
+    <!-- 车机兼容模式 -->
+    <string name="car_preset_title">车机兼容模式</string>
+    <string name="car_preset_summary">选择车机型号或屏幕分辨率预设</string>
+    <string name="car_preset_applied">已切换到: %1$s</string>
+    <string name="phone_b_ip">手机 B 的 IP 地址</string>
+
+    <!-- 诊断报告 -->
+    <string name="diag_report_title">诊断报告</string>
+    <string name="diag_report_saved">诊断报告已保存</string>
+    <string name="diag_report_share">分享报告</string>
+
+    <!-- 通道开关 -->
+    <string name="channel_config_title">📡 通道开关</string>
+    <string name="channel_config_subtitle">控制哪些 CarLife 数据通道启用</string>
+    <string name="channel_cmd">CMD（协议握手）</string>
+    <string name="channel_cmd_desc">必须启用 — CarLife 协议通信</string>
+    <string name="channel_video">VIDEO（投屏画面）</string>
+    <string name="channel_video_desc">必须启用 — 视频流传输</string>
+    <string name="channel_ctrl">CTRL（触摸控制）</string>
+    <string name="channel_ctrl_desc">必须启用 — 车机触摸回传</string>
+    <string name="channel_media">MEDIA（音乐转发）</string>
+    <string name="channel_media_desc">可选 — 车机播放手机音乐</string>
+    <string name="channel_tts">TTS（语音播报）</string>
+    <string name="channel_tts_desc">可选 — 语音导航播报</string>
+    <string name="channel_vr">VR（语音识别）</string>
+    <string name="channel_vr_desc">可选 — 语音助手交互</string>
+    <string name="view_logs">📋 查看日志</string>
+
+    <!-- 日志设置 -->
+    <string name="log_settings_title">📋 日志设置</string>
+    <string name="log_settings_subtitle">控制日志输出行为，关闭可减少性能开销</string>
+    <string name="console_log_title">控制台日志</string>
+    <string name="console_log_desc">Logcat 输出，开发调试时使用</string>
+    <string name="file_log_title">文件日志</string>
+    <string name="file_log_desc">保存到本地文件，保留最近 7 天</string>
+
+    <!-- 无障碍描述 -->
+    <string name="usb_status_indicator">USB 连接状态指示灯</string>
+    <string name="video_preview_desc">投屏视频预览</string>
+    <string name="waiting_connection">等待手机B连接...</string>
+</resources>

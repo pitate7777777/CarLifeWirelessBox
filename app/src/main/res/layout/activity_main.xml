@@ -132,8 +132,9 @@
                         android:id="@+id/usb_status_dot"
                         android:layout_width="10dp"
                         android:layout_height="10dp"
-                        android:background="@drawable/ic_notification"
-                        android:backgroundTint="#FFBDBDBD" />
+                        android:background="@drawable/step_dot"
+                        android:backgroundTint="@color/usb_dot_inactive"
+                        android:contentDescription="@string/usb_status_indicator" />
 
                     <TextView
                         android:id="@+id/tv_usb_state"
@@ -243,7 +244,8 @@
                     <SurfaceView
                         android:id="@+id/surface_preview"
                         android:layout_width="match_parent"
-                        android:layout_height="match_parent" />
+                        android:layout_height="match_parent"
+                        android:contentDescription="@string/video_preview_desc" />
 
                     <!-- 未连接时的遮罩 -->
                     <TextView
@@ -251,10 +253,10 @@
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
                         android:minHeight="180dp"
-                        android:background="#FF1A1A2E"
+                        android:background="@color/preview_background"
                         android:gravity="center"
-                        android:text="等待手机B连接..."
-                        android:textColor="#80FFFFFF"
+                        android:text="@string/waiting_connection"
+                        android:textColor="@color/preview_placeholder_text"
                         android:textSize="14sp" />
 
                 </FrameLayout>
@@ -307,9 +309,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="🔍 网络诊断"
-                android:textColor="#FF1976D2"
+                android:textColor="@color/diag_button_tint"
                 app:icon="@drawable/ic_settings"
-                app:iconTint="#FF1976D2"
+                app:iconTint="@color/diag_button_tint"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
             <com.google.android.material.button.MaterialButton
@@ -317,9 +319,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="🔗 USB 连接引导"
-                android:textColor="#FF4CAF50"
+                android:textColor="@color/usb_button_tint"
                 app:icon="@drawable/ic_settings"
-                app:iconTint="#FF4CAF50"
+                app:iconTint="@color/usb_button_tint"
                 style="@style/Widget.MaterialComponents.Button.TextButton" />
 
         </LinearLayout>

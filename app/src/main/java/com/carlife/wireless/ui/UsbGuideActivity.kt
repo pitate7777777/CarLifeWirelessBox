@@ -240,12 +240,12 @@ class UsbGuideActivity : AppCompatActivity() {
 
         dots.forEachIndexed { index, dot ->
             if (dot == null) return@forEachIndexed
-            val color = when {
-                index < step -> 0xFF4CAF50.toInt()  // 已完成 - 绿色
-                index == step -> 0xFF2196F3.toInt()  // 当前 - 蓝色
-                else -> 0xFFBDBDBD.toInt()           // 未到达 - 灰色
+            val colorRes = when {
+                index < step -> R.color.step_completed   // 已完成 - 绿色
+                index == step -> R.color.step_active      // 当前 - 蓝色
+                else -> R.color.step_inactive             // 未到达 - 灰色
             }
-            dot.background?.setTint(color)
+            dot.background?.setTint(androidx.core.content.ContextCompat.getColor(this, colorRes))
         }
     }
 

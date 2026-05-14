@@ -60,44 +60,44 @@
                 android:id="@+id/dot_step_0"
                 android:layout_width="12dp"
                 android:layout_height="12dp"
-                android:background="@drawable/ic_notification"
-                android:backgroundTint="#FF2196F3" />
+                android:background="@drawable/step_dot"
+                android:backgroundTint="@color/step_active" />
 
             <View
                 android:layout_width="32dp"
                 android:layout_height="2dp"
-                android:background="#FFBDBDBD" />
+                android:background="@color/step_connector" />
 
             <View
                 android:id="@+id/dot_step_1"
                 android:layout_width="12dp"
                 android:layout_height="12dp"
-                android:background="@drawable/ic_notification"
-                android:backgroundTint="#FFBDBDBD" />
+                android:background="@drawable/step_dot"
+                android:backgroundTint="@color/step_inactive" />
 
             <View
                 android:layout_width="32dp"
                 android:layout_height="2dp"
-                android:background="#FFBDBDBD" />
+                android:background="@color/step_connector" />
 
             <View
                 android:id="@+id/dot_step_2"
                 android:layout_width="12dp"
                 android:layout_height="12dp"
-                android:background="@drawable/ic_notification"
-                android:backgroundTint="#FFBDBDBD" />
+                android:background="@drawable/step_dot"
+                android:backgroundTint="@color/step_inactive" />
 
             <View
                 android:layout_width="32dp"
                 android:layout_height="2dp"
-                android:background="#FFBDBDBD" />
+                android:background="@color/step_connector" />
 
             <View
                 android:id="@+id/dot_step_3"
                 android:layout_width="12dp"
                 android:layout_height="12dp"
-                android:background="@drawable/ic_notification"
-                android:backgroundTint="#FFBDBDBD" />
+                android:background="@drawable/step_dot"
+                android:backgroundTint="@color/step_inactive" />
 
         </LinearLayout>
 
@@ -195,7 +195,7 @@
             android:text="✅ 完成，开始使用"
             android:layout_marginBottom="12dp"
             android:visibility="gone"
-            app:backgroundTint="#FF4CAF50" />
+            app:backgroundTint="@color/done_button_tint" />
 
         <!-- 提示信息 -->
         <com.google.android.material.card.MaterialCardView
@@ -203,7 +203,7 @@
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="#FFF3E0">
+            app:cardBackgroundColor="@color/faq_background">
 
             <LinearLayout
                 android:layout_width="match_parent"

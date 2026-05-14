@@ -31,4 +31,21 @@
 
     <!-- 分割线颜色 -->
     <color name="divider">#E0E0E0</color>
+
+    <!-- 预览区域颜色 -->
+    <color name="preview_background">#FF1A1A2E</color>
+    <color name="preview_placeholder_text">#80FFFFFF</color>
+
+    <!-- USB 状态指示器 -->
+    <color name="usb_dot_inactive">#FFBDBDBD</color>
+    <color name="step_active">#FF2196F3</color>
+    <color name="step_completed">#FF4CAF50</color>
+    <color name="step_inactive">#FFBDBDBD</color>
+    <color name="step_connector">#FFBDBDBD</color>
+
+    <!-- 提示卡片背景 -->
+    <color name="faq_background">#FFF3E0</color>
+    <color name="done_button_tint">#FF4CAF50</color>
+    <color name="diag_button_tint">#FF1976D2</color>
+    <color name="usb_button_tint">#FF4CAF50</color>
 </resources>
