@@ -95,7 +95,28 @@ class MainActivity : AppCompatActivity() {
                     val usbState = intent.getStringExtra(ConnectionService.EXTRA_USB_STATE) ?: "UNKNOWN"
                     val carIp = intent.getStringExtra(ConnectionService.EXTRA_CAR_IP) ?: ""
 
+                    // 根据连接状态更新主指示器
+                    val isActive = channels > 0 || state.contains("连接") || state.contains("握手")
+                    binding.progressConnecting.visibility = if (isActive) android.view.View.VISIBLE else android.view.View.GONE
+                    binding.ivStatusIcon.visibility = if (isActive) android.view.View.GONE else android.view.View.VISIBLE
+
+                    if (channels >= 6) {
+                        binding.tvStatus.text = "✅ 已连接"
+                        binding.tvStatus.setTextColor(getColor(android.R.color.holo_green_dark))
+                    } else if (isActive) {
+                        binding.tvStatus.text = "⏳ 连接中..."
+                        binding.tvStatus.setTextColor(getColor(android.R.color.holo_orange_dark))
+                    } else {
+                        binding.tvStatus.text = getString(R.string.status_disconnected)
+                        binding.tvStatus.setTextColor(getColor(android.R.color.darker_gray))
+                    }
+
                     binding.tvConnectionState.text = state
+
+                    // 手机 B 状态
+                    val phoneBConnected = state.contains("手机B已连接") || channels >= 6
+                    binding.tvPhoneBStatus.text = if (phoneBConnected) "✅ 已连接" else if (state.contains("手机B")) "⏳ $state" else "未连接"
+
                     binding.tvChannels.text = "通道: $channels/6"
                     binding.tvIpAddress.text = "IP: $ip"
 
@@ -117,6 +138,9 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         previewHelper.stopPreview()
                     }
+
+                    // 刷新按钮状态
+                    updateUI()
                 }
                 ConnectionService.ACTION_REQUEST_PROJECTION -> {
                     requestMediaProjection()
@@ -259,9 +283,19 @@ class MainActivity : AppCompatActivity() {
             stopCarLifeService()
         }
 
+        // 设置快捷按钮
+        binding.btnSettingsShortcut.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
         // "查看全部" 日志链接
         binding.tvLogMore.setOnClickListener {
             startActivity(Intent(this, LogViewerActivity::class.java))
+        }
+
+        // 连接引导折叠/展开
+        binding.layoutGuideHeader.setOnClickListener {
+            toggleGuideSection()
         }
 
         binding.btnUsbGuide.setOnClickListener {
@@ -270,6 +304,19 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnWifiGuide.setOnClickListener {
             startActivity(Intent(this, WifiGuideActivity::class.java))
+        }
+    }
+
+    /** 折叠/展开连接引导区域 */
+    private fun toggleGuideSection() {
+        val content = binding.layoutGuideContent
+        val toggle = binding.tvGuideToggle
+        if (content.visibility == android.view.View.VISIBLE) {
+            content.visibility = android.view.View.GONE
+            toggle.text = "▸ 展开"
+        } else {
+            content.visibility = android.view.View.VISIBLE
+            toggle.text = "▾ 收起"
         }
     }
 
@@ -338,12 +385,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUI() {
         val running = isServiceRunning()
-        binding.btnStart.isEnabled = !running
-        binding.btnStop.isEnabled = running
-        binding.tvStatus.text = if (running) getString(R.string.status_connected) else getString(R.string.status_disconnected)
-        if (!running) {
-            binding.tvConnectionState.text = "未连接"
+
+        // 按钮切换：运行中显示停止，未运行显示启动
+        binding.btnStart.visibility = if (running) android.view.View.GONE else android.view.View.VISIBLE
+        binding.btnStop.visibility = if (running) android.view.View.VISIBLE else android.view.View.GONE
+
+        // 状态指示器
+        binding.progressConnecting.visibility = if (running) android.view.View.VISIBLE else android.view.View.GONE
+        binding.ivStatusIcon.visibility = if (running) android.view.View.GONE else android.view.View.VISIBLE
+
+        if (running) {
+            binding.tvStatus.text = getString(R.string.status_connected)
+            binding.tvStatus.setTextColor(getColor(android.R.color.holo_green_dark))
+        } else {
+            binding.tvStatus.text = getString(R.string.status_disconnected)
+            binding.tvStatus.setTextColor(getColor(android.R.color.darker_gray))
+            binding.tvConnectionState.text = "等待自动连接..."
             binding.tvChannels.text = "通道: 0/6"
+            binding.tvPhoneBStatus.text = "未连接"
         }
     }
 
@@ -372,11 +431,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateUsbStatus(usbState: String, carIp: String) {
         val (text, colorRes) = when (usbState) {
-            "DISCONNECTED" -> "USB: 未连接" to android.R.color.darker_gray
-            "CONNECTED" -> "USB: 已连接（请开启网络共享）" to android.R.color.holo_orange_dark
-            "TETHERING" -> "USB: 网络共享已开启" to android.R.color.holo_green_dark
-            "CAR_CONNECTED" -> "USB: 车机已连接" to android.R.color.holo_green_dark
-            else -> "USB: 未知" to android.R.color.darker_gray
+            "DISCONNECTED" -> "USB 未连接" to android.R.color.darker_gray
+            "CONNECTED" -> "USB 已连接" to android.R.color.holo_orange_dark
+            "TETHERING" -> "共享已开启" to android.R.color.holo_green_dark
+            "CAR_CONNECTED" -> "✅ 车机已连接" to android.R.color.holo_green_dark
+            else -> "USB 未知" to android.R.color.darker_gray
         }
         binding.tvUsbState.text = text
         binding.usbStatusDot.backgroundTintList =
@@ -391,18 +450,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateSignalInfo(signalLevel: String, dynamicBitrateKbps: Int) {
-        val label = when (signalLevel) {
-            "EXCELLENT" -> "极好"
-            "GOOD" -> "良好"
-            "FAIR" -> "一般"
-            "WEAK" -> "较差"
-            "TERRIBLE" -> "极差"
-            else -> "未连接"
+        val (label, emoji) = when (signalLevel) {
+            "EXCELLENT" -> "极好" to "📶"
+            "GOOD" -> "良好" to "📶"
+            "FAIR" -> "一般" to "📶"
+            "WEAK" -> "较差" to "📶"
+            "TERRIBLE" -> "极差" to "📶"
+            else -> "未连接" to "📶"
         }
-        binding.tvSignal.text = "信号: $label"
+        binding.tvSignal.text = "$emoji $label"
 
         if (dynamicBitrateKbps > 0) {
-            binding.tvDynamicBitrate.text = "码率: ${dynamicBitrateKbps}kbps"
+            binding.tvDynamicBitrate.text = "${dynamicBitrateKbps}kbps"
             binding.tvDynamicBitrate.visibility = android.view.View.VISIBLE
         } else {
             binding.tvDynamicBitrate.visibility = android.view.View.GONE

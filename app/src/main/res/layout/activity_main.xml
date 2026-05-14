@@ -24,22 +24,20 @@
         android:layout_height="match_parent"
         android:fillViewport="true">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="vertical"
             android:padding="16dp">
 
-            <!-- 标题卡片 -->
+            <!-- ==================== 连接状态总览卡片 ==================== -->
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_title"
-                android:layout_width="0dp"
+                android:id="@+id/card_status"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="4dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -47,179 +45,227 @@
                     android:orientation="vertical"
                     android:padding="20dp">
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/app_name"
-                        android:textColor="?attr/colorPrimary"
-                        android:textSize="24sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_status"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="@string/status_disconnected"
-                        android:textSize="16sp"
-                        android:textColor="?android:attr/textColorSecondary" />
-
-                </LinearLayout>
-
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- 状态详情卡片 -->
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/card_status"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/card_title">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/connection_status"
-                        android:textSize="18sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:id="@+id/tv_connection_state"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:text="未连接"
-                        android:textSize="14sp" />
-
-                    <!-- 本机信息 -->
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="10dp"
-                        android:layout_marginBottom="6dp"
-                        android:background="?android:attr/listDivider" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="📦 本机（转接盒）"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/color_box"
-                        android:layout_marginBottom="4dp" />
-
-                    <TextView
-                        android:id="@+id/tv_ip_address"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="IP: --"
-                        android:textSize="13sp" />
-
-                    <TextView
-                        android:id="@+id/tv_channels"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="通道: 0/6"
-                        android:textSize="13sp" />
-
-                    <!-- 车机信息 -->
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="10dp"
-                        android:layout_marginBottom="6dp"
-                        android:background="?android:attr/listDivider" />
-
+                    <!-- 顶部：状态图标 + 状态文字 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical">
 
-                        <View
-                            android:id="@+id/usb_status_dot"
-                            android:layout_width="10dp"
-                            android:layout_height="10dp"
-                            android:background="@drawable/ic_notification"
-                            android:backgroundTint="@color/gray_light" />
+                        <!-- 状态指示器 -->
+                        <ProgressBar
+                            android:id="@+id/progress_connecting"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:layout_marginEnd="12dp"
+                            android:indeterminate="true"
+                            android:visibility="gone" />
 
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="6dp"
-                            android:text="🚗 车机"
-                            android:textSize="12sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/color_car" />
+                        <ImageView
+                            android:id="@+id/iv_status_icon"
+                            android:layout_width="36dp"
+                            android:layout_height="36dp"
+                            android:layout_marginEnd="12dp"
+                            android:src="@drawable/ic_notification"
+                            android:backgroundTint="@color/gray_light"
+                            android:visibility="visible" />
 
-                    </LinearLayout>
-
-                    <TextView
-                        android:id="@+id/tv_usb_state"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="USB: 未连接"
-                        android:textSize="13sp" />
-
-                    <TextView
-                        android:id="@+id/tv_car_ip"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:text="车机 IP: --"
-                        android:textSize="13sp"
-                        android:visibility="gone" />
-
-                    <!-- WiFi 信号 -->
-                    <View
-                        android:layout_width="match_parent"
-                        android:layout_height="1dp"
-                        android:layout_marginTop="10dp"
-                        android:layout_marginBottom="6dp"
-                        android:background="?android:attr/listDivider" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="📶 WiFi 信号（手机 B 热点）"
-                        android:textSize="12sp"
-                        android:textStyle="bold"
-                        android:textColor="@color/color_phone"
-                        android:layout_marginBottom="4dp" />
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical">
-
-                        <TextView
-                            android:id="@+id/tv_signal"
+                        <LinearLayout
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="信号: --"
-                            android:textSize="13sp" />
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tv_status"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="@string/status_disconnected"
+                                android:textSize="20sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tv_connection_state"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="等待自动连接..."
+                                android:textSize="13sp"
+                                android:textColor="?android:attr/textColorSecondary" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <!-- 分隔线 -->
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginTop="14dp"
+                        android:layout_marginBottom="10dp"
+                        android:background="?android:attr/listDivider" />
+
+                    <!-- 详情网格：手机 B / 车机 / 本机 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <!-- 手机 B -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center_horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="📱 手机 B"
+                                android:textSize="11sp"
+                                android:textColor="@color/color_phone"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tv_phone_b_status"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="未连接"
+                                android:textSize="12sp"
+                                android:gravity="center_horizontal" />
+
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="?android:attr/listDivider" />
+
+                        <!-- 车机 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center_horizontal">
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical">
+
+                                <View
+                                    android:id="@+id/usb_status_dot"
+                                    android:layout_width="8dp"
+                                    android:layout_height="8dp"
+                                    android:layout_marginEnd="4dp"
+                                    android:background="@drawable/ic_notification"
+                                    android:backgroundTint="@color/gray_light" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="🚗 车机"
+                                    android:textSize="11sp"
+                                    android:textColor="@color/color_car"
+                                    android:textStyle="bold" />
+
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/tv_usb_state"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="USB 未连接"
+                                android:textSize="12sp"
+                                android:gravity="center_horizontal" />
+
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="1dp"
+                            android:layout_height="match_parent"
+                            android:background="?android:attr/listDivider" />
+
+                        <!-- 本机 -->
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:gravity="center_horizontal">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="📦 本机"
+                                android:textSize="11sp"
+                                android:textColor="@color/color_box"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tv_ip_address"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:text="IP: --"
+                                android:textSize="12sp"
+                                android:gravity="center_horizontal" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                    <!-- 车机 IP（仅 USB 连接时显示） -->
+                    <TextView
+                        android:id="@+id/tv_car_ip"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="车机 IP: --"
+                        android:textSize="12sp"
+                        android:textColor="?android:attr/textColorSecondary"
+                        android:gravity="center_horizontal"
+                        android:visibility="gone" />
+
+                    <!-- 通道 + 信号 + 码率 -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tv_channels"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="通道: 0/6"
+                            android:textSize="12sp"
+                            android:textColor="?android:attr/textColorSecondary" />
+
+                        <TextView
+                            android:id="@+id/tv_signal"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:text="📶 --"
+                            android:textSize="12sp"
+                            android:textColor="?android:attr/textColorSecondary" />
 
                         <TextView
                             android:id="@+id/tv_dynamic_bitrate"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="码率: --"
-                            android:textSize="13sp"
-                            android:textColor="?android:attr/textColorSecondary" />
+                            android:text=""
+                            android:textSize="12sp"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:visibility="gone" />
 
                     </LinearLayout>
 
@@ -227,17 +273,57 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 视频预览卡片 -->
+            <!-- ==================== 操作按钮 ==================== -->
+            <LinearLayout
+                android:id="@+id/layout_buttons"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <!-- 启动按钮（未运行时显示） -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_start"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="@string/start_service"
+                    app:icon="@drawable/ic_play"
+                    app:iconTint="@color/white" />
+
+                <!-- 停止按钮（运行中显示） -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_stop"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="8dp"
+                    android:text="@string/stop_service"
+                    app:icon="@drawable/ic_stop"
+                    app:iconTint="@color/white"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:visibility="gone" />
+
+                <!-- 设置按钮 -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_settings_shortcut"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:text="⚙"
+                    android:textSize="20sp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+            </LinearLayout>
+
+            <!-- ==================== 视频预览卡片 ==================== -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_preview"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="12dp"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/card_status">
+                app:cardElevation="2dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -256,7 +342,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="投屏预览"
-                            android:textSize="18sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -298,63 +384,84 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 操作按钮区域 -->
-            <LinearLayout
-                android:id="@+id/layout_buttons"
-                android:layout_width="0dp"
+            <!-- ==================== 连接引导（可折叠） ==================== -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/card_guides"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginBottom="16dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/card_preview">
+                android:layout_marginBottom="12dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="1dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_start"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="@string/start_service"
-                    android:layout_marginBottom="12dp"
-                    app:icon="@drawable/ic_play"
-                    app:iconTint="@color/white" />
+                    android:orientation="vertical"
+                    android:padding="12dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_stop"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/stop_service"
-                    android:layout_marginBottom="12dp"
-                    app:icon="@drawable/ic_stop"
-                    app:iconTint="@color/white"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                    <LinearLayout
+                        android:id="@+id/layout_guide_header"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="4dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_usb_guide"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="🔗 USB 连接引导"
-                    android:layout_marginBottom="12dp"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="💡 连接帮助"
+                            android:textSize="14sp"
+                            android:textStyle="bold" />
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btn_wifi_guide"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="📶 无线 CarLife 连接引导"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                        <TextView
+                            android:id="@+id/tv_guide_toggle"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="▸ 展开"
+                            android:textSize="12sp"
+                            android:textColor="?android:attr/textColorSecondary"
+                            android:padding="4dp" />
 
-            </LinearLayout>
+                    </LinearLayout>
 
-            <!-- 连接日志卡片 -->
+                    <LinearLayout
+                        android:id="@+id/layout_guide_content"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:visibility="gone"
+                        android:layout_marginTop="8dp">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_usb_guide"
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:text="🔗 USB 连接引导"
+                            android:layout_marginBottom="8dp"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btn_wifi_guide"
+                            android:layout_width="match_parent"
+                            android:layout_height="44dp"
+                            android:text="📶 无线 CarLife 连接引导"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- ==================== 连接日志卡片 ==================== -->
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/card_log"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardCornerRadius="12dp"
-                app:cardElevation="2dp"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/layout_buttons">
+                app:cardElevation="2dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -373,7 +480,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="连接日志"
-                            android:textSize="18sp"
+                            android:textSize="16sp"
                             android:textStyle="bold" />
 
                         <TextView
@@ -407,7 +514,7 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
+        </LinearLayout>
 
     </ScrollView>
 
