@@ -57,4 +57,18 @@
 
     <!-- SeekBar 范围标签 -->
     <color name="seekbar_range_label">#757575</color>
+
+    <!-- 步骤指示器 -->
+    <color name="step_dot_active">#FF2196F3</color>
+    <color name="step_dot_inactive">#FFBDBDBD</color>
+    <color name="step_connector">#FFBDBDBD</color>
+
+    <!-- 提示卡片 -->
+    <color name="tip_card_bg">#FFF3E0</color>
+
+    <!-- 完成按钮 -->
+    <color name="btn_done_bg">#FF4CAF50</color>
+
+    <!-- 预览占位文字 -->
+    <color name="preview_placeholder_text">#80FFFFFF</color>
 </resources>

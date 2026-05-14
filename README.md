@@ -177,6 +177,41 @@ MIT License
 
 ## 更新日志
 
+### 2026-05-14 — 全部界面重构优化（6 个 Activity）
+
+**统一改进**（所有 6 个 Activity）:
+- `ScrollView` → `NestedScrollView`：更好的嵌套滚动兼容性
+- 所有布局硬编码颜色 `#FFxxxxxx` → `@color/` 资源引用（消除 ~20 处）
+- 所有布局硬编码中文字符串 → `@string/` 资源引用（新增 ~40 个字符串）
+- `padding="16dp"` → `paddingHorizontal/paddingTop` 精确控制
+
+**MainActivity**:
+- 预览占位文字 `#80FFFFFF` → `@color/preview_placeholder_text`
+- SurfaceView 添加 `contentDescription`（无障碍）
+- 状态指示器 ImageView 添加 `contentDescription`
+
+**NetworkDiagActivity**:
+- 内层诊断结果 `ScrollView` 固定 400dp → `NestedScrollView` + `minHeight="200dp"` + `layout_weight="1"`（自适应屏幕）
+
+**LogViewerActivity**:
+- Spinner 高度固定 50dp → `wrap_content`
+- 日志区域 `ScrollView` → `NestedScrollView`
+- 刷新/分享按钮添加 Material Icons
+
+**UsbGuideActivity**:
+- 步骤指示器颜色 `#FF2196F3`/`#FFBDBDBD` → `@color/step_dot_active`/`@color/step_dot_inactive`
+- 常见问题卡片背景 `#FFF3E0` → `@color/tip_card_bg`
+- 完成按钮背景 `#FF4CAF50` → `@color/btn_done_bg`
+
+**WifiGuideActivity**:
+- 同 UsbGuideActivity 的颜色资源替换
+- 步骤连接线颜色 → `@color/step_connector`
+
+**涉及文件**:
+- 6 个布局 XML 全部重构
+- `strings.xml` — 新增 ~40 个字符串资源
+- `colors.xml` — 新增 7 个颜色资源
+
 ### 2026-05-14 — 设置界面重构优化
 
 **布局改进**:

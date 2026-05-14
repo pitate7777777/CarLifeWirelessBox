@@ -19,16 +19,19 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:paddingBottom="16dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingHorizontal="16dp"
+            android:paddingTop="16dp">
 
             <!-- ==================== 连接状态总览卡片 ==================== -->
             <com.google.android.material.card.MaterialCardView
@@ -52,7 +55,6 @@
                         android:orientation="horizontal"
                         android:gravity="center_vertical">
 
-                        <!-- 状态指示器 -->
                         <ProgressBar
                             android:id="@+id/progress_connecting"
                             android:layout_width="36dp"
@@ -68,6 +70,7 @@
                             android:layout_marginEnd="12dp"
                             android:src="@drawable/ic_notification"
                             android:backgroundTint="@color/gray_light"
+                            android:contentDescription="@string/connection_status"
                             android:visibility="visible" />
 
                         <LinearLayout
@@ -89,7 +92,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="等待自动连接..."
+                                android:text="@string/status_waiting_auto"
                                 android:textSize="13sp"
                                 android:textColor="?android:attr/textColorSecondary" />
 
@@ -122,7 +125,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="📱 手机 B"
+                                android:text="@string/status_phone_b"
                                 android:textSize="11sp"
                                 android:textColor="@color/color_phone"
                                 android:textStyle="bold" />
@@ -132,7 +135,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="未连接"
+                                android:text="@string/status_not_connected"
                                 android:textSize="12sp"
                                 android:gravity="center_horizontal" />
 
@@ -163,12 +166,13 @@
                                     android:layout_height="8dp"
                                     android:layout_marginEnd="4dp"
                                     android:background="@drawable/ic_notification"
-                                    android:backgroundTint="@color/gray_light" />
+                                    android:backgroundTint="@color/gray_light"
+                                    android:contentDescription="@string/connection_status" />
 
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="🚗 车机"
+                                    android:text="@string/status_car"
                                     android:textSize="11sp"
                                     android:textColor="@color/color_car"
                                     android:textStyle="bold" />
@@ -180,7 +184,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="USB 未连接"
+                                android:text="@string/status_usb_not_connected"
                                 android:textSize="12sp"
                                 android:gravity="center_horizontal" />
 
@@ -202,7 +206,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="📦 本机"
+                                android:text="@string/status_box"
                                 android:textSize="11sp"
                                 android:textColor="@color/color_box"
                                 android:textStyle="bold" />
@@ -212,7 +216,7 @@
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="2dp"
-                                android:text="IP: --"
+                                android:text="@string/status_ip"
                                 android:textSize="12sp"
                                 android:gravity="center_horizontal" />
 
@@ -245,7 +249,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="通道: 0/6"
+                            android:text="@string/status_channels"
                             android:textSize="12sp"
                             android:textColor="?android:attr/textColorSecondary" />
 
@@ -281,7 +285,6 @@
                 android:orientation="horizontal"
                 android:layout_marginBottom="12dp">
 
-                <!-- 启动按钮（未运行时显示） -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_start"
                     android:layout_width="0dp"
@@ -292,7 +295,6 @@
                     app:icon="@drawable/ic_play"
                     app:iconTint="@color/white" />
 
-                <!-- 停止按钮（运行中显示） -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_stop"
                     android:layout_width="0dp"
@@ -305,7 +307,6 @@
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:visibility="gone" />
 
-                <!-- 设置按钮 -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_settings_shortcut"
                     android:layout_width="48dp"
@@ -341,7 +342,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="投屏预览"
+                            android:text="@string/preview_title"
                             android:textSize="16sp"
                             android:textStyle="bold" />
 
@@ -349,7 +350,7 @@
                             android:id="@+id/tv_preview_fps"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="-- fps"
+                            android:text="@string/preview_fps"
                             android:textSize="12sp"
                             android:textColor="?android:attr/textColorSecondary" />
 
@@ -365,7 +366,8 @@
                         <SurfaceView
                             android:id="@+id/surface_preview"
                             android:layout_width="match_parent"
-                            android:layout_height="match_parent" />
+                            android:layout_height="match_parent"
+                            android:contentDescription="@string/preview_title" />
 
                         <TextView
                             android:id="@+id/tv_preview_placeholder"
@@ -374,8 +376,8 @@
                             android:minHeight="180dp"
                             android:background="@color/preview_mask"
                             android:gravity="center"
-                            android:text="等待手机B连接..."
-                            android:textColor="#80FFFFFF"
+                            android:text="@string/preview_waiting"
+                            android:textColor="@color/preview_placeholder_text"
                             android:textSize="14sp" />
 
                     </FrameLayout>
@@ -411,7 +413,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="💡 连接帮助"
+                            android:text="@string/guide_title"
                             android:textSize="14sp"
                             android:textStyle="bold" />
 
@@ -419,7 +421,7 @@
                             android:id="@+id/tv_guide_toggle"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="▸ 展开"
+                            android:text="@string/guide_expand"
                             android:textSize="12sp"
                             android:textColor="?android:attr/textColorSecondary"
                             android:padding="4dp" />
@@ -438,7 +440,7 @@
                             android:id="@+id/btn_usb_guide"
                             android:layout_width="match_parent"
                             android:layout_height="44dp"
-                            android:text="🔗 USB 连接引导"
+                            android:text="@string/btn_usb_guide"
                             android:layout_marginBottom="8dp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
@@ -446,7 +448,7 @@
                             android:id="@+id/btn_wifi_guide"
                             android:layout_width="match_parent"
                             android:layout_height="44dp"
-                            android:text="📶 无线 CarLife 连接引导"
+                            android:text="@string/btn_wifi_guide"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
                     </LinearLayout>
@@ -479,7 +481,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="连接日志"
+                            android:text="@string/log_title"
                             android:textSize="16sp"
                             android:textStyle="bold" />
 
@@ -487,7 +489,7 @@
                             android:id="@+id/tv_log_more"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="查看全部 ▸"
+                            android:text="@string/log_view_all"
                             android:textSize="13sp"
                             android:textColor="@color/color_log"
                             android:padding="4dp" />
@@ -504,7 +506,7 @@
                             android:id="@+id/tv_log"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="暂无日志"
+                            android:text="@string/log_empty"
                             android:textSize="12sp"
                             android:lineSpacingExtra="4dp" />
 
@@ -516,6 +518,6 @@
 
         </LinearLayout>
 
-    </ScrollView>
+    </androidx.core.widget.NestedScrollView>
 
 </LinearLayout>

@@ -37,6 +37,68 @@
     <string name="bitrate_range_min">500</string>
     <string name="bitrate_range_max">8000</string>
 
+    <!-- MainActivity -->
+    <string name="status_waiting_auto">等待自动连接…</string>
+    <string name="status_phone_b">📱 手机 B</string>
+    <string name="status_car">🚗 车机</string>
+    <string name="status_box">📦 本机</string>
+    <string name="status_not_connected">未连接</string>
+    <string name="status_usb_not_connected">USB 未连接</string>
+    <string name="status_ip">IP: --</string>
+    <string name="status_channels">通道: 0/6</string>
+    <string name="preview_title">投屏预览</string>
+    <string name="preview_fps">-- fps</string>
+    <string name="preview_waiting">等待手机B连接…</string>
+    <string name="guide_title">💡 连接帮助</string>
+    <string name="guide_expand">▸ 展开</string>
+    <string name="guide_collapse">▾ 收起</string>
+    <string name="btn_usb_guide">🔗 USB 连接引导</string>
+    <string name="btn_wifi_guide">📶 无线 CarLife 连接引导</string>
+    <string name="log_title">连接日志</string>
+    <string name="log_view_all">查看全部 ▸</string>
+    <string name="log_empty">暂无日志</string>
+
+    <!-- NetworkDiagActivity -->
+    <string name="diag_title">网络诊断</string>
+    <string name="diag_phone_b_title">📱 手机 B 设置</string>
+    <string name="diag_ip_hint">手机 B 的 IP 地址</string>
+    <string name="diag_ip_helper">通常为热点网关地址，如 192.168.43.1</string>
+    <string name="diag_full">🔍 完整诊断</string>
+    <string name="diag_quick">⚡ 快速检测</string>
+    <string name="diag_report_btn">📄 生成诊断报告</string>
+    <string name="diag_status_default">点击按钮开始诊断</string>
+    <string name="diag_details">📋 诊断详情</string>
+
+    <!-- LogViewerActivity -->
+    <string name="log_viewer_title">查看日志</string>
+    <string name="btn_refresh">刷新</string>
+    <string name="btn_share">分享</string>
+
+    <!-- UsbGuideActivity -->
+    <string name="usb_guide_title">USB 连接引导</string>
+    <string name="usb_guide_heading">🔗 USB 有线连接</string>
+    <string name="usb_guide_desc">通过 USB 数据线连接车机，延迟更低、更稳定</string>
+    <string name="usb_step_1_title">第 1 步：连接 USB 数据线</string>
+    <string name="usb_step_1_desc">请使用 USB 数据线将旧手机连接到车机的 USB 接口。</string>
+    <string name="usb_connection_info">📊 连接信息</string>
+    <string name="usb_detecting">检测中…</string>
+    <string name="btn_open_network_sharing">⚙️ 打开网络共享设置</string>
+    <string name="btn_refresh_status">🔄 刷新状态</string>
+    <string name="btn_done">✅ 完成，开始使用</string>
+    <string name="faq_title">💡 常见问题</string>
+    <string name="usb_faq">• 车机无法识别 USB：尝试更换数据线或 USB 接口\n• USB 共享选项灰色：需要先关闭 Wi-Fi\n• 车机获取不到 IP：重启车机后重试\n• 连接后无画面：确认手机 B 已开启 CarWith</string>
+
+    <!-- WifiGuideActivity -->
+    <string name="wifi_guide_title">无线连接引导</string>
+    <string name="wifi_guide_heading">📶 无线 CarLife 连接</string>
+    <string name="wifi_guide_desc">通过手机 B 的 WiFi 热点连接 CarWith 无线投屏</string>
+    <string name="wifi_step_1_title">第 1 步：手机 B 开启 WiFi 热点</string>
+    <string name="wifi_step_1_desc">在手机 B 上开启 WiFi 热点。</string>
+    <string name="btn_open_wifi">⚙️ 打开 WiFi 设置</string>
+    <string name="btn_open_hotspot">📡 查看热点设置</string>
+    <string name="btn_start_carlife">🚀 启动 CarLife 服务</string>
+    <string name="wifi_faq">• 搜不到热点：确认手机 B 热点已开启，且在有效范围内\n• 连接后无画面：确认手机 B 已打开 CarWith 并选择无线连接\n• 连接不稳定：将两台手机靠近，减少 WiFi 干扰\n• 端口不通：检查手机 B 的 CarWith 是否已启动投屏\n• IP 不对：在设置中确认手机 B IP 为热点网关地址</string>
+
     <!-- 对话框相关 -->
     <string name="dialog_custom_resolution_title">自定义分辨率</string>
     <string name="dialog_confirm">确定</string>
