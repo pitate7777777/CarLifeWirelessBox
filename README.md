@@ -150,12 +150,18 @@ app/src/main/java/com/carlife/wireless/
 
 ## 文档
 
-- `docs/ARCHITECTURE.md` — 系统架构文档（模块关系、数据流、接口定义）
-- `docs/PRD.md` — 产品需求文档（用户故事、需求池、状态机）
-- `docs/项目技术文档.md` — CarLife 协议技术调研（协议解析、开源项目分析）
-- `docs/参考app分析.md` — 百度 CarLife 参考 APP 分析（反编译报告）
-- `docs/CarProjection对比分析.md` — 与参考项目 CarProjection 的对比分析
-- `docs/PROTOCOL_GATEWAY_DESIGN.md` — 协议网关设计方案（长远备用计划：支持手机B使用新版 CarLife）
+完整文档目录见 [`docs/README.md`](docs/README.md)。
+
+| 文档 | 说明 |
+|------|------|
+| `docs/ARCHITECTURE.md` | 系统架构文档（模块关系、数据流、接口定义） |
+| `docs/PRD.md` | 产品需求文档（用户故事、需求池、状态机） |
+| `docs/项目技术文档.md` | CarLife 协议技术调研（协议解析、开源项目分析） |
+| `docs/参考app分析.md` | 百度 CarLife 参考 APP 分析（反编译报告） |
+| `docs/CarProjection对比分析.md` | 与参考项目 CarProjection 的对比分析 |
+| `docs/PROTOCOL_GATEWAY_DESIGN.md` | 协议网关设计方案（长远备用计划：支持手机B使用新版 CarLife） |
+| `docs/CODE_REVIEW.md` | 源码审查报告（多轮审查记录、已修复问题清单） |
+| `docs/UI_REVIEW.md` | UI 审查报告（界面问题、修复建议） |
 
 ## 参考项目
 
