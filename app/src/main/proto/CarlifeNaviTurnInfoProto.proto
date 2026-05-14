@@ -10,6 +10,7 @@ enum ActionType {
 }
 
 enum TurnKind {
+    TURN_KIND_UNSPECIFIED = 0;
     TURN_KIND_FRONT = 1;
     TURN_KIND_RIGHT_FRONT = 2;
     TURN_KIND_RIGHT = 3;
