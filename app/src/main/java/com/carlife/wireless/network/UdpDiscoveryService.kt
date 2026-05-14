@@ -128,14 +128,14 @@ class UdpDiscoveryService {
         val data = response.toByteArray()
 
         try {
-            val socket = DatagramSocket()
-            socket.broadcast = true
-            val packet = DatagramPacket(
-                data, data.size,
-                InetAddress.getByName(targetIp), DISCOVERY_PORT
-            )
-            socket.send(packet)
-            socket.close()
+            DatagramSocket().use { socket ->
+                socket.broadcast = true
+                val packet = DatagramPacket(
+                    data, data.size,
+                    InetAddress.getByName(targetIp), DISCOVERY_PORT
+                )
+                socket.send(packet)
+            }
             LogUtils.i(TAG, "Discovery response sent to $targetIp: $response")
         } catch (e: Exception) {
             LogUtils.w(TAG, "Failed to send response to $targetIp: ${e.message}")
@@ -151,34 +151,33 @@ class UdpDiscoveryService {
         val data = announcement.toByteArray()
 
         try {
-            val socket = DatagramSocket()
-            socket.broadcast = true
+            DatagramSocket().use { socket ->
+                socket.broadcast = true
 
-            // 发送到 255.255.255.255
-            val packet = DatagramPacket(
-                data, data.size,
-                InetAddress.getByName("255.255.255.255"), DISCOVERY_PORT
-            )
-            socket.send(packet)
+                // 发送到 255.255.255.255
+                val packet = DatagramPacket(
+                    data, data.size,
+                    InetAddress.getByName("255.255.255.255"), DISCOVERY_PORT
+                )
+                socket.send(packet)
 
-            // 也发送到子网广播地址
-            try {
-                val interfaces = NetworkInterface.getNetworkInterfaces()
-                while (interfaces.hasMoreElements()) {
-                    val intf = interfaces.nextElement()
-                    if (intf.isLoopback || !intf.isUp) continue
-                    for (addr in intf.interfaceAddresses) {
-                        val broadcast = addr.broadcast ?: continue
-                        val pkt = DatagramPacket(
-                            data, data.size,
-                            broadcast, DISCOVERY_PORT
-                        )
-                        socket.send(pkt)
+                // 也发送到子网广播地址
+                try {
+                    val interfaces = NetworkInterface.getNetworkInterfaces()
+                    while (interfaces.hasMoreElements()) {
+                        val intf = interfaces.nextElement()
+                        if (intf.isLoopback || !intf.isUp) continue
+                        for (addr in intf.interfaceAddresses) {
+                            val broadcast = addr.broadcast ?: continue
+                            val pkt = DatagramPacket(
+                                data, data.size,
+                                broadcast, DISCOVERY_PORT
+                            )
+                            socket.send(pkt)
+                        }
                     }
-                }
-            } catch (_: Exception) {}
-
-            socket.close()
+                } catch (_: Exception) {}
+            }
             LogUtils.d(TAG, "Broadcast announcement sent: $announcement")
         } catch (e: Exception) {
             LogUtils.w(TAG, "Failed to send broadcast: ${e.message}")

@@ -228,11 +228,11 @@ object LogFileManager {
     fun getLogSizeFormatted(context: Context): String {
         val logFiles = getLogFiles(context)
         val totalBytes = logFiles.sumOf { it.length() }
-        
+
         return when {
-            totalBytes < 1024 -> "${totalBytes} B"
-            totalBytes < 1024 * 1024 -> "${totalBytes / 1024} KB"
-            else -> "${totalBytes / (1024 * 1024)} MB"
+            totalBytes < 1024 -> "$totalBytes B"
+            totalBytes < 1024 * 1024 -> "${"%.1f".format(totalBytes / 1024.0)} KB"
+            else -> "${"%.1f".format(totalBytes / (1024.0 * 1024.0))} MB"
         }
     }
 }

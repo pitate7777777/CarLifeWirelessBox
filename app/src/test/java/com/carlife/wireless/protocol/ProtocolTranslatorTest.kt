@@ -84,11 +84,11 @@ class ProtocolTranslatorTest {
     // ==================== translateVideoFrame ====================
 
     @Test
-    fun `translateVideoFrame H265 converts to H264`() {
+    fun `translateVideoFrame H265 passes through as H265`() {
         val frame = byteArrayOf(0x00, 0x00, 0x01, 0x65)
         val (resultFrame, codecType) = ProtocolTranslator.translateVideoFrame(frame, ProtocolTranslator.CODEC_H265)
         assertArrayEquals(frame, resultFrame)
-        assertEquals(ProtocolTranslator.CODEC_H264, codecType)
+        assertEquals(ProtocolTranslator.CODEC_H265, codecType)
     }
 
     @Test
@@ -119,17 +119,17 @@ class ProtocolTranslatorTest {
         val frame = byteArrayOf()
         val (resultFrame, codecType) = ProtocolTranslator.translateVideoFrame(frame, ProtocolTranslator.CODEC_H265)
         assertEquals(0, resultFrame.size)
-        assertEquals(ProtocolTranslator.CODEC_H264, codecType)
+        assertEquals(ProtocolTranslator.CODEC_H265, codecType)
     }
 
     // ==================== translateAudioFrame ====================
 
     @Test
-    fun `translateAudioFrame OPUS converts to AAC`() {
+    fun `translateAudioFrame OPUS passes through as OPUS`() {
         val frame = byteArrayOf(0x01, 0x02, 0x03)
         val (resultFrame, codecType) = ProtocolTranslator.translateAudioFrame(frame, ProtocolTranslator.CODEC_OPUS)
         assertArrayEquals(frame, resultFrame)
-        assertEquals(ProtocolTranslator.CODEC_AAC, codecType)
+        assertEquals(ProtocolTranslator.CODEC_OPUS, codecType)
     }
 
     @Test

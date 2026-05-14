@@ -45,7 +45,7 @@ object Constants {
 
     // 音频参数
     object Audio {
-        const val SAMPLE_RATE = 48000
+        const val SAMPLE_RATE = 44100
         const val BIT_DEPTH = 16
         const val CHANNELS = 2
     }

@@ -47,6 +47,13 @@ class MdRole(private val context: Context) {
         val MD_PORTS: List<Int> = ChannelType.entries.map { it.mdPort }
         val PORT_NAMES: Map<Int, String> = ChannelType.entries.associate { it.mdPort to it.name }
 
+        /** 获取设备 ID（Build.SERIAL 在 API 29+ 已废弃，使用 fingerprint 兜底） */
+        private fun getDeviceId(): String {
+            @Suppress("DEPRECATION")
+            return Build.SERIAL?.takeIf { it.isNotBlank() && it != "unknown" }
+                ?: "box-${Build.FINGERPRINT.hashCode().toUInt()}"
+        }
+
         // CarLife CMD 消息 ID（与 HuRole.CarLifeMsg 相同）
         private const val HU_PROTOCOL_VERSION        = 0x00018001
         private const val VERSION_MATCH_STATUS       = 0x00010002
@@ -474,7 +481,7 @@ class MdRole(private val context: Context) {
                 .setOsVersion(Build.VERSION.RELEASE ?: "unknown")
                 .setManufacturer(Build.MANUFACTURER ?: "Unknown")
                 .setModel(Build.MODEL ?: "CarLife Box")
-                .setDeviceId(Build.SERIAL ?: "box-001")
+                .setDeviceId(getDeviceId())
                 .setDeviceName("CarLife Wireless Box")
                 .build()
 
@@ -494,7 +501,7 @@ class MdRole(private val context: Context) {
         try {
             val request = CarlifeAuthenRequestProto.CarlifeAuthenRequest.newBuilder()
                 .setMethod(AuthMethod.AUTH_METHOD_NONE)
-                .setDeviceId(Build.SERIAL ?: "box-001")
+                .setDeviceId(getDeviceId())
                 .setDeviceName("CarLife Wireless Box")
                 .setDeviceModel(Build.MODEL ?: "CarLife Box")
                 .build()
@@ -647,7 +654,7 @@ class MdRole(private val context: Context) {
                 .setOsVersion(Build.VERSION.RELEASE ?: "unknown")
                 .setManufacturer(Build.MANUFACTURER ?: "Unknown")
                 .setModel(Build.MODEL ?: "CarLife Box")
-                .setDeviceId(Build.SERIAL ?: "box-001")
+                .setDeviceId(getDeviceId())
                 .setDeviceName("CarLife Wireless Box")
                 .build()
             sendCmdMessage(MD_INFO, mdInfo.toByteArray())

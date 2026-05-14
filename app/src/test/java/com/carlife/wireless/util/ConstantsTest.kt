@@ -139,8 +139,8 @@ class ConstantsTest {
     // ==================== Audio parameters ====================
 
     @Test
-    fun `audio sample rate is 48000`() {
-        assertEquals(48000, Constants.Audio.SAMPLE_RATE)
+    fun `audio sample rate is 44100`() {
+        assertEquals(44100, Constants.Audio.SAMPLE_RATE)
     }
 
     @Test

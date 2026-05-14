@@ -190,7 +190,11 @@ class HuRole(
 
     companion object {
         private const val TAG = "HuRole"
-        private val DEVICE_ID: String = Build.SERIAL ?: "unknown"
+        private val DEVICE_ID: String by lazy {
+            @Suppress("DEPRECATION")
+            Build.SERIAL?.takeIf { it.isNotBlank() && it != "unknown" }
+                ?: "box-${Build.FINGERPRINT.hashCode().toUInt()}"
+        }
         private val DEVICE_NAME: String = Build.MODEL ?: "Android Box"
         private val MANUFACTURER: String = Build.MANUFACTURER ?: "Unknown"
         private val OS_VERSION: String = Build.VERSION.RELEASE ?: "unknown"

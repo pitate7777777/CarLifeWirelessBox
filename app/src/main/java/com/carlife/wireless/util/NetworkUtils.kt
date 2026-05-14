@@ -34,36 +34,29 @@ object NetworkUtils {
      */
     fun getLocalIpAddress(): String? {
         try {
+            var fallback: String? = null
             val interfaces = NetworkInterface.getNetworkInterfaces()
             while (interfaces.hasMoreElements()) {
                 val networkInterface = interfaces.nextElement()
                 val interfaceName = networkInterface.displayName?.lowercase() ?: ""
 
-                // 优先检查USB网络接口
-                if (interfaceName.contains("rndis") || interfaceName.contains("usb") ||
-                    interfaceName.contains("eth")) {
-                    val addresses = networkInterface.inetAddresses
-                    while (addresses.hasMoreElements()) {
-                        val address = addresses.nextElement()
-                        if (!address.isLoopbackAddress && address is java.net.Inet4Address) {
-                            return address.hostAddress
-                        }
-                    }
-                }
-            }
-
-            // 如果没找到USB网络接口，再检查所有接口（包括Wi-Fi）
-            val allInterfaces = NetworkInterface.getNetworkInterfaces()
-            while (allInterfaces.hasMoreElements()) {
-                val networkInterface = allInterfaces.nextElement()
                 val addresses = networkInterface.inetAddresses
                 while (addresses.hasMoreElements()) {
                     val address = addresses.nextElement()
-                    if (!address.isLoopbackAddress && address is java.net.Inet4Address) {
+                    if (address.isLoopbackAddress || address !is java.net.Inet4Address) continue
+
+                    // 优先返回 USB 网络接口的 IP
+                    if (interfaceName.contains("rndis") || interfaceName.contains("usb") ||
+                        interfaceName.contains("eth")) {
                         return address.hostAddress
+                    }
+                    // 记录第一个非回环 IPv4 作为兜底
+                    if (fallback == null) {
+                        fallback = address.hostAddress
                     }
                 }
             }
+            return fallback
         } catch (e: Exception) {
             e.printStackTrace()
         }

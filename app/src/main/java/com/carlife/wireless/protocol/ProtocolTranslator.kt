@@ -72,8 +72,10 @@ object ProtocolTranslator {
      */
     fun translateAudioFrame(frame: ByteArray, codecType: Int): Pair<ByteArray, Int> {
         return if (codecType == CODEC_OPUS) {
+            // Opus 数据未实际转码，必须保留原始编解码器类型，
+            // 否则接收方会用 AAC 解码器解析 Opus 数据导致噪音/崩溃
             LogUtils.d(TAG, "Opus input detected, pass-through (no transcoding)")
-            Pair(frame, CODEC_AAC) // 标注目标为 AAC，但数据未转换
+            Pair(frame, CODEC_OPUS)
         } else {
             Pair(frame, codecType)
         }
