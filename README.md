@@ -177,6 +177,24 @@ MIT License
 
 ## 更新日志
 
+### 2026-05-14 — ProtocolService 功能实现：协议统计 + 握手追踪 + 健康监控
+
+**问题**: `ProtocolService` 注册在 AndroidManifest 但从未启动，所有方法为空壳（TODO）。
+
+**实现**:
+- **通道消息统计**: 6 种通道（CMD/VIDEO/MEDIA/TTS/VR/CTRL）的发送/接收/错误计数 + 最后活动时间
+- **握手流程追踪**: 10 个阶段（IDLE→VERSION_NEGOTIATION→...→COMPLETED/FAILED），记录每阶段时间线 + 成功/失败计数 + 握手耗时
+- **协议事件时间线**: 最近 200 条协议事件（消息收发/握手/连接/错误/心跳），带时间戳和通道标签
+- **心跳统计**: 发送/接收/超时计数 + 最近/平均延迟
+- **诊断报告**: `generateReport()` 输出格式化协议诊断文本，供 NetworkDiagActivity 使用
+- **ConnectionService 集成**: 启动时 bind ProtocolService，在 HuRole/MdRole 回调中自动上报消息收发、握手、连接事件
+- **单例访问**: `ProtocolService.getInstance()` 供 MdRole/HuRole 静态调用
+
+**涉及文件**:
+- `ProtocolService.kt` — 从空壳重写为完整协议统计服务（~500 行）
+- `ConnectionService.kt` — 新增 ProtocolService 绑定 + 事件上报
+- `ProtocolServiceTest.kt` — 完整测试覆盖（枚举/统计/握手/心跳/报告/重置）
+
 ### 2026-05-14 — 补充单元测试（覆盖率 58%→70%）
 
 **新增测试文件**:

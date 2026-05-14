@@ -111,6 +111,7 @@ class ConnectionService : Service() {
     private var videoService: VideoService? = null
     private var audioService: AudioService? = null
     private var touchService: TouchService? = null
+    private var protocolService: ProtocolService? = null
 
     // 预览帧计数器（每 N 帧广播 1 帧给 MainActivity）
     private val previewFrameCounter = AtomicLong(0)
@@ -141,6 +142,7 @@ class ConnectionService : Service() {
             startHuRole()
         }
         startTouchService()
+        startProtocolService()
         startUsbMonitoring()
         startUdpDiscovery()
         // mDNS 仍然启动，供手机 B 发现本设备
@@ -454,11 +456,13 @@ class ConnectionService : Service() {
 
                 override fun onVideoFrameReceived(header: ChannelHeader.Media, frame: ByteArray) {
                     // 手机B的视频帧 → 转发到车机（使用 CarLife 媒体格式）
+                    protocolService?.reportMessageReceived(ProtocolService.Channel.VIDEO, header.payloadType, frame.size)
                     mdRole?.sendData(
                         com.carlife.wireless.util.Constants.PortMD.MD_VIDEO,
                         header.payloadType,
                         frame
                     )
+                    protocolService?.reportMessageSent(ProtocolService.Channel.VIDEO, header.payloadType, frame.size)
                     // 广播给 MainActivity 用于本地预览（每 3 帧取 1 帧，减少开销）
                     if (previewFrameCounter.incrementAndGet() % 3 == 0L) {
                         broadcastVideoFrame(frame, false)
@@ -466,32 +470,40 @@ class ConnectionService : Service() {
                 }
 
                 override fun onAudioFrameReceived(header: ChannelHeader.Media, frame: ByteArray) {
+                    protocolService?.reportMessageReceived(ProtocolService.Channel.MEDIA, header.payloadType, frame.size)
                     mdRole?.sendData(
                         com.carlife.wireless.util.Constants.PortMD.MD_MEDIA,
                         header.payloadType,
                         frame
                     )
+                    protocolService?.reportMessageSent(ProtocolService.Channel.MEDIA, header.payloadType, frame.size)
                 }
 
                 override fun onTtsFrameReceived(header: ChannelHeader.Media, data: ByteArray) {
+                    protocolService?.reportMessageReceived(ProtocolService.Channel.TTS, header.payloadType, data.size)
                     mdRole?.sendData(
                         com.carlife.wireless.util.Constants.PortMD.MD_TTS,
                         header.payloadType,
                         data
                     )
+                    protocolService?.reportMessageSent(ProtocolService.Channel.TTS, header.payloadType, data.size)
                 }
 
                 override fun onVrFrameReceived(header: ChannelHeader.Media, data: ByteArray) {
+                    protocolService?.reportMessageReceived(ProtocolService.Channel.VR, header.payloadType, data.size)
                     mdRole?.sendData(
                         com.carlife.wireless.util.Constants.PortMD.MD_VR,
                         header.payloadType,
                         data
                     )
+                    protocolService?.reportMessageSent(ProtocolService.Channel.VR, header.payloadType, data.size)
                 }
 
                 override fun onControlReceived(header: ChannelHeader.Cmd, payload: ByteArray) {
                     // 手机B的控制响应 → 转发到车机（CarLife CMD 格式）
+                    protocolService?.reportMessageReceived(ProtocolService.Channel.CTRL, header.payloadType, payload.size)
                     mdRole?.sendControlData(header.payloadType, payload)
+                    protocolService?.reportMessageSent(ProtocolService.Channel.CTRL, header.payloadType, payload.size)
                 }
 
                 override fun onError(error: String) {
@@ -513,6 +525,7 @@ class ConnectionService : Service() {
                 }
             }
             huRole?.connect()
+            protocolService?.startHandshake()
             LogUtils.i(TAG, "HuRole 已启动，正在连接手机...")
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "启动 HuRole 失败")
@@ -587,6 +600,23 @@ class ConnectionService : Service() {
         }
     }
 
+    /** ProtocolService 绑定 */
+    private val protocolServiceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            protocolService = (binder as? ProtocolService.ProtocolBinder)?.getService()
+            LogUtils.i(TAG, "ProtocolService 已绑定")
+        }
+        override fun onServiceDisconnected(name: ComponentName?) {
+            protocolService = null
+        }
+    }
+
+    private fun startProtocolService() {
+        val intent = Intent(this, ProtocolService::class.java)
+        startService(intent)
+        bindService(intent, protocolServiceConnection, BIND_AUTO_CREATE)
+    }
+
     /** TouchService 绑定 */
     private val touchServiceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -658,6 +688,10 @@ class ConnectionService : Service() {
         stopService(Intent(this, TouchService::class.java))
         touchService = null
 
+        try { unbindService(protocolServiceConnection) } catch (_: Exception) {}
+        stopService(Intent(this, ProtocolService::class.java))
+        protocolService = null
+
         stopHuRole()
     }
 
@@ -680,12 +714,14 @@ class ConnectionService : Service() {
             MdRole.MdState.READY -> {
                 LogUtils.i(TAG, "MdRole READY（车机已连接）")
                 updateNotification("车机已连接")
+                protocolService?.reportConnectionEvent(ProtocolService.Channel.CMD, true, "车机握手完成")
                 // 车机就绪后，检查是否可以启动音视频服务
                 tryStartVideoAndAudioServices()
             }
             MdRole.MdState.ERROR,
             MdRole.MdState.IDLE -> {
                 LogUtils.i(TAG, "MdRole 离开 READY")
+                protocolService?.reportConnectionEvent(ProtocolService.Channel.CMD, false, "车机断开")
                 stopVideoAndAudioServices()
             }
             else -> {}
@@ -701,6 +737,8 @@ class ConnectionService : Service() {
                 cancelHuReconnect()
                 lastHuRoleError = ""
                 updateNotification("手机B已连接")
+                protocolService?.reportConnectionEvent(ProtocolService.Channel.CMD, true, "手机B握手完成")
+                protocolService?.completeHandshake(true)
                 // 手机B就绪后，检查是否可以启动音视频服务
                 tryStartVideoAndAudioServices()
             }
@@ -711,6 +749,8 @@ class ConnectionService : Service() {
                     lastHuRoleError = huError
                     LogUtils.w(TAG, "HuRole error: $huError")
                     updateNotification("手机B: $huError")
+                    protocolService?.reportConnectionEvent(ProtocolService.Channel.CMD, false, huError)
+                    protocolService?.completeHandshake(false, huError)
                 }
                 stopVideoAndAudioServices()
                 // 不要在这里调 disconnect() 或置 null！
