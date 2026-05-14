@@ -49,8 +49,10 @@ object ProtocolTranslator {
      */
     fun translateVideoFrame(frame: ByteArray, codecType: Int): Pair<ByteArray, Int> {
         return if (codecType == CODEC_H265) {
+            // H.265 数据未实际转码，必须保留原始编解码器类型，
+            // 否则接收方会用 H.264 解码器解析 H.265 数据导致花屏/崩溃
             LogUtils.d(TAG, "H.265 input detected, pass-through (no transcoding)")
-            Pair(frame, CODEC_H264) // 标注目标为 H.264，但数据未转换
+            Pair(frame, CODEC_H265)
         } else {
             Pair(frame, codecType)
         }

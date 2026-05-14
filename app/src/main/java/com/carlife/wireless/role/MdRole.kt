@@ -128,7 +128,6 @@ class MdRole(private val context: Context) {
             val config = channelConfig ?: DEFAULT_CHANNEL_CONFIG
 
             // 直接使用 Log.e 确保在 logcat 中可见（不依赖 LogUtils 的 consoleLog 开关）
-            android.util.Log.e("CarLifeWireless", "[MdRole] START: phoneBIp=$phoneBIp, channels=${config.totalEnabled}")
 
             LogUtils.i(TAG, "Connecting to phone B CarWith at $phoneBIp (${config.totalEnabled} channels)...")
 
@@ -140,23 +139,19 @@ class MdRole(private val context: Context) {
                 channels[type.mdPort] = channel
 
                 val port = type.huPort
-                android.util.Log.e("CarLifeWireless", "[MdRole] Connecting ${type.name} to $phoneBIp:$port")
                 LogUtils.i(TAG, "Connecting ${type.name} to $phoneBIp:$port (autoRead=$autoRead)")
 
                 channel.callback = object : ChannelCallback {
                     override fun onConnected(ch: Channel) {
-                        android.util.Log.e("CarLifeWireless", "[MdRole] ${ch.name} CONNECTED!")
                         handleClientConnected(ch.type.mdPort, ch)
                     }
                     override fun onDisconnected(ch: Channel, reason: String?) {
-                        android.util.Log.e("CarLifeWireless", "[MdRole] ${ch.name} DISCONNECTED: $reason")
                         handleClientDisconnected(ch.type.mdPort, reason)
                     }
                     override fun onDataReceived(ch: Channel, header: ChannelHeader, payload: ByteArray) {
                         // 不使用此回调，由专用读取循环处理
                     }
                     override fun onError(ch: Channel, error: Throwable) {
-                        android.util.Log.e("CarLifeWireless", "[MdRole] ${ch.name} ERROR: ${error.message}")
                         LogUtils.e(TAG, "${ch.name} error: ${error.message}")
                         lastErrorMessage.set("${ch.name}: ${error.message}")
                     }
@@ -214,7 +209,6 @@ class MdRole(private val context: Context) {
     }
 
     private fun handleClientConnected(port: Int, channel: Channel) {
-        android.util.Log.e("CarLifeWireless", "[MdRole] handleClientConnected: port=$port (${PORT_NAMES[port]})")
         LogUtils.i(TAG, "Client connected on port $port (${PORT_NAMES[port]})")
 
         channels[port] = channel
@@ -369,7 +363,6 @@ class MdRole(private val context: Context) {
             // === 手机B发来的 MD 响应消息 ===
             VERSION_MATCH_STATUS -> {
                 // Phase 2: 收到版本匹配 → 发送 HU_INFO
-                android.util.Log.e("CarLifeWireless", "[MdRole] VERSION_MATCH_STATUS received")
                 LogUtils.i(TAG, "[Phase 2] VERSION_MATCH_STATUS received")
                 sendHuInfo()
             }
@@ -377,7 +370,6 @@ class MdRole(private val context: Context) {
                 // Phase 4: 收到手机B设备信息 → 发送 HU_AUTHEN_REQUEST
                 try {
                     val info = CarlifeDeviceInfoProto.CarlifeDeviceInfo.parseFrom(data)
-                    android.util.Log.e("CarLifeWireless", "[MdRole] MD_INFO: ${info.manufacturer} ${info.model}")
                     LogUtils.i(TAG, "[Phase 4] Phone B MD_INFO: ${info.manufacturer} ${info.model}")
                 } catch (e: Exception) {
                     LogUtils.w(TAG, "[Phase 4] Failed to parse MD_INFO: ${e.message}")
@@ -386,7 +378,6 @@ class MdRole(private val context: Context) {
             }
             MD_AUTHEN_RESPONSE -> {
                 // Phase 6: 收到认证响应 → 发送 HU_AUTHEN_RESULT
-                android.util.Log.e("CarLifeWireless", "[MdRole] MD_AUTHEN_RESPONSE received")
                 LogUtils.i(TAG, "[Phase 6] MD_AUTHEN_RESPONSE received")
                 try {
                     val response = CarlifeAuthenResponseProto.CarlifeAuthenResponse.parseFrom(data)
@@ -398,18 +389,15 @@ class MdRole(private val context: Context) {
             }
             MD_AUTHEN_RESULT -> {
                 // Phase 8: 收到手机B认证结果 → 等待特性配置请求
-                android.util.Log.e("CarLifeWireless", "[MdRole] MD_AUTHEN_RESULT received")
                 LogUtils.i(TAG, "[Phase 8] MD_AUTHEN_RESULT received")
             }
             MD_FEATURE_CONFIG_REQUEST -> {
                 // Phase 9: 收到特性配置请求 → 发送 HU_FEATURE_CONFIG_RESPONSE
-                android.util.Log.e("CarLifeWireless", "[MdRole] MD_FEATURE_CONFIG_REQUEST received")
                 LogUtils.i(TAG, "[Phase 9] MD_FEATURE_CONFIG_REQUEST received")
                 sendHuFeatureConfigResponse()
             }
             VIDEO_ENCODER_INIT_DONE -> {
                 // Phase 12: 收到编码器初始化完成 → 发送 VIDEO_ENCODER_START
-                android.util.Log.e("CarLifeWireless", "[MdRole] VIDEO_ENCODER_INIT_DONE received")
                 LogUtils.i(TAG, "[Phase 12] VIDEO_ENCODER_INIT_DONE received")
                 sendVideoEncoderStart()
             }
@@ -465,13 +453,10 @@ class MdRole(private val context: Context) {
                 .build()
 
             val protoBytes = version.toByteArray()
-            android.util.Log.e("CarLifeWireless", "[MdRole] Proto bytes: ${protoBytes.size}B, hex=${protoBytes.joinToString("") { "%02x".format(it) }}")
 
             sendCmdMessage(HU_PROTOCOL_VERSION, protoBytes)
-            android.util.Log.e("CarLifeWireless", "[MdRole] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION}), protoLen=${protoBytes.size}")
             LogUtils.i(TAG, "[Phase 1] HU_PROTOCOL_VERSION sent (${Constants.PROTOCOL_MAJOR_VERSION}.${Constants.PROTOCOL_MINOR_VERSION})")
         } catch (e: Exception) {
-            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_PROTOCOL_VERSION: ${e.message}")
             LogUtils.e(TAG, e, "[Phase 1] Failed to send HU_PROTOCOL_VERSION")
             ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase1-ProtocolVersion")
         }
@@ -494,10 +479,8 @@ class MdRole(private val context: Context) {
                 .build()
 
             sendCmdMessage(HU_INFO, deviceInfo.toByteArray())
-            android.util.Log.e("CarLifeWireless", "[MdRole] HU_INFO sent")
             LogUtils.i(TAG, "[Phase 3] HU_INFO sent")
         } catch (e: Exception) {
-            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_INFO: ${e.message}")
             LogUtils.e(TAG, e, "[Phase 3] Failed to send HU_INFO")
             ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase3-HuInfo")
         }
@@ -517,10 +500,8 @@ class MdRole(private val context: Context) {
                 .build()
 
             sendCmdMessage(HU_AUTHEN_REQUEST, request.toByteArray())
-            android.util.Log.e("CarLifeWireless", "[MdRole] HU_AUTHEN_REQUEST sent")
             LogUtils.i(TAG, "[Phase 5] HU_AUTHEN_REQUEST sent")
         } catch (e: Exception) {
-            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_AUTHEN_REQUEST: ${e.message}")
             LogUtils.e(TAG, e, "[Phase 5] Failed to send HU_AUTHEN_REQUEST")
             ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase5-AuthenRequest")
         }
@@ -540,10 +521,8 @@ class MdRole(private val context: Context) {
                 .build()
 
             sendCmdMessage(HU_AUTHEN_RESULT, result.toByteArray())
-            android.util.Log.e("CarLifeWireless", "[MdRole] HU_AUTHEN_RESULT sent (result=$success)")
             LogUtils.i(TAG, "[Phase 7] HU_AUTHEN_RESULT sent (result=$success)")
         } catch (e: Exception) {
-            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_AUTHEN_RESULT: ${e.message}")
             LogUtils.e(TAG, e, "[Phase 7] Failed to send HU_AUTHEN_RESULT")
             ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase7-AuthenResult")
         }
@@ -568,13 +547,11 @@ class MdRole(private val context: Context) {
                 .build()
 
             sendCmdMessage(HU_FEATURE_CONFIG_RESPONSE, config.toByteArray())
-            android.util.Log.e("CarLifeWireless", "[MdRole] HU_FEATURE_CONFIG_RESPONSE sent")
             LogUtils.i(TAG, "[Phase 10] HU_FEATURE_CONFIG_RESPONSE sent")
 
             // 发送视频编码器初始化
             sendVideoEncoderInitToPhoneB()
         } catch (e: Exception) {
-            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send HU_FEATURE_CONFIG_RESPONSE: ${e.message}")
             LogUtils.e(TAG, e, "[Phase 10] Failed to send HU_FEATURE_CONFIG_RESPONSE")
             ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase10-FeatureConfigResponse")
         }
@@ -599,10 +576,8 @@ class MdRole(private val context: Context) {
                 .build()
 
             sendCmdMessage(VIDEO_ENCODER_INIT, info.toByteArray())
-            android.util.Log.e("CarLifeWireless", "[MdRole] VIDEO_ENCODER_INIT sent")
             LogUtils.i(TAG, "[Phase 11] VIDEO_ENCODER_INIT sent")
         } catch (e: Exception) {
-            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send VIDEO_ENCODER_INIT: ${e.message}")
             LogUtils.e(TAG, e, "[Phase 11] Failed to send VIDEO_ENCODER_INIT")
             ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase11-VideoEncoderInit")
         }
@@ -615,14 +590,12 @@ class MdRole(private val context: Context) {
     private fun sendVideoEncoderStart() {
         try {
             sendCmdMessage(VIDEO_ENCODER_START, ByteArray(0))
-            android.util.Log.e("CarLifeWireless", "[MdRole] VIDEO_ENCODER_START sent — handshake complete!")
             LogUtils.i(TAG, "[Phase 13] VIDEO_ENCODER_START sent — handshake complete!")
 
             handshakeCompleted.set(true)
             updateState(MdState.READY)
             LogUtils.i(TAG, "===== Phone B connected and ready =====")
         } catch (e: Exception) {
-            android.util.Log.e("CarLifeWireless", "[MdRole] Failed to send VIDEO_ENCODER_START: ${e.message}")
             LogUtils.e(TAG, e, "[Phase 13] Failed to send VIDEO_ENCODER_START")
             ErrorTracker.recordHandshakeFailure("MdRole", e.message ?: "unknown", "Phase13-VideoEncoderStart")
         }

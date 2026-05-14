@@ -311,16 +311,10 @@ object NetworkDiagnostics {
     }
 
     /**
-     * Ping 主机
+     * Ping 主机（复用 NetworkUtils.ping()，避免重复实现）
      */
     private fun pingHost(host: String): Boolean {
-        return try {
-            val address = java.net.InetAddress.getByName(host)
-            address.isReachable(3000)
-        } catch (e: Exception) {
-            LogUtils.e(TAG, "pingHost $host failed: ${e.message}")
-            false
-        }
+        return NetworkUtils.ping(host, 3000)
     }
 
     /**
