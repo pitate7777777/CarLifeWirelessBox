@@ -108,6 +108,97 @@ else
 fi
 echo ""
 
+# 7. 检查 Socket 资源泄漏
+# 模式：Socket() 后未用 use{}，且未在 catch/finally 中 close()
+echo "📋 检查 Socket 资源泄漏..."
+SOCKET_LEAK_FILES=$(grep -rl "Socket()" "$SRC_DIR" --include="*.kt" 2>/dev/null || true)
+SOCKET_LEAK_COUNT=0
+SOCKET_LEAK_DETAILS=""
+for f in $SOCKET_LEAK_FILES; do
+    # 跳过 import 行和注释
+    socket_lines=$(grep -n "val.*= Socket()\|val.*=Socket()" "$f" \
+        | grep -v "import\|//\|ServerSocket\|DatagramSocket" \
+        | cut -d: -f1)
+    for lineno in $socket_lines; do
+        # 检查该 Socket 变量是否在 close() 或 use{} 中被清理
+        varname=$(sed -n "${lineno}p" "$f" | grep -oP "val \K\w+")
+        if [ -z "$varname" ]; then continue; fi
+        # 检查同文件中是否有该变量的 close() 调用或 use{} 包裹
+        has_close=$(grep -c "${varname}\.close()\|${varname}.*\.close()" "$f" 2>/dev/null || echo 0)
+        has_use=$(grep -c "\.use {" "$f" 2>/dev/null || echo 0)
+        if [ "$has_close" -eq 0 ] && [ "$has_use" -eq 0 ]; then
+            SOCKET_LEAK_COUNT=$((SOCKET_LEAK_COUNT + 1))
+            SOCKET_LEAK_DETAILS="${SOCKET_LEAK_DETAILS}  ${f}:${lineno}: $(sed -n "${lineno}p" "$f" | sed 's/^[[:space:]]*//')\n"
+        fi
+    done
+done
+if [ "$SOCKET_LEAK_COUNT" -gt 0 ]; then
+    echo -e "${RED}  ❌ 发现 $SOCKET_LEAK_COUNT 处 Socket 未关闭${NC}"
+    echo -e "$SOCKET_LEAK_DETAILS"
+    ISSUES=$((ISSUES + SOCKET_LEAK_COUNT))
+else
+    echo -e "${GREEN}  ✅ Socket 使用规范${NC}"
+fi
+echo ""
+
+# 8. 检查空 catch 块
+echo "📋 检查空 catch 块..."
+EMPTY_CATCH=$(grep -rn "catch.*{$" "$SRC_DIR" --include="*.kt" | while read line; do
+    file=$(echo "$line" | cut -d: -f1)
+    lineno=$(echo "$line" | cut -d: -f2)
+    nextline=$((lineno + 1))
+    next_content=$(sed -n "${nextline}p" "$file")
+    # 空 catch：下一行是 }
+    if echo "$next_content" | grep -q "^[[:space:]]*}"; then
+        echo "$line"
+    fi
+done)
+EMPTY_CATCH_COUNT=0
+if [ -n "$EMPTY_CATCH" ]; then
+    EMPTY_CATCH_COUNT=$(echo "$EMPTY_CATCH" | wc -l)
+fi
+if [ "$EMPTY_CATCH_COUNT" -gt 0 ]; then
+    echo -e "${YELLOW}  ⚠️ 发现 $EMPTY_CATCH_COUNT 处空 catch 块（至少记录日志）${NC}"
+    echo "$EMPTY_CATCH" | head -5
+    ISSUES=$((ISSUES + EMPTY_CATCH_COUNT))
+else
+    echo -e "${GREEN}  ✅ 无空 catch 块${NC}"
+fi
+echo ""
+
+# 9. 检查硬编码 IP 地址（应使用 Constants 或 SettingsManager）
+echo "📋 检查硬编码 IP..."
+HARDCODED_IP=$(grep -rn '"192\.168\.\|10\.0\.\|172\.16\.' "$SRC_DIR" --include="*.kt" \
+    | grep -v "Constants\|SettingsManager\|//\|HOTSPOT_GATEWAY\|USB_TETHERING\|USB_LOCAL\|USB_NETWORK\|test\|Test\|\*\|@" \
+    || true)
+HARDCODED_IP_COUNT=0
+if [ -n "$HARDCODED_IP" ]; then
+    HARDCODED_IP_COUNT=$(echo "$HARDCODED_IP" | wc -l)
+fi
+if [ "$HARDCODED_IP_COUNT" -gt 0 ]; then
+    echo -e "${YELLOW}  ⚠️ 发现 $HARDCODED_IP_COUNT 处硬编码 IP（应使用 Constants）${NC}"
+    echo "$HARDCODED_IP" | head -5
+else
+    echo -e "${GREEN}  ✅ 无硬编码 IP${NC}"
+fi
+echo ""
+
+# 10. 检查 synchronized(this)（应用独立锁对象避免读写竞争）
+echo "📋 检查 synchronized(this)..."
+SYNC_THIS=$(grep -rn "synchronized(this)" "$SRC_DIR" --include="*.kt" \
+    | grep -v "//\|/\*\|\*" || true)
+SYNC_THIS_COUNT=0
+if [ -n "$SYNC_THIS" ]; then
+    SYNC_THIS_COUNT=$(echo "$SYNC_THIS" | wc -l)
+fi
+if [ "$SYNC_THIS_COUNT" -gt 0 ]; then
+    echo -e "${YELLOW}  ⚠️ 发现 $SYNC_THIS_COUNT 处 synchronized(this)（建议用独立锁对象）${NC}"
+    echo "$SYNC_THIS"
+else
+    echo -e "${GREEN}  ✅ 无 synchronized(this)${NC}"
+fi
+echo ""
+
 # 总结
 echo "═══════════════════════════════════════"
 if [ "$ISSUES" -eq 0 ]; then
