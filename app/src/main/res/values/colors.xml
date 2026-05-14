@@ -48,4 +48,13 @@
 
     <!-- 预览遮罩 -->
     <color name="preview_mask">#FF1A1A2E</color>
+
+    <!-- 设置页卡片标题副文字色 -->
+    <color name="settings_subtitle_car">#90CAF9</color>
+    <color name="settings_subtitle_phone">#A5D6A7</color>
+    <color name="settings_subtitle_box">#FFCC80</color>
+    <color name="settings_subtitle_channel">#CE93D8</color>
+
+    <!-- SeekBar 范围标签 -->
+    <color name="seekbar_range_label">#757575</color>
 </resources>

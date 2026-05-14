@@ -19,6 +19,23 @@
     <string name="phone_b_ip_hint">例如: 192.168.43.1</string>
     <string name="phone_b_ip_helper">手机 B 开启热点后的网关地址，通常为 192.168.43.1</string>
     <string name="save">保存</string>
+    <string name="settings_general_title">⚙️ 通用设置</string>
+    <string name="settings_general_subtitle">APP 启动和连接行为</string>
+    <string name="auto_connect_title">自动连接</string>
+    <string name="auto_connect_desc">打开 APP 自动启动服务并连接手机 B</string>
+    <string name="settings_car_title">🚗 车机参数</string>
+    <string name="settings_car_badge">影响车机显示</string>
+    <string name="settings_car_subtitle">这些参数决定投屏到车机的画面质量和分辨率</string>
+    <string name="settings_phone_title">📱 手机 B 参数</string>
+    <string name="settings_phone_badge">CarWith 发射端</string>
+    <string name="settings_phone_subtitle">运行 CarWith 的手机，通过 WiFi 热点连接到本机</string>
+    <string name="settings_box_title">📦 本机参数</string>
+    <string name="settings_box_badge">转接盒设置</string>
+    <string name="settings_box_subtitle">运行本 APP 的旧手机（转接盒）的配置</string>
+    <string name="settings_log_title">📋 日志设置</string>
+    <string name="settings_log_subtitle">控制日志输出行为，关闭可减少性能开销</string>
+    <string name="bitrate_range_min">500</string>
+    <string name="bitrate_range_max">8000</string>
 
     <!-- 对话框相关 -->
     <string name="dialog_custom_resolution_title">自定义分辨率</string>

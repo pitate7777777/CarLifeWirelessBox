@@ -19,18 +19,21 @@
 
     </com.google.android.material.appbar.AppBarLayout>
 
-    <ScrollView
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:fillViewport="true">
+        android:fillViewport="true"
+        android:clipToPadding="false"
+        android:paddingBottom="24dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:paddingHorizontal="16dp"
+            android:paddingTop="16dp">
 
-            <!-- 车机参数 -->
+            <!-- ==================== 通用设置 ==================== -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -47,30 +50,22 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
+                    <!-- 标题行 -->
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="⚙️ 通用设置"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/color_channel" />
-
-                    </LinearLayout>
+                        android:text="@string/settings_general_title"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/color_channel"
+                        android:layout_marginBottom="2dp" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="APP 启动和连接行为"
+                        android:text="@string/settings_general_subtitle"
                         android:textSize="12sp"
-                        android:textColor="#FFCE93D8"
+                        android:textColor="@color/settings_subtitle_channel"
                         android:layout_marginBottom="12dp" />
 
                     <!-- 自动连接开关 -->
@@ -89,14 +84,14 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="自动连接"
+                                android:text="@string/auto_connect_title"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="打开 APP 自动启动服务并连接手机 B"
+                                android:text="@string/auto_connect_desc"
                                 android:textSize="11sp"
                                 android:textColor="?android:attr/textColorSecondary" />
 
@@ -114,7 +109,7 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 车机参数 -->
+            <!-- ==================== 车机参数 ==================== -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -131,18 +126,19 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
+                    <!-- 标题行 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
+                        android:layout_marginBottom="2dp">
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="🚗 车机参数"
+                            android:text="@string/settings_car_title"
                             android:textSize="18sp"
                             android:textStyle="bold"
                             android:textColor="@color/color_car" />
@@ -150,18 +146,18 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="影响车机显示"
+                            android:text="@string/settings_car_badge"
                             android:textSize="11sp"
-                            android:textColor="@color/primary_light" />
+                            android:textColor="@color/settings_subtitle_car" />
 
                     </LinearLayout>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="这些参数决定投屏到车机的画面质量和分辨率"
+                        android:text="@string/settings_car_subtitle"
                         android:textSize="12sp"
-                        android:textColor="@color/primary_light"
+                        android:textColor="@color/settings_subtitle_car"
                         android:layout_marginBottom="12dp" />
 
                     <!-- 车机兼容模式 -->
@@ -176,7 +172,7 @@
                     <Spinner
                         android:id="@+id/spinnerCarPreset"
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp" />
 
                     <!-- 分辨率 -->
@@ -191,7 +187,7 @@
                     <Spinner
                         android:id="@+id/spinnerResolution"
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp" />
 
                     <!-- 码率 -->
@@ -203,22 +199,53 @@
                         android:textStyle="bold"
                         android:layout_marginBottom="4dp" />
 
-                    <SeekBar
-                        android:id="@+id/seekbarBitrate"
+                    <!-- 码率范围标签 + SeekBar -->
+                    <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:max="8000"
-                        android:layout_marginBottom="2dp" />
-
-                    <TextView
-                        android:id="@+id/tvBitrateValue"
-                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="end"
-                        android:text="2000 kbps"
-                        android:textSize="13sp"
-                        android:textColor="?android:attr/textColorSecondary"
-                        android:layout_marginBottom="12dp" />
+                        android:orientation="vertical"
+                        android:layout_marginBottom="2dp">
+
+                        <SeekBar
+                            android:id="@+id/seekbarBitrate"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:max="8000" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/bitrate_range_min"
+                                android:textSize="11sp"
+                                android:textColor="@color/seekbar_range_label" />
+
+                            <TextView
+                                android:id="@+id/tvBitrateValue"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="2000 kbps"
+                                android:textSize="13sp"
+                                android:textStyle="bold"
+                                android:textColor="@color/color_car" />
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="@string/bitrate_range_max"
+                                android:textSize="11sp"
+                                android:textColor="@color/seekbar_range_label"
+                                android:gravity="end" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
 
                     <!-- 帧率 -->
                     <TextView
@@ -227,18 +254,19 @@
                         android:text="@string/video_framerate"
                         android:textSize="14sp"
                         android:textStyle="bold"
+                        android:layout_marginTop="8dp"
                         android:layout_marginBottom="4dp" />
 
                     <Spinner
                         android:id="@+id/spinnerFramerate"
                         android:layout_width="match_parent"
-                        android:layout_height="48dp" />
+                        android:layout_height="wrap_content" />
 
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 手机 B 参数 -->
+            <!-- ==================== 手机 B 参数 ==================== -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -255,18 +283,19 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
+                    <!-- 标题行 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
+                        android:layout_marginBottom="2dp">
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="📱 手机 B 参数"
+                            android:text="@string/settings_phone_title"
                             android:textSize="18sp"
                             android:textStyle="bold"
                             android:textColor="@color/color_phone" />
@@ -274,18 +303,18 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="CarWith 发射端"
+                            android:text="@string/settings_phone_badge"
                             android:textSize="11sp"
-                            android:textColor="@color/color_success" />
+                            android:textColor="@color/settings_subtitle_phone" />
 
                     </LinearLayout>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="运行 CarWith 的手机，通过 WiFi 热点连接到本机"
+                        android:text="@string/settings_phone_subtitle"
                         android:textSize="12sp"
-                        android:textColor="@color/color_success"
+                        android:textColor="@color/settings_subtitle_phone"
                         android:layout_marginBottom="12dp" />
 
                     <!-- 手机 B IP -->
@@ -297,27 +326,37 @@
                         android:textStyle="bold"
                         android:layout_marginBottom="4dp" />
 
-                    <EditText
-                        android:id="@+id/etPhoneBIp"
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginBottom="4dp"
-                        android:inputType="text"
-                        android:hint="@string/phone_b_ip_hint" />
+                        app:boxBackgroundMode="outline"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPhoneBIp"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:hint="@string/phone_b_ip_hint" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/phone_b_ip_helper"
                         android:textSize="12sp"
-                        android:textColor="@color/color_success"
-                        android:layout_marginBottom="0dp" />
+                        android:textColor="@color/settings_subtitle_phone" />
 
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 本机参数 -->
+            <!-- ==================== 本机参数 ==================== -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -334,18 +373,19 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
+                    <!-- 标题行 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
+                        android:layout_marginBottom="2dp">
 
                         <TextView
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="📦 本机参数"
+                            android:text="@string/settings_box_title"
                             android:textSize="18sp"
                             android:textStyle="bold"
                             android:textColor="@color/color_box" />
@@ -353,18 +393,18 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="转接盒设置"
+                            android:text="@string/settings_box_badge"
                             android:textSize="11sp"
-                            android:textColor="#FFFFCC80" />
+                            android:textColor="@color/settings_subtitle_box" />
 
                     </LinearLayout>
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="运行本 APP 的旧手机（转接盒）的配置"
+                        android:text="@string/settings_box_subtitle"
                         android:textSize="12sp"
-                        android:textColor="#FFFFB74D"
+                        android:textColor="@color/settings_subtitle_box"
                         android:layout_marginBottom="12dp" />
 
                     <!-- 音频采样率 -->
@@ -379,7 +419,7 @@
                     <Spinner
                         android:id="@+id/spinnerSampleRate"
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
+                        android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp" />
 
                     <!-- TCP 端口 -->
@@ -391,17 +431,28 @@
                         android:textStyle="bold"
                         android:layout_marginBottom="4dp" />
 
-                    <EditText
-                        android:id="@+id/etPort"
+                    <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:inputType="number" />
+                        android:layout_height="wrap_content"
+                        app:boxBackgroundMode="outline"
+                        app:boxCornerRadiusTopStart="8dp"
+                        app:boxCornerRadiusTopEnd="8dp"
+                        app:boxCornerRadiusBottomStart="8dp"
+                        app:boxCornerRadiusBottomEnd="8dp">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etPort"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="number" />
+
+                    </com.google.android.material.textfield.TextInputLayout>
 
                 </LinearLayout>
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 日志设置 -->
+            <!-- ==================== 日志设置 ==================== -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -418,30 +469,22 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <LinearLayout
+                    <!-- 标题行 -->
+                    <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="📋 日志设置"
-                            android:textSize="18sp"
-                            android:textStyle="bold"
-                            android:textColor="@color/color_channel" />
-
-                    </LinearLayout>
+                        android:text="@string/settings_log_title"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/color_channel"
+                        android:layout_marginBottom="2dp" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="控制日志输出行为，关闭可减少性能开销"
+                        android:text="@string/settings_log_subtitle"
                         android:textSize="12sp"
-                        android:textColor="#FFCE93D8"
+                        android:textColor="@color/settings_subtitle_channel"
                         android:layout_marginBottom="12dp" />
 
                     <!-- 控制台日志开关 -->
@@ -461,14 +504,14 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="控制台日志"
+                                android:text="@string/console_log_title"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Logcat 输出，开发调试时使用"
+                                android:text="@string/console_log_desc"
                                 android:textSize="11sp"
                                 android:textColor="?android:attr/textColorSecondary" />
 
@@ -498,14 +541,14 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="文件日志"
+                                android:text="@string/file_log_title"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
 
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="保存到本地文件，保留最近 7 天"
+                                android:text="@string/file_log_desc"
                                 android:textSize="11sp"
                                 android:textColor="?android:attr/textColorSecondary" />
 
@@ -523,7 +566,7 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 通道开关 -->
+            <!-- ==================== 通道开关 ==================== -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -540,12 +583,13 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
+                    <!-- 标题行 -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="4dp">
+                        android:layout_marginBottom="2dp">
 
                         <TextView
                             android:layout_width="0dp"
@@ -561,7 +605,7 @@
                             android:layout_height="wrap_content"
                             android:text="按需启用"
                             android:textSize="11sp"
-                            android:textColor="#FFCE93D8" />
+                            android:textColor="@color/settings_subtitle_channel" />
 
                     </LinearLayout>
 
@@ -570,16 +614,17 @@
                         android:layout_height="wrap_content"
                         android:text="@string/channel_config_subtitle"
                         android:textSize="12sp"
-                        android:textColor="#FFBA68C8"
+                        android:textColor="@color/settings_subtitle_channel"
                         android:layout_marginBottom="12dp" />
 
-                    <!-- CMD -->
+                    <!-- CMD（始终启用） -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="8dp">
+                        android:layout_marginBottom="8dp"
+                        android:alpha="0.6">
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -612,13 +657,14 @@
 
                     </LinearLayout>
 
-                    <!-- VIDEO -->
+                    <!-- VIDEO（始终启用） -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="8dp">
+                        android:layout_marginBottom="8dp"
+                        android:alpha="0.6">
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -651,13 +697,14 @@
 
                     </LinearLayout>
 
-                    <!-- CTRL -->
+                    <!-- CTRL（始终启用） -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
                         android:gravity="center_vertical"
-                        android:layout_marginBottom="8dp">
+                        android:layout_marginBottom="8dp"
+                        android:alpha="0.6">
 
                         <LinearLayout
                             android:layout_width="0dp"
@@ -690,7 +737,7 @@
 
                     </LinearLayout>
 
-                    <!-- MEDIA -->
+                    <!-- MEDIA（可选） -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -728,7 +775,7 @@
 
                     </LinearLayout>
 
-                    <!-- TTS -->
+                    <!-- TTS（可选） -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -766,7 +813,7 @@
 
                     </LinearLayout>
 
-                    <!-- VR -->
+                    <!-- VR（可选） -->
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -807,14 +854,21 @@
 
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- 保存按钮 -->
-            <Button
+            <!-- ==================== 保存按钮 ==================== -->
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSave"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/save" />
+                android:layout_height="52dp"
+                android:layout_marginBottom="8dp"
+                android:text="@string/save"
+                android:textSize="16sp"
+                app:cornerRadius="12dp"
+                app:icon="@android:drawable/ic_menu_save"
+                app:iconGravity="textStart"
+                app:iconPadding="8dp" />
 
         </LinearLayout>
-    </ScrollView>
+
+    </androidx.core.widget.NestedScrollView>
 
 </LinearLayout>

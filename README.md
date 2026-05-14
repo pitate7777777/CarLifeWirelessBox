@@ -177,6 +177,34 @@ MIT License
 
 ## 更新日志
 
+### 2026-05-14 — 设置界面重构优化
+
+**布局改进**:
+- `ScrollView` → `NestedScrollView`：更好的嵌套滚动兼容性
+- `EditText` → `TextInputLayout + TextInputLayout.EditText`：Material 规范输入框，支持错误提示和圆角
+- `Button` → `MaterialButton`：带保存图标的圆角按钮
+- SeekBar 添加最小/最大范围标签（500 / 8000），当前值居中加粗显示
+- Spinner 高度从固定 48dp 改为 `wrap_content`，适配不同设备
+- 必选通道（CMD/VIDEO/CTRL）使用 `alpha=0.6` 视觉降级，明确"不可切换"语义
+- 码率 SeekBar 强制最小 500kbps（松手时自动修正）
+
+**资源提取**:
+- 12 处硬编码字符串提取为 `@string` 资源（通用设置/车机参数/手机B参数/本机参数/日志设置等标题和描述）
+- 5 处硬编码颜色提取为 `@color` 资源（`settings_subtitle_car/phone/box/channel` + `seekbar_range_label`）
+- 消除布局中所有 `#FFxxxxxx` 硬编码颜色
+
+**代码优化**:
+- `saveSettings()` 中码率使用 `coerceAtLeast(BITRATE_MIN_KBPS)` 强制最小值
+- `loadSettings()` 中码率使用 `coerceIn()` 确保范围合法
+- 新增保存成功 Toast 提示
+- 提取 `BITRATE_MIN_KBPS` / `BITRATE_MAX_KBPS` 常量
+
+**涉及文件**:
+- `activity_settings.xml` — 全面重构（~400 行）
+- `SettingsActivity.kt` — 适配新布局 + 码率强制 + 保存提示
+- `strings.xml` — 新增 12 个字符串资源
+- `colors.xml` — 新增 5 个颜色资源
+
 ### 2026-05-14 — ProtocolService 功能实现：协议统计 + 握手追踪 + 健康监控
 
 **问题**: `ProtocolService` 注册在 AndroidManifest 但从未启动，所有方法为空壳（TODO）。

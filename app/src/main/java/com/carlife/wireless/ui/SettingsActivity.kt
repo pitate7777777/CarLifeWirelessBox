@@ -15,17 +15,26 @@ import com.carlife.wireless.util.SettingsManager
 
 /**
  * 设置 Activity
- * 
- * Manifest 中配置：.ui.SettingsActivity
+ *
+ * 布局优化:
+ * - NestedScrollView 替代 ScrollView（更好的嵌套滚动）
+ * - TextInputLayout 包裹输入框（Material 规范 + 错误提示支持）
+ * - SeekBar 范围标签（最小/最大值一目了然）
+ * - MaterialButton 替代普通 Button
+ * - 必选通道 CMD/VIDEO/CTRL 使用 alpha=0.6 视觉降级，明确"不可切换"
+ * - 所有硬编码字符串提取为 @string 资源
+ * - 所有硬编码颜色提取为 @color 资源
  */
 class SettingsActivity : AppCompatActivity() {
-    
+
     companion object {
         private const val TAG = "SettingsActivity"
+        private const val BITRATE_MIN_KBPS = 500
+        private const val BITRATE_MAX_KBPS = 8000
     }
-    
+
     private lateinit var binding: ActivitySettingsBinding
-    private lateinit var resolutions: Array<String> // 改为 var，允许更新
+    private lateinit var resolutions: Array<String>
     private val carPresetValues = SettingsManager.CarPreset.entries.map { it.name }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,7 +56,7 @@ class SettingsActivity : AppCompatActivity() {
         loadSettings()
         setupListeners()
     }
-    
+
     private fun setupSpinners() {
         // 车机兼容模式预设
         val presetOptions = resources.getStringArray(R.array.car_preset_options)
@@ -71,8 +80,8 @@ class SettingsActivity : AppCompatActivity() {
 
         // 分辨率选项（从资源文件加载）
         binding.spinnerResolution.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, resolutions)
-        
-        // 监听分辨率选择
+
+        // 监听分辨率选择 → 弹出自定义分辨率对话框
         binding.spinnerResolution.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
                 if (resolutions[position] == getString(R.string.resolution_custom)) {
@@ -81,16 +90,16 @@ class SettingsActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>) {}
         }
-        
+
         // 帧率选项（从资源文件加载）
         val framerates = resources.getStringArray(R.array.framerate_options)
         binding.spinnerFramerate.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, framerates)
-        
+
         // 采样率选项（从资源文件加载）
         val sampleRates = resources.getStringArray(R.array.sample_rate_options)
         binding.spinnerSampleRate.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, sampleRates)
     }
-    
+
     private fun loadSettings() {
         LogUtils.d(TAG, "Loading settings...")
         val prefs = getSharedPreferences("carlife_settings", MODE_PRIVATE)
@@ -99,28 +108,28 @@ class SettingsActivity : AppCompatActivity() {
         val preset = SettingsManager.getCarPreset(this)
         val presetIndex = carPresetValues.indexOf(preset.name).coerceAtLeast(0)
         binding.spinnerCarPreset.setSelection(presetIndex)
-        
+
         // 加载分辨率
         val resolution = prefs.getString("resolution", "1280x720") ?: "1280x720"
         val resolutionIndex = resolutions.indexOf(resolution).coerceAtLeast(0)
         binding.spinnerResolution.setSelection(resolutionIndex)
-        
+
         // 加载码率（从 bps 转换为 kbps）
         val bitrate = prefs.getInt("bitrate", 2000000)
-        val bitrateKbps = bitrate / 1000
+        val bitrateKbps = (bitrate / 1000).coerceIn(BITRATE_MIN_KBPS, BITRATE_MAX_KBPS)
         binding.seekbarBitrate.progress = bitrateKbps
         binding.tvBitrateValue.text = getString(R.string.video_bitrate_value, bitrateKbps)
-        
+
         // 加载帧率
         val framerate = prefs.getString("framerate", "30") ?: "30"
         val framerateIndex = resources.getStringArray(R.array.framerate_options).indexOf(framerate).coerceAtLeast(0)
         binding.spinnerFramerate.setSelection(framerateIndex)
-        
+
         // 加载采样率
         val sampleRate = prefs.getString("sample_rate", "44100") ?: "44100"
         val sampleRateIndex = resources.getStringArray(R.array.sample_rate_options).indexOf(sampleRate).coerceAtLeast(0)
         binding.spinnerSampleRate.setSelection(sampleRateIndex)
-        
+
         // 加载端口
         val port = prefs.getInt("port", 8234)
         binding.etPort.setText(port.toString())
@@ -146,67 +155,61 @@ class SettingsActivity : AppCompatActivity() {
         binding.switchConsoleLog.isChecked = SettingsManager.isConsoleLogEnabled(this)
         binding.switchFileLog.isChecked = SettingsManager.isFileLogEnabled(this)
     }
-    
+
     private fun setupListeners() {
         binding.btnSave.setOnClickListener {
             LogUtils.i(TAG, "Save button clicked")
             saveSettings()
-            finish()
         }
 
-        // 码率 SeekBar 实时显示
+        // 码率 SeekBar — 强制最小值 + 实时显示
         binding.seekbarBitrate.setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: android.widget.SeekBar?, progress: Int, fromUser: Boolean) {
-                // 最小 500 kbps
-                val kbps = if (progress < 500) 500 else progress
+                val kbps = progress.coerceAtLeast(BITRATE_MIN_KBPS)
                 binding.tvBitrateValue.text = getString(R.string.video_bitrate_value, kbps)
             }
             override fun onStartTrackingTouch(seekBar: android.widget.SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {}
+            override fun onStopTrackingTouch(seekBar: android.widget.SeekBar?) {
+                // 松手时修正低于最小值的进度
+                if (seekBar != null && seekBar.progress < BITRATE_MIN_KBPS) {
+                    seekBar.progress = BITRATE_MIN_KBPS
+                }
+            }
         })
     }
-    
+
     private fun showCustomResolutionDialog() {
         val dialogBinding = DialogCustomResolutionBinding.inflate(layoutInflater)
-        val dialogView = dialogBinding.root
 
         val dialog = AlertDialog.Builder(this)
             .setTitle(getString(R.string.dialog_custom_resolution_title))
-            .setView(dialogView)
-            .setPositiveButton(getString(R.string.dialog_confirm), null) // 设置为 null，稍后手动处理
+            .setView(dialogBinding.root)
+            .setPositiveButton(getString(R.string.dialog_confirm), null)
             .setNegativeButton(getString(R.string.dialog_cancel)) { _, _ ->
                 loadSettings() // 恢复之前的选择
             }
             .setOnCancelListener {
-                loadSettings() // 恢复之前的选择
+                loadSettings()
             }
             .create()
 
-        // 手动处理确定按钮点击，避免自动关闭对话框
+        // 手动处理确定按钮，避免输入无效时自动关闭
         dialog.setOnShowListener {
-            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-            positiveButton.setOnClickListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
                 val width = dialogBinding.etCustomWidth.text.toString().toIntOrNull()
                 val height = dialogBinding.etCustomHeight.text.toString().toIntOrNull()
 
-                if (width != null && height != null) {
-                    if (width in 480..2560 && height in 480..2560 && width % 2 == 0 && height % 2 == 0) {
-                        // 有效输入
-                        val customResolution = "${width}x${height}"
-                        LogUtils.i(TAG, "Custom resolution set: $customResolution")
-                        Toast.makeText(this, getString(R.string.toast_custom_resolution_set, customResolution), Toast.LENGTH_SHORT).show()
-
-                        // 更新分辨率列表
-                        updateResolutionList(customResolution)
-                        dialog.dismiss()
-                    } else {
-                        // 无效输入，显示错误并清空
-                        Toast.makeText(this, getString(R.string.toast_resolution_range_error), Toast.LENGTH_LONG).show()
-                        dialogBinding.etCustomWidth.text.clear()
-                        dialogBinding.etCustomHeight.text.clear()
-                    }
+                if (width != null && height != null &&
+                    width in 480..2560 && height in 480..2560 &&
+                    width % 2 == 0 && height % 2 == 0
+                ) {
+                    val customResolution = "${width}x${height}"
+                    LogUtils.i(TAG, "Custom resolution set: $customResolution")
+                    Toast.makeText(this, getString(R.string.toast_custom_resolution_set, customResolution), Toast.LENGTH_SHORT).show()
+                    updateResolutionList(customResolution)
+                    dialog.dismiss()
                 } else {
-                    Toast.makeText(this, getString(R.string.toast_invalid_input), Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.toast_resolution_range_error), Toast.LENGTH_LONG).show()
                     dialogBinding.etCustomWidth.text.clear()
                     dialogBinding.etCustomHeight.text.clear()
                 }
@@ -215,34 +218,34 @@ class SettingsActivity : AppCompatActivity() {
 
         dialog.show()
     }
-    
+
     private fun updateResolutionList(customResolution: String) {
-        // 移除旧的"自定义..."，添加新分辨率
         val resolutionList = resolutions.toMutableList()
         resolutionList.remove(getString(R.string.resolution_custom))
         if (!resolutionList.contains(customResolution)) {
             resolutionList.add(customResolution)
         }
-        resolutionList.add(getString(R.string.resolution_custom)) // 重新添加
-        
-        // 更新适配器和 Spinner
+        resolutionList.add(getString(R.string.resolution_custom))
+
         val newAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, resolutionList.toTypedArray())
         binding.spinnerResolution.adapter = newAdapter
         binding.spinnerResolution.setSelection(resolutionList.indexOf(customResolution))
-        
-        // 更新类级别的 resolutions 数组
+
         resolutions = resolutionList.toTypedArray()
     }
-    
+
     private fun saveSettings() {
         LogUtils.d(TAG, "Saving settings...")
 
         val resolution = binding.spinnerResolution.selectedItem.toString()
-        val bitrate = binding.seekbarBitrate.progress * 1000L  // 从 kbps 转换为 bps
+        val bitrateKbps = binding.seekbarBitrate.progress.coerceAtLeast(BITRATE_MIN_KBPS)
+        val bitrate = bitrateKbps * 1000L  // kbps → bps
         val framerate = binding.spinnerFramerate.selectedItem.toString()
         val sampleRate = binding.spinnerSampleRate.selectedItem.toString()
         val port = binding.etPort.text.toString().toIntOrNull() ?: 8234
-        val phoneBIp = binding.etPhoneBIp.text.toString().trim().ifEmpty { com.carlife.wireless.util.Constants.IpAddress.HOTSPOT_GATEWAY }
+        val phoneBIp = binding.etPhoneBIp.text.toString().trim().ifEmpty {
+            com.carlife.wireless.util.Constants.IpAddress.HOTSPOT_GATEWAY
+        }
 
         // 验证端口号范围
         if (port !in 1024..65535) {
@@ -262,7 +265,7 @@ class SettingsActivity : AppCompatActivity() {
             apply()
         }
 
-        LogUtils.i(TAG, "Settings saved: resolution=$resolution, bitrate=$bitrate, framerate=$framerate, sampleRate=$sampleRate, port=$port, phoneBIp=$phoneBIp")
+        LogUtils.i(TAG, "Settings saved: res=$resolution, bitrate=${bitrateKbps}kbps, fps=$framerate, sr=$sampleRate, port=$port, phoneB=$phoneBIp")
 
         // 保存通道开关配置
         val channelConfig = SettingsManager.ChannelConfig(
@@ -274,23 +277,24 @@ class SettingsActivity : AppCompatActivity() {
             vrEnabled = binding.switchChannelVr.isChecked
         )
         SettingsManager.saveChannelConfig(this, channelConfig)
-        LogUtils.i(TAG, "Channel config saved: media=${channelConfig.mediaEnabled}, tts=${channelConfig.ttsEnabled}, vr=${channelConfig.vrEnabled}")
+        LogUtils.i(TAG, "Channel config: media=${channelConfig.mediaEnabled}, tts=${channelConfig.ttsEnabled}, vr=${channelConfig.vrEnabled}")
 
         // 保存自动连接开关
-        val autoConnectEnabled = binding.switchAutoConnect.isChecked
-        SettingsManager.setAutoConnectEnabled(this, autoConnectEnabled)
-        LogUtils.i(TAG, "Auto-connect saved: $autoConnectEnabled")
+        SettingsManager.setAutoConnectEnabled(this, binding.switchAutoConnect.isChecked)
 
         // 保存日志开关配置
-        val consoleLogEnabled = binding.switchConsoleLog.isChecked
-        val fileLogEnabled = binding.switchFileLog.isChecked
-        SettingsManager.setConsoleLogEnabled(this, consoleLogEnabled)
-        SettingsManager.setFileLogEnabled(this, fileLogEnabled)
-        LogUtils.setConsoleLogEnabled(consoleLogEnabled)
-        LogUtils.setSaveToFile(fileLogEnabled)
-        LogUtils.i(TAG, "Log config saved: console=$consoleLogEnabled, file=$fileLogEnabled")
+        val consoleLog = binding.switchConsoleLog.isChecked
+        val fileLog = binding.switchFileLog.isChecked
+        SettingsManager.setConsoleLogEnabled(this, consoleLog)
+        SettingsManager.setFileLogEnabled(this, fileLog)
+        LogUtils.setConsoleLogEnabled(consoleLog)
+        LogUtils.setSaveToFile(fileLog)
+        LogUtils.i(TAG, "Log config: console=$consoleLog, file=$fileLog")
+
+        Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show()
+        finish()
     }
-    
+
     override fun onDestroy() {
         super.onDestroy()
         LogUtils.i(TAG, "SettingsActivity onDestroy")
