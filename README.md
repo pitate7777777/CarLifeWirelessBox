@@ -177,6 +177,18 @@ MIT License
 
 ## 更新日志
 
+### 2026-05-14 — 补充单元测试（覆盖率 58%→70%）
+
+**新增测试文件**:
+- `TranscodePipelineTest.kt` — 转码管线状态查询、未初始化保护、release 幂等性
+- `TouchServiceTest.kt` — 触摸事件常量验证、bytesToInt 大端字节序转换
+- `MdRoleTest.kt` — MdState 枚举完整性、MD_PORTS/PORT_NAMES 常量映射
+- `ConnectionServiceTest.kt` — Broadcast Action 常量、通知渠道配置
+- `ProtocolServiceTest.kt` — Protobuf 解析直通、心跳管理基础测试
+
+**测试覆盖**:
+- 源文件: 41，测试文件: 29（原 24），覆盖率: 70%（原 58%）
+
 ### 2026-05-14 — 修复无线连接卡在第 4 步：MdRole/HuRole 双重连接冲突
 
 **问题**: 无线连接卡在第 4 步（启动 CarLife 服务后握手超时）。
