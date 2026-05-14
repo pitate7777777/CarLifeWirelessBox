@@ -534,6 +534,8 @@ private class TcpChannel(
                 if (autoRead) startReadLoop()
             } catch (e: Exception) {
                 LogUtils.e(e, "[$name] connect failed to $host:$port")
+                // 连接失败时关闭 socket，防止资源泄漏
+                try { sock.close() } catch (_: Exception) {}
                 callback?.onError(this@TcpChannel, e)
                 updateState(KConnectionState.DISCONNECTED, "connect failed: ${e.message}")
             }

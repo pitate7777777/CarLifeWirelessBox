@@ -109,12 +109,15 @@ class TcpClient(
 
             } catch (e: SocketTimeoutException) {
                 LogUtils.e("$TAG: Connection timeout: ${e.message}")
+                try { newSocket.close() } catch (_: Exception) {}
                 handleConnectionFailure(e, host, port)
             } catch (e: IOException) {
                 LogUtils.e("$TAG: Connection failed: ${e.message}")
+                try { newSocket.close() } catch (_: Exception) {}
                 handleConnectionFailure(e, host, port)
             } catch (e: Exception) {
                 LogUtils.e(e, "$TAG: Unexpected error: ${e.message}")
+                try { newSocket.close() } catch (_: Exception) {}
                 handleConnectionFailure(e, host, port)
             }
         }

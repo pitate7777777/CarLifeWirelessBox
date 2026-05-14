@@ -307,9 +307,9 @@ class WifiGuideActivity : AppCompatActivity() {
             var openCount = 0
             for (port in ports) {
                 try {
-                    val socket = Socket()
-                    socket.connect(InetSocketAddress(localIp, port), 1500)
-                    socket.close()
+                    Socket().use { socket ->
+                        socket.connect(InetSocketAddress(localIp, port), 1500)
+                    }
                     openCount++
                 } catch (_: Exception) {
                 }
