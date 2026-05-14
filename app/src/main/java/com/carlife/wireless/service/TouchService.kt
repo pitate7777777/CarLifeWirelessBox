@@ -75,6 +75,29 @@ class TouchService : Service() {
         fun isConnected(): Boolean
     }
 
+    /** 基于 CarAccessibilityService 的注入器实现 */
+    class CarAccessibilityServiceInjector(
+        private val service: CarAccessibilityService
+    ) : TouchInjector {
+        override fun injectTouch(action: Int, x: Float, y: Float) {
+            service.injectTouch(action, x, y)
+        }
+
+        override fun isConnected(): Boolean = true
+
+        /** 注入按键事件，返回 true 表示已处理 */
+        fun injectKeyEvent(carlifeKeycode: Int): Boolean {
+            val globalAction = when (carlifeKeycode) {
+                0x01 -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_BACK
+                0x02 -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_HOME
+                0x03 -> android.accessibilityservice.AccessibilityService.GLOBAL_ACTION_RECENTS
+                else -> return false // 不支持的按键，回退到 shell
+            }
+            service.performGlobalAction(globalAction)
+            return true
+        }
+    }
+
     inner class TouchBinder : Binder() {
         fun getService(): TouchService = this@TouchService
     }
@@ -399,12 +422,67 @@ class TouchService : Service() {
     /**
      * 处理硬按键事件
      * 载荷格式：[keycode(4B)]
+     *
+     * CarLife 协议的 keycode 映射到 Android KeyEvent：
+     * - 0x01: BACK → AccessibilityService.performGlobalAction(GLOBAL_ACTION_BACK)
+     * - 0x02: HOME → AccessibilityService.performGlobalAction(GLOBAL_ACTION_HOME)
+     * - 0x03: MENU → AccessibilityService.performGlobalAction(GLOBAL_ACTION_RECENTS)
+     * - 其他: 通过 shell input keyevent 注入
      */
     private fun handleHardKey(payload: ByteArray) {
         if (payload.size < 4) return
         val keycode = bytesToInt(payload, 0)
-        LogUtils.i(TAG, "Hard key: $keycode (not implemented)")
-        // 硬按键需要系统级权限，暂不实现
+
+        LogUtils.i(TAG, "Hard key: $keycode")
+
+        // 尝试通过 AccessibilityService 注入按键
+        val injector = touchInjector
+        if (injector is CarAccessibilityServiceInjector) {
+            val handled = injector.injectKeyEvent(keycode)
+            if (handled) return
+        }
+
+        // 回退：通过 shell 命令注入（需要 root）
+        injectKeyViaShell(keycode)
+    }
+
+    /**
+     * 通过 shell 注入按键（需要 root）
+     */
+    private fun injectKeyViaShell(keycode: Int) {
+        val androidKeycode = mapCarLifeKeycodeToAndroid(keycode) ?: return
+        executor.submit {
+            try {
+                Runtime.getRuntime().exec(arrayOf("sh", "-c", "input keyevent $androidKeycode"))
+            } catch (e: Exception) {
+                LogUtils.w(TAG, "Shell key inject failed: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * CarLife keycode → Android KeyEvent keycode 映射
+     */
+    private fun mapCarLifeKeycodeToAndroid(carlifeKeycode: Int): Int? {
+        return when (carlifeKeycode) {
+            0x01 -> android.view.KeyEvent.KEYCODE_BACK          // 返回
+            0x02 -> android.view.KeyEvent.KEYCODE_HOME          // 主页
+            0x03 -> android.view.KeyEvent.KEYCODE_APP_SWITCH    // 最近任务
+            0x04 -> android.view.KeyEvent.KEYCODE_MENU          // 菜单
+            0x05 -> android.view.KeyEvent.KEYCODE_SEARCH        // 搜索
+            0x06 -> android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE
+            0x07 -> android.view.KeyEvent.KEYCODE_MEDIA_STOP
+            0x08 -> android.view.KeyEvent.KEYCODE_MEDIA_NEXT
+            0x09 -> android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS
+            0x0A -> android.view.KeyEvent.KEYCODE_VOLUME_UP
+            0x0B -> android.view.KeyEvent.KEYCODE_VOLUME_DOWN
+            0x0C -> android.view.KeyEvent.KEYCODE_VOLUME_MUTE
+            0x0D -> android.view.KeyEvent.KEYCODE_POWER
+            else -> {
+                LogUtils.d(TAG, "Unknown CarLife keycode: $carlifeKeycode")
+                null
+            }
+        }
     }
 
     // ==================== 坐标转换 ====================

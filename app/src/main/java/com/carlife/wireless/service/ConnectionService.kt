@@ -592,14 +592,9 @@ class ConnectionService : Service() {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
             touchService = (binder as? TouchService.TouchBinder)?.getService()
             LogUtils.i(TAG, "TouchService 已绑定")
-            // 设置 AccessibilityService 注入器
+            // 设置 AccessibilityService 注入器（支持触摸 + 按键注入）
             CarAccessibilityService.instance?.let { accessibility ->
-                touchService?.setTouchInjector(object : TouchService.TouchInjector {
-                    override fun injectTouch(action: Int, x: Float, y: Float) {
-                        accessibility.injectTouch(action, x, y)
-                    }
-                    override fun isConnected(): Boolean = true
-                })
+                touchService?.setTouchInjector(TouchService.CarAccessibilityServiceInjector(accessibility))
             }
             touchService?.startTouchListener()
         }

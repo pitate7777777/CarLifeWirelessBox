@@ -154,4 +154,35 @@ class ProtocolTranslatorTest {
         assertArrayEquals(frame, resultFrame)
         assertEquals(99, codecType)
     }
+
+    // ==================== release ====================
+
+    @Test
+    fun `release does not throw when not initialized`() {
+        try {
+            ProtocolTranslator.release()
+        } catch (e: Exception) {
+            fail("release should not throw: ${e.message}")
+        }
+    }
+
+    // ==================== Pass-through mode (no transcoder) ====================
+
+    @Test
+    fun `H265 pass-through preserves original codec type`() {
+        // 不调用 initTranscoders() → 直通模式
+        val frame = byteArrayOf(0x00, 0x00, 0x00, 0x01, 0x40, 0x01)
+        val (result, codec) = ProtocolTranslator.translateVideoFrame(frame, ProtocolTranslator.CODEC_H265)
+        assertArrayEquals(frame, result)
+        assertEquals(ProtocolTranslator.CODEC_H265, codec)
+    }
+
+    @Test
+    fun `Opus pass-through preserves original codec type`() {
+        // 不调用 initTranscoders() → 直通模式
+        val frame = byteArrayOf(0x01, 0x02, 0x03, 0x04)
+        val (result, codec) = ProtocolTranslator.translateAudioFrame(frame, ProtocolTranslator.CODEC_OPUS)
+        assertArrayEquals(frame, result)
+        assertEquals(ProtocolTranslator.CODEC_OPUS, codec)
+    }
 }

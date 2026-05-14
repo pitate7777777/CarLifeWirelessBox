@@ -8,7 +8,21 @@ import com.carlife.wireless.util.LogUtils
  * 将高版本 CarLife 协议转换为旧版 WinCE 车机兼容的协议。
  * 支持视频编解码器转换（H.265 → H.264）和音频编解码器转换（Opus → AAC）。
  *
- * TODO: 实际编解码转换需要 MediaCodec API 实现
+ * 转码模式：
+ * - 当 TranscodePipeline 已初始化时，使用 MediaCodec 硬件转码
+ * - 当 TranscodePipeline 未初始化时，直通数据并保留原始编解码器类型
+ *
+ * 使用方式：
+ * ```kotlin
+ * // 初始化（可选，需要转码时调用）
+ * ProtocolTranslator.initTranscoders()
+ *
+ * // 转码
+ * val (frame, codec) = ProtocolTranslator.translateVideoFrame(h265Data, CODEC_H265)
+ *
+ * // 释放
+ * ProtocolTranslator.release()
+ * ```
  */
 object ProtocolTranslator {
 
@@ -25,6 +39,50 @@ object ProtocolTranslator {
     const val CODEC_AAC = 3
     const val CODEC_OPUS = 4
 
+    /** 转码管线（懒加载，调用 initTranscoders() 后生效） */
+    private var transcodePipeline: TranscodePipeline? = null
+    private val transcoderInitialized get() = transcodePipeline?.isVideoReady() == true || transcodePipeline?.isAudioReady() == true
+
+    /**
+     * 初始化转码管线
+     *
+     * 调用后 translateVideoFrame/translateAudioFrame 将使用硬件转码。
+     * 不调用则保持直通模式（保留原始编解码器类型）。
+     *
+     * @param enableVideo 是否启用 H.265→H.264 视频转码
+     * @param enableAudio 是否启用 Opus→AAC 音频转码
+     * @return true 至少一项转码初始化成功
+     */
+    fun initTranscoders(enableVideo: Boolean = true, enableAudio: Boolean = true): Boolean {
+        if (transcodePipeline != null) {
+            LogUtils.w(TAG, "Transcoders already initialized")
+            return transcoderInitialized
+        }
+
+        val pipeline = TranscodePipeline()
+        var anySuccess = false
+
+        if (enableVideo) {
+            if (pipeline.initVideoTranscoder()) {
+                anySuccess = true
+            } else {
+                LogUtils.w(TAG, "Video transcoder init failed, will use pass-through")
+            }
+        }
+
+        if (enableAudio) {
+            if (pipeline.initAudioTranscoder()) {
+                anySuccess = true
+            } else {
+                LogUtils.w(TAG, "Audio transcoder init failed, will use pass-through")
+            }
+        }
+
+        transcodePipeline = pipeline
+        LogUtils.i(TAG, "Transcoders initialized: video=${pipeline.isVideoReady()}, audio=${pipeline.isAudioReady()}")
+        return anySuccess
+    }
+
     fun translateProtocolVersion(major: Int, minor: Int): Pair<Int, Int> {
         LogUtils.d(TAG, "Translating protocol version $major.$minor → $TARGET_PROTOCOL_MAJOR.$TARGET_PROTOCOL_MINOR")
         return Pair(TARGET_PROTOCOL_MAJOR, TARGET_PROTOCOL_MINOR)
@@ -36,52 +94,81 @@ object ProtocolTranslator {
     }
 
     /**
-     * 转换视频帧（直通模式）
+     * 转换视频帧
      *
-     * 当前实现：直接透传数据，不做实际编解码转换。
-     * H.265 → H.264 转换需要 MediaCodec 解码+重编码，开销较大，
-     * 当前场景下手机 B (CarWith) 直接输出 H.264，无需转换。
+     * 当 TranscodePipeline 已初始化且输入为 H.265 时：
+     * - 使用 MediaCodec 硬件转码 H.265 → H.264
+     * - 返回 (h264Data, CODEC_H264)
      *
-     * 如需支持 H.265 输入源，需实现：
-     * 1. MediaCodec 解码器（H.265）→ Surface
-     * 2. MediaCodec 编码器（H.264）← Surface
-     * 3. 异步管线管理
+     * 当 TranscodePipeline 未初始化或输入非 H.265 时：
+     * - 直通数据，保留原始编解码器类型
+     *
+     * @param frame 视频帧数据（NAL 单元）
+     * @param codecType 编解码器类型（CODEC_H264/CODEC_H265）
+     * @return Pair(转码后数据, 目标编解码器类型)
      */
     fun translateVideoFrame(frame: ByteArray, codecType: Int): Pair<ByteArray, Int> {
-        return if (codecType == CODEC_H265) {
-            // H.265 数据未实际转码，必须保留原始编解码器类型，
-            // 否则接收方会用 H.264 解码器解析 H.265 数据导致花屏/崩溃
-            LogUtils.d(TAG, "H.265 input detected, pass-through (no transcoding)")
-            Pair(frame, CODEC_H265)
-        } else {
-            Pair(frame, codecType)
+        if (codecType != CODEC_H265) {
+            return Pair(frame, codecType)
         }
+
+        // 尝试硬件转码
+        val pipeline = transcodePipeline
+        if (pipeline != null && pipeline.isVideoReady()) {
+            val transcoded = pipeline.transcodeVideoFrame(frame)
+            if (transcoded != null) {
+                LogUtils.d(TAG, "H.265→H.264 transcoded: ${frame.size}B → ${transcoded.size}B")
+                return Pair(transcoded, CODEC_H264)
+            }
+            LogUtils.w(TAG, "H.265→H.264 transcode failed, falling back to pass-through")
+        }
+
+        // 直通模式：保留原始编解码器类型
+        LogUtils.d(TAG, "H.265 pass-through (no transcoder): ${frame.size}B")
+        return Pair(frame, CODEC_H265)
     }
 
     /**
-     * 转换音频帧（直通模式）
+     * 转换音频帧
      *
-     * 当前实现：直接透传数据，不做实际编解码转换。
-     * Opus → AAC 转换需要 MediaCodec 解码+重编码。
-     * 当前场景下 AudioService 直接输出 AAC，无需转换。
+     * 当 TranscodePipeline 已初始化且输入为 Opus 时：
+     * - 使用 MediaCodec 硬件转码 Opus → AAC
+     * - 返回 (aacData, CODEC_AAC)
      *
-     * 如需支持 Opus 输入源，需实现：
-     * 1. MediaCodec 解码器（Opus）→ PCM
-     * 2. MediaCodec 编码器（AAC）← PCM
-     * 3. 采样率/声道数重采样
+     * 当 TranscodePipeline 未初始化或输入非 Opus 时：
+     * - 直通数据，保留原始编解码器类型
+     *
+     * @param frame 音频帧数据
+     * @param codecType 编解码器类型（CODEC_AAC/CODEC_OPUS）
+     * @return Pair(转码后数据, 目标编解码器类型)
      */
     fun translateAudioFrame(frame: ByteArray, codecType: Int): Pair<ByteArray, Int> {
-        return if (codecType == CODEC_OPUS) {
-            // Opus 数据未实际转码，必须保留原始编解码器类型，
-            // 否则接收方会用 AAC 解码器解析 Opus 数据导致噪音/崩溃
-            LogUtils.d(TAG, "Opus input detected, pass-through (no transcoding)")
-            Pair(frame, CODEC_OPUS)
-        } else {
-            Pair(frame, codecType)
+        if (codecType != CODEC_OPUS) {
+            return Pair(frame, codecType)
         }
+
+        // 尝试硬件转码
+        val pipeline = transcodePipeline
+        if (pipeline != null && pipeline.isAudioReady()) {
+            val transcoded = pipeline.transcodeAudioFrame(frame)
+            if (transcoded != null) {
+                LogUtils.d(TAG, "Opus→AAC transcoded: ${frame.size}B → ${transcoded.size}B")
+                return Pair(transcoded, CODEC_AAC)
+            }
+            LogUtils.w(TAG, "Opus→AAC transcode failed, falling back to pass-through")
+        }
+
+        // 直通模式：保留原始编解码器类型
+        LogUtils.d(TAG, "Opus pass-through (no transcoder): ${frame.size}B")
+        return Pair(frame, CODEC_OPUS)
     }
 
+    /**
+     * 释放所有转码资源
+     */
     fun release() {
-        LogUtils.i(TAG, "All codecs released (no-op, stub)")
+        transcodePipeline?.release()
+        transcodePipeline = null
+        LogUtils.i(TAG, "All codecs released")
     }
 }
