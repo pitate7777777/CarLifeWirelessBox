@@ -252,4 +252,66 @@ class ConstantsTest {
     fun `video frame max size is 200000`() {
         assertEquals(200_000, Constants.Buffer.VIDEO_FRAME_MAX_SIZE)
     }
+
+    // ==================== v2.3.0 Protocol Version ====================
+
+    @Test
+    fun `protocol version current is 1_0`() {
+        assertEquals(1, Constants.ProtocolVersion.CURRENT_MAJOR)
+        assertEquals(0, Constants.ProtocolVersion.CURRENT_MINOR)
+    }
+
+    @Test
+    fun `protocol version v3_2 is 3_2`() {
+        assertEquals(3, Constants.ProtocolVersion.V3_2_MAJOR)
+        assertEquals(2, Constants.ProtocolVersion.V3_2_MINOR)
+    }
+
+    @Test
+    fun `protocol version v4_1 is 4_1`() {
+        assertEquals(4, Constants.ProtocolVersion.V4_1_MAJOR)
+        assertEquals(1, Constants.ProtocolVersion.V4_1_MINOR)
+    }
+
+    // ==================== v2.3.0 Feature Config ====================
+
+    @Test
+    fun `feature config keys are defined`() {
+        assertEquals("VOICE_MIC", Constants.FeatureConfig.VOICE_MIC)
+        assertEquals("VOICE_WAKEUP", Constants.FeatureConfig.VOICE_WAKEUP)
+        assertEquals("BLUETOOTH_AUTO_PAIR", Constants.FeatureConfig.BLUETOOTH_AUTO_PAIR)
+        assertEquals("BLUETOOTH_INTERNAL_UI", Constants.FeatureConfig.BLUETOOTH_INTERNAL_UI)
+        assertEquals("FOCUS_UI", Constants.FeatureConfig.FOCUS_UI)
+        assertEquals("MEDIA_SAMPLE_RATE", Constants.FeatureConfig.MEDIA_SAMPLE_RATE)
+        assertEquals("AUDIO_TRANSMISSION_MODE", Constants.FeatureConfig.AUDIO_TRANSMISSION_MODE)
+        assertEquals("ENGINE_TYPE", Constants.FeatureConfig.ENGINE_TYPE)
+        assertEquals("INPUT_DISABLE", Constants.FeatureConfig.INPUT_DISABLE)
+    }
+
+    // ==================== v2.3.0 Module IDs ====================
+
+    @Test
+    fun `module IDs are 1-9`() {
+        assertEquals(1, Constants.ModuleId.PHONE)
+        assertEquals(2, Constants.ModuleId.NAVI)
+        assertEquals(3, Constants.ModuleId.MUSIC)
+        assertEquals(4, Constants.ModuleId.VR)
+        assertEquals(5, Constants.ModuleId.CONNECT)
+        assertEquals(6, Constants.ModuleId.MIC)
+        assertEquals(7, Constants.ModuleId.MEDIAPCM)
+        assertEquals(8, Constants.ModuleId.EDOG)
+        assertEquals(9, Constants.ModuleId.CRUISE)
+    }
+
+    // ==================== v2.3.0 Car Data Module IDs ====================
+
+    @Test
+    fun `car data module IDs are 0-5`() {
+        assertEquals(0, Constants.CarDataModuleId.GPS)
+        assertEquals(1, Constants.CarDataModuleId.VELOCITY)
+        assertEquals(2, Constants.CarDataModuleId.GYROSCOPE)
+        assertEquals(3, Constants.CarDataModuleId.ACCELERATION)
+        assertEquals(4, Constants.CarDataModuleId.GEAR)
+        assertEquals(5, Constants.CarDataModuleId.OIL)
+    }
 }

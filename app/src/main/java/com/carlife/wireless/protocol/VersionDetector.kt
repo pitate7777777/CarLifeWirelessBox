@@ -38,4 +38,20 @@ object VersionDetector {
         val (major, minor) = parseVersion(versionName)
         return needTranslation(major, minor)
     }
+
+    /**
+     * 判断协议版本是否被允许（v3.2+）
+     * v3.2 之前的 v3.x 版本不再支持
+     */
+    fun isVersionAllowed(major: Int, minor: Int): Boolean {
+        return major > 3 || (major == 3 && minor >= 2)
+    }
+
+    /**
+     * 判断是否为推荐版本（v4.1+）
+     * 推荐版本与新车机端SDK绑定
+     */
+    fun isVersionRecommended(major: Int, minor: Int): Boolean {
+        return major >= 4
+    }
 }

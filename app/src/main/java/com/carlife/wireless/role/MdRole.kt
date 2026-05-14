@@ -77,6 +77,24 @@ class MdRole(private val context: Context) {
         private const val MD_REGISTER_TYPE           = 0x00010001
         private const val HU_REGISTER_RESPONSE       = 0x00018002
 
+        // v2.3.0 新增 — CMD 通道 HU 消息
+        private const val HU_STATISTIC_INFO              = 0x00018027
+        private const val HU_MODULE_CONTROL              = 0x00018028
+        private const val HU_CAR_DATA_GEAR               = 0x00018029
+        private const val HU_CAR_DATA_SUBSCRIBE_DONE     = 0x00018032
+        private const val HU_BT_HFP_INDICATION           = 0x00018041
+        private const val HU_BT_HFP_CONNECTION           = 0x00018042
+        private const val HU_CARLIFE_DATA_SUBSCRIBE      = 0x00018043
+        private const val HU_CARLIFE_DATA_SUBSCRIBE_START = 0x00018045
+        private const val HU_CARLIFE_DATA_SUBSCRIBE_STOP = 0x00018046
+        private const val HU_BT_HFP_RESPONSE             = 0x0001804E
+        private const val HU_BT_HFP_STATUS_RESPONSE      = 0x00018050
+        private const val HU_BT_START_IDENTIFY_REQ       = 0x00018053
+        private const val HU_ERROR_CODE                  = 0x00018055
+        private const val HU_VIDEO_ENCODER_JPEG          = 0x00018056
+        private const val HU_VEHICLE_CONTROL_INFO        = 0x00018061
+        private const val HU_CONNECT_STATISTIC           = 0x00018070
+
         /** 默认通道配置 */
         val DEFAULT_CHANNEL_CONFIG = HuRole.ChannelConfig()
     }
@@ -438,17 +456,97 @@ class MdRole(private val context: Context) {
                 handleVideoEncoderStart()
             }
             else -> {
-                // 其他 CMD 消息（触摸控制等）→ 转发
-                if (handshakeCompleted.get()) {
-                    val hu = huRole
-                    if (hu != null) {
-                        LogUtils.d(TAG, "Forwarding CMD 0x${Integer.toHexString(serviceType)} to Phone B (${data.size} bytes)")
-                        hu.sendControlMsg(serviceType, data)
-                    } else {
-                        LogUtils.w(TAG, "HU role not set, cannot forward CMD 0x${Integer.toHexString(serviceType)}")
+                // v2.3.0 新增消息 — 车机发来的 HU 消息
+                when (serviceType) {
+                    HU_REGISTER_RESPONSE -> {
+                        LogUtils.i(TAG, "HU_REGISTER_RESPONSE received, len=${data.size}")
                     }
-                } else {
-                    LogUtils.d(TAG, "Unhandled CMD: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+                    HU_MODULE_CONTROL -> {
+                        LogUtils.i(TAG, "HU_MODULE_CONTROL received, len=${data.size}")
+                        if (handshakeCompleted.get()) {
+                            huRole?.sendControlMsg(serviceType, data)
+                        }
+                    }
+                    HU_CAR_DATA_GEAR -> {
+                        LogUtils.i(TAG, "HU_CAR_DATA_GEAR received (reverse signal), len=${data.size}")
+                        if (handshakeCompleted.get()) {
+                            huRole?.sendControlMsg(serviceType, data)
+                        }
+                    }
+                    HU_CAR_DATA_SUBSCRIBE_DONE -> {
+                        LogUtils.i(TAG, "HU_CAR_DATA_SUBSCRIBE_DONE received")
+                    }
+                    HU_CARLIFE_DATA_SUBSCRIBE -> {
+                        LogUtils.i(TAG, "HU_CARLIFE_DATA_SUBSCRIBE received, len=${data.size}")
+                    }
+                    HU_CARLIFE_DATA_SUBSCRIBE_START -> {
+                        LogUtils.i(TAG, "HU_CARLIFE_DATA_SUBSCRIBE_START received")
+                    }
+                    HU_CARLIFE_DATA_SUBSCRIBE_STOP -> {
+                        LogUtils.i(TAG, "HU_CARLIFE_DATA_SUBSCRIBE_STOP received")
+                    }
+                    HU_BT_HFP_INDICATION -> {
+                        LogUtils.i(TAG, "HU_BT_HFP_INDICATION received, len=${data.size}")
+                        if (handshakeCompleted.get()) {
+                            huRole?.sendControlMsg(serviceType, data)
+                        }
+                    }
+                    HU_BT_HFP_CONNECTION -> {
+                        LogUtils.i(TAG, "HU_BT_HFP_CONNECTION received, len=${data.size}")
+                        if (handshakeCompleted.get()) {
+                            huRole?.sendControlMsg(serviceType, data)
+                        }
+                    }
+                    HU_BT_HFP_RESPONSE -> {
+                        LogUtils.i(TAG, "HU_BT_HFP_RESPONSE received, len=${data.size}")
+                        if (handshakeCompleted.get()) {
+                            huRole?.sendControlMsg(serviceType, data)
+                        }
+                    }
+                    HU_BT_HFP_STATUS_RESPONSE -> {
+                        LogUtils.i(TAG, "HU_BT_HFP_STATUS_RESPONSE received, len=${data.size}")
+                        if (handshakeCompleted.get()) {
+                            huRole?.sendControlMsg(serviceType, data)
+                        }
+                    }
+                    HU_BT_START_IDENTIFY_REQ -> {
+                        LogUtils.i(TAG, "HU_BT_START_IDENTIFY_REQ received")
+                        if (handshakeCompleted.get()) {
+                            huRole?.sendControlMsg(serviceType, data)
+                        }
+                    }
+                    HU_ERROR_CODE -> {
+                        LogUtils.w(TAG, "HU_ERROR_CODE received, len=${data.size}")
+                    }
+                    HU_VIDEO_ENCODER_JPEG -> {
+                        LogUtils.i(TAG, "HU_VIDEO_ENCODER_JPEG received, len=${data.size}")
+                    }
+                    HU_VEHICLE_CONTROL_INFO -> {
+                        LogUtils.i(TAG, "HU_VEHICLE_CONTROL_INFO received, len=${data.size}")
+                        if (handshakeCompleted.get()) {
+                            huRole?.sendControlMsg(serviceType, data)
+                        }
+                    }
+                    HU_STATISTIC_INFO -> {
+                        LogUtils.d(TAG, "HU_STATISTIC_INFO received, len=${data.size}")
+                    }
+                    HU_CONNECT_STATISTIC -> {
+                        LogUtils.d(TAG, "HU_CONNECT_STATISTIC received, len=${data.size}")
+                    }
+                    else -> {
+                        // 其他 CMD 消息（触摸控制等）→ 转发
+                        if (handshakeCompleted.get()) {
+                            val hu = huRole
+                            if (hu != null) {
+                                LogUtils.d(TAG, "Forwarding CMD 0x${Integer.toHexString(serviceType)} to Phone B (${data.size} bytes)")
+                                hu.sendControlMsg(serviceType, data)
+                            } else {
+                                LogUtils.w(TAG, "HU role not set, cannot forward CMD 0x${Integer.toHexString(serviceType)}")
+                            }
+                        } else {
+                            LogUtils.d(TAG, "Unhandled CMD: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+                        }
+                    }
                 }
             }
         }

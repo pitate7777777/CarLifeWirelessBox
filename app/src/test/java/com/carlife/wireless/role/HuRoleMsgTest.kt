@@ -133,7 +133,33 @@ class HuRoleMsgTest {
             CarLifeMsg.TOUCH_ACTION, CarLifeMsg.TOUCH_ACTION_DOWN,
             CarLifeMsg.TOUCH_ACTION_UP, CarLifeMsg.TOUCH_ACTION_MOVE,
             CarLifeMsg.TOUCH_SINGLE_CLICK, CarLifeMsg.TOUCH_DOUBLE_CLICK,
-            CarLifeMsg.TOUCH_LONG_PRESS, CarLifeMsg.TOUCH_CAR_HARD_KEY_CODE
+            CarLifeMsg.TOUCH_LONG_PRESS, CarLifeMsg.TOUCH_CAR_HARD_KEY_CODE,
+            // v2.3.0 new MD messages
+            CarLifeMsg.MD_REGISTER_TYPE, CarLifeMsg.MD_MODULE_STATUS,
+            CarLifeMsg.MD_NAVI_NEXT_TURN_INFO, CarLifeMsg.MD_CAR_DATA_SUBSCRIBE,
+            CarLifeMsg.MD_CAR_DATA_SUBSCRIBE_START, CarLifeMsg.MD_CAR_DATA_SUBSCRIBE_STOP,
+            CarLifeMsg.MD_MEDIA_INFO, CarLifeMsg.MD_MEDIA_PROGRESS_BAR,
+            CarLifeMsg.MD_CONNECT_EXCEPTION, CarLifeMsg.MD_REQUEST_GO_TO_FOREGROUND,
+            CarLifeMsg.MD_UI_ACTION_SOUND, CarLifeMsg.MD_BT_HFP_REQUEST,
+            CarLifeMsg.MD_CARLIFE_DATA_SUBSCRIBE_DONE, CarLifeMsg.MD_NAVI_ASSITANTGUIDE_INFO,
+            CarLifeMsg.MD_BT_HFP_STATUS_REQUEST, CarLifeMsg.MD_BT_IDENTIFY_RESULT_IND,
+            CarLifeMsg.MD_VIDEO_ENCODER_JPEG_ACK, CarLifeMsg.MD_BT_HFP_CALL_STATUS_COVER,
+            CarLifeMsg.MD_EXIT, CarLifeMsg.MD_VEHICLE_CONTROL,
+            // v2.3.0 new HU messages
+            CarLifeMsg.HU_REGISTER_RESPONSE, CarLifeMsg.HU_STATISTIC_INFO,
+            CarLifeMsg.HU_MODULE_CONTROL, CarLifeMsg.HU_CAR_DATA_GEAR,
+            CarLifeMsg.HU_CAR_DATA_SUBSCRIBE_DONE, CarLifeMsg.HU_BT_HFP_INDICATION,
+            CarLifeMsg.HU_BT_HFP_CONNECTION, CarLifeMsg.HU_CARLIFE_DATA_SUBSCRIBE,
+            CarLifeMsg.HU_CARLIFE_DATA_SUBSCRIBE_START, CarLifeMsg.HU_CARLIFE_DATA_SUBSCRIBE_STOP,
+            CarLifeMsg.HU_BT_HFP_RESPONSE, CarLifeMsg.HU_BT_HFP_STATUS_RESPONSE,
+            CarLifeMsg.HU_BT_START_IDENTIFY_REQ, CarLifeMsg.HU_ERROR_CODE,
+            CarLifeMsg.HU_VIDEO_ENCODER_JPEG, CarLifeMsg.HU_VEHICLE_CONTROL_INFO,
+            CarLifeMsg.HU_CONNECT_STATISTIC,
+            // v2.3.0 new VR messages
+            CarLifeMsg.VR_MODULE_STATUS, CarLifeMsg.VR_AUDIO_INTERRUPT,
+            // v2.3.0 new touch messages
+            CarLifeMsg.TOUCH_ACTION_POINTER_DOWN, CarLifeMsg.TOUCH_ACTION_POINTER_UP,
+            CarLifeMsg.TOUCH_ACTION_OTHERPOINTER_UP
         )
         assertEquals("All message IDs should be unique", allIds.size, allIds.toSet().size)
     }
@@ -183,5 +209,41 @@ class HuRoleMsgTest {
         assertEquals(CarLifeMsg.TOUCH_SINGLE_CLICK + 1, CarLifeMsg.TOUCH_DOUBLE_CLICK)
         assertEquals(CarLifeMsg.TOUCH_DOUBLE_CLICK + 1, CarLifeMsg.TOUCH_LONG_PRESS)
         assertEquals(CarLifeMsg.TOUCH_LONG_PRESS + 1, CarLifeMsg.TOUCH_CAR_HARD_KEY_CODE)
+    }
+
+    // ==================== v2.3.0 新增消息 ID 验证 ====================
+
+    @Test
+    fun `v2_3_0 new CMD MD message IDs are in 0x000100xx range`() {
+        assertTrue(CarLifeMsg.MD_REGISTER_TYPE in 0x00010000..0x00010FFF)
+        assertTrue(CarLifeMsg.MD_MODULE_STATUS in 0x00010000..0x00010FFF)
+        assertTrue(CarLifeMsg.MD_NAVI_NEXT_TURN_INFO in 0x00010000..0x00010FFF)
+        assertTrue(CarLifeMsg.MD_CAR_DATA_SUBSCRIBE in 0x00010000..0x00010FFF)
+        assertTrue(CarLifeMsg.MD_EXIT in 0x00010000..0x00010FFF)
+        assertTrue(CarLifeMsg.MD_VEHICLE_CONTROL in 0x00010000..0x00010FFF)
+    }
+
+    @Test
+    fun `v2_3_0 new CMD HU message IDs are in 0x000180xx range`() {
+        assertTrue(CarLifeMsg.HU_REGISTER_RESPONSE in 0x00018000..0x00018FFF)
+        assertTrue(CarLifeMsg.HU_STATISTIC_INFO in 0x00018000..0x00018FFF)
+        assertTrue(CarLifeMsg.HU_MODULE_CONTROL in 0x00018000..0x00018FFF)
+        assertTrue(CarLifeMsg.HU_CAR_DATA_GEAR in 0x00018000..0x00018FFF)
+        assertTrue(CarLifeMsg.HU_VEHICLE_CONTROL_INFO in 0x00018000..0x00018FFF)
+        assertTrue(CarLifeMsg.HU_CONNECT_STATISTIC in 0x00018000..0x00018FFF)
+    }
+
+    @Test
+    fun `v2_3_0 VR channel IDs are in 0x0005xxxx range`() {
+        assertEquals(0x00050005, CarLifeMsg.VR_MODULE_STATUS)
+        assertEquals(0x00050006, CarLifeMsg.VR_AUDIO_INTERRUPT)
+    }
+
+    @Test
+    fun `v2_3_0 dual finger touch IDs are sequential`() {
+        assertEquals(0x0006800B, CarLifeMsg.TOUCH_ACTION_POINTER_DOWN)
+        assertEquals(0x0006800C, CarLifeMsg.TOUCH_ACTION_POINTER_UP)
+        assertEquals(0x0006800D, CarLifeMsg.TOUCH_ACTION_OTHERPOINTER_UP)
+        assertEquals(CarLifeMsg.TOUCH_CAR_HARD_KEY_CODE + 3, CarLifeMsg.TOUCH_ACTION_POINTER_DOWN)
     }
 }

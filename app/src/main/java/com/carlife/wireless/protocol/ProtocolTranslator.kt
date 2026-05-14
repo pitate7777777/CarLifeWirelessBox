@@ -84,8 +84,17 @@ object ProtocolTranslator {
     }
 
     fun translateProtocolVersion(major: Int, minor: Int): Pair<Int, Int> {
-        LogUtils.d(TAG, "Translating protocol version $major.$minor → $TARGET_PROTOCOL_MAJOR.$TARGET_PROTOCOL_MINOR")
-        return Pair(TARGET_PROTOCOL_MAJOR, TARGET_PROTOCOL_MINOR)
+        LogUtils.d(TAG, "Translating protocol version $major.$minor")
+        return when {
+            // v4.1 推荐使用，直通
+            major >= 4 -> Pair(4, 1)
+            // v3.2 允许使用，直通
+            major == 3 && minor >= 2 -> Pair(3, 2)
+            // v3.0/3.1 不再支持，降级到 1.0
+            major == 3 -> Pair(TARGET_PROTOCOL_MAJOR, TARGET_PROTOCOL_MINOR)
+            // 旧版直通
+            else -> Pair(TARGET_PROTOCOL_MAJOR, TARGET_PROTOCOL_MINOR)
+        }
     }
 
     fun translateVideoConfig(width: Int, height: Int, frameRate: Int): Triple<Int, Int, Int> {

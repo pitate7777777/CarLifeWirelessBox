@@ -90,4 +90,55 @@ object Constants {
         const val READ_BUFFER_SIZE = 8192
         const val VIDEO_FRAME_MAX_SIZE = 200_000
     }
+
+    // 协议版本说明（v2.3.0 接入指南）
+    object ProtocolVersion {
+        /** 当前使用版本（兼容旧版 CarWith） */
+        const val CURRENT_MAJOR = 1
+        const val CURRENT_MINOR = 0
+
+        /** v3.2 — 从2023年5月开始新项目使用 */
+        const val V3_2_MAJOR = 3
+        const val V3_2_MINOR = 2
+
+        /** v4.1 — 推荐使用（与新车机端SDK绑定） */
+        const val V4_1_MAJOR = 4
+        const val V4_1_MINOR = 1
+    }
+
+    // Feature Config 键名（v2.3.0 接入指南）
+    object FeatureConfig {
+        const val VOICE_MIC = "VOICE_MIC"
+        const val VOICE_WAKEUP = "VOICE_WAKEUP"
+        const val BLUETOOTH_AUTO_PAIR = "BLUETOOTH_AUTO_PAIR"
+        const val BLUETOOTH_INTERNAL_UI = "BLUETOOTH_INTERNAL_UI"
+        const val FOCUS_UI = "FOCUS_UI"
+        const val MEDIA_SAMPLE_RATE = "MEDIA_SAMPLE_RATE"
+        const val AUDIO_TRANSMISSION_MODE = "AUDIO_TRANSMISSION_MODE"
+        const val ENGINE_TYPE = "ENGINE_TYPE"
+        const val INPUT_DISABLE = "INPUT_DISABLE"
+    }
+
+    // 模块 ID（v2.3.0 接入指南）
+    object ModuleId {
+        const val PHONE = 1
+        const val NAVI = 2
+        const val MUSIC = 3
+        const val VR = 4
+        const val CONNECT = 5
+        const val MIC = 6
+        const val MEDIAPCM = 7
+        const val EDOG = 8
+        const val CRUISE = 9
+    }
+
+    // 车载数据订阅 Module ID（v2.3.0 接入指南）
+    object CarDataModuleId {
+        const val GPS = 0
+        const val VELOCITY = 1
+        const val GYROSCOPE = 2
+        const val ACCELERATION = 3
+        const val GEAR = 4
+        const val OIL = 5
+    }
 }

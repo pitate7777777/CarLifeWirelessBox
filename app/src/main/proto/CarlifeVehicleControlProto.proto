@@ -1,0 +1,41 @@
+syntax = "proto3";
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeVehicleControlProto";
+
+// CarLife+ 车控协议 — 车辆控制消息（v2.3.0）
+// 用于 MD_VEHICLE_CONTROL (0x0001006F) 和 HU_VEHICLE_CONTROL_INFO (0x00018061)
+message CarlifeVehicleControl {
+    int32 type = 1;
+    int32 id = 2;
+    bool support = 3;
+    string token_string = 4;
+    int32 area_id = 5;
+    repeated int32 area_value = 6;
+    int32 value_type = 7;
+    bytes bytes_value = 8;
+    repeated sint32 int32_values = 9;
+    repeated sint64 int64_values = 10;
+    repeated float float_values = 11;
+    string string_value = 12;
+}
+
+// 车辆数据列表
+message CarlifeVehicleDataList {
+    int32 support = 1;
+    string token_string = 2;
+    repeated CarlifeVehicleData vehicleInfo = 3;
+}
+
+// 单个车辆数据项
+message CarlifeVehicleData {
+    int32 id = 1;
+    bool support = 2;
+    int32 area_id = 3;
+    repeated int32 area_value = 4;
+    int32 value_type = 5;
+    bytes bytes_value = 6;
+    repeated sint32 int32_values = 7;
+    repeated sint64 int64_values = 8;
+    repeated float float_values = 9;
+    string string_value = 10;
+}

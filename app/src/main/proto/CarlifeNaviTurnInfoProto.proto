@@ -1,0 +1,53 @@
+syntax = "proto3";
+option java_package = "com.carlife.wireless.proto";
+option java_outer_classname = "CarlifeNaviTurnInfoProto";
+
+// HUD 导航转向类型（v2.3.0）
+// 用于 MD_NAVI_NEXT_TURN_INFO (0x00010030)
+
+enum ActionType {
+    ACTION_DEFAULT = 0;
+}
+
+enum TurnKind {
+    TURN_KIND_FRONT = 1;
+    TURN_KIND_RIGHT_FRONT = 2;
+    TURN_KIND_RIGHT = 3;
+    TURN_KIND_RIGHT_BACK = 4;
+    TURN_KIND_BACK = 5;
+    TURN_KIND_LEFT_BACK = 6;
+    TURN_KIND_LEFT = 7;
+    TURN_KIND_LEFT_FRONT = 8;
+    TURN_KIND_RING = 9;
+    TURN_KIND_RING_OUT = 10;
+    TURN_KIND_LEFT_SIDE = 11;
+    TURN_KIND_RIGHT_SIDE = 12;
+    TURN_KIND_LEFT_SIDE_MAIN = 13;
+    TURN_KIND_BRANCH_LEFT_MAIN = 14;
+    TURN_KIND_RIGHT_SIDE_MAIN = 15;
+    TURN_KIND_BRANCH_RIGHT_MAIN = 16;
+    TURN_KIND_CENTER_MAIN = 17;
+    TURN_KIND_LEFT_SIDE_IC = 18;
+    TURN_KIND_RIGHT_SIDE_IC = 19;
+    TURN_KIND_BRANCH_LEFT = 20;
+    TURN_KIND_BRANCH_RIGHT = 21;
+    TURN_KIND_BRANCH_CENTER = 22;
+    TURN_KIND_START = 23;
+    TURN_KIND_DEST = 24;
+    TURN_KIND_VIA1 = 25;
+    TURN_KIND_VIA2 = 26;
+    TURN_KIND_VIA3 = 27;
+    TURN_KIND_VIA4 = 28;
+    TURN_KIND_IN_FERRY = 29;
+    TURN_KIND_OUT_FERRY = 30;
+    TURN_KIND_TOLL_GATE = 31;
+}
+
+message CarlifeNaviNextTurnInfo {
+    ActionType action = 1;
+    TurnKind nextTurn = 2;
+    string roadName = 3;
+    int32 totalDistance = 4;
+    int32 remainDistance = 5;
+    bytes turnIconData = 6;
+}

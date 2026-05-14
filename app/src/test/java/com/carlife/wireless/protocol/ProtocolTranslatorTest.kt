@@ -35,15 +35,50 @@ class ProtocolTranslatorTest {
     // ==================== translateProtocolVersion ====================
 
     @Test
-    fun `translateProtocolVersion returns target 1_0`() {
+    fun `translateProtocolVersion v4plus returns 4_1`() {
         val (major, minor) = ProtocolTranslator.translateProtocolVersion(7, 2)
+        assertEquals(4, major)
+        assertEquals(1, minor)
+    }
+
+    @Test
+    fun `translateProtocolVersion v99 returns 4_1`() {
+        val (major, minor) = ProtocolTranslator.translateProtocolVersion(99, 99)
+        assertEquals(4, major)
+        assertEquals(1, minor)
+    }
+
+    @Test
+    fun `translateProtocolVersion v4_1 passthrough`() {
+        val (major, minor) = ProtocolTranslator.translateProtocolVersion(4, 1)
+        assertEquals(4, major)
+        assertEquals(1, minor)
+    }
+
+    @Test
+    fun `translateProtocolVersion v3_2 passthrough`() {
+        val (major, minor) = ProtocolTranslator.translateProtocolVersion(3, 2)
+        assertEquals(3, major)
+        assertEquals(2, minor)
+    }
+
+    @Test
+    fun `translateProtocolVersion v3_5 passthrough as 3_2`() {
+        val (major, minor) = ProtocolTranslator.translateProtocolVersion(3, 5)
+        assertEquals(3, major)
+        assertEquals(2, minor)
+    }
+
+    @Test
+    fun `translateProtocolVersion v3_0 downgrades to 1_0`() {
+        val (major, minor) = ProtocolTranslator.translateProtocolVersion(3, 0)
         assertEquals(1, major)
         assertEquals(0, minor)
     }
 
     @Test
-    fun `translateProtocolVersion for any input returns 1_0`() {
-        val (major, minor) = ProtocolTranslator.translateProtocolVersion(99, 99)
+    fun `translateProtocolVersion v3_1 downgrades to 1_0`() {
+        val (major, minor) = ProtocolTranslator.translateProtocolVersion(3, 1)
         assertEquals(1, major)
         assertEquals(0, minor)
     }
