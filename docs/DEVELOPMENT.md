@@ -10,34 +10,36 @@
 
 ```
 手机 B (CarWith)  ←WiFi→  转接盒 (本项目)  ←USB/WiFi→  车机
-     HU 端口              MdRole + HuRole              MD 端口
-  7240/8240/9240          (桥接转发)              7200/8200/9200
+   HU 端口               HuRole + MdRole              MD 端口
+ 7240/8240/9240          (桥接转发)              7200/8200/9200
 ```
 
 ### 核心角色
 
-| 角色 | 类 | 职责 | 连接方向 |
-|------|-----|------|----------|
-| **MdRole** | `MdRole.kt` | 作为 HU 客户端连接手机 B CarWith | 本机 → 手机 B (HU 端口) |
-| **HuRole** | `HuRole.kt` | 作为 MD 服务端，被车机连接 | 车机 → 本机 (MD 端口) |
+| 角色 | 类 | 协议角色 | 职责 | 连接方向 |
+|------|-----|---------|------|----------|
+| **HuRole** | `HuRole.kt` | HU (Head Unit) | 作为 HU 客户端连接手机 B CarWith，完成 CarLife 握手 | 本机 → 手机 B (HU 端口 7240/8240/...) |
+| **MdRole** | `MdRole.kt` | MD (Mobile Device) | 作为 MD 服务端，被车机连接，管理车机侧握手 | 车机 → 本机 (MD 端口 7200/8200/...) |
+
+> **命名说明**：HuRole/HuRole 是按"连接目标"命名的——HuRole 连接手机 B（扮演 HU），MdRole 被车机连接（扮演 MD）。但 MdRole 内部也会主动连接手机 B 的 CarWith HU 端口进行数据转发。
 
 ### 数据流
 
 ```
-手机B → MdRole(接收) → HuRole(转发) → 车机   (视频/音频/TTS/VR)
-车机 → MdRole(接收) → HuRole(转发) → 手机B   (触摸控制)
+手机B(HU) → HuRole(接收) → MdRole(转发) → 车机   (视频/音频/TTS/VR)
+车机 → MdRole(接收) → HuRole(转发) → 手机B(HU)   (触摸控制/VR麦克风)
 ```
 
 ### 通道类型（6 种）
 
-| 通道 | HU 端口 | MD 端口 | 用途 | 必选 |
-|------|---------|---------|------|------|
-| CMD | 7240 | 7200 | 协议握手 | ✅ |
-| VIDEO | 8240 | 8200 | 视频流 | ✅ |
-| MEDIA | 9240 | 9200 | 音乐 | ❌ |
-| TTS | 9241 | 9201 | 语音播报 | ❌ |
-| VR | 9242 | 9202 | 语音识别 | ❌ |
-| CTRL | 9340 | 9300 | 触摸控制 | ✅ |
+| 通道 | HU 端口 (手机B侧) | MD 端口 (车机侧) | 方向 | 用途 | 必选 |
+|------|---------|---------|------|------|------|
+| CMD | 7240 | 7200 | 双向 | 协议握手 | ✅ |
+| VIDEO | 8240 | 8200 | MD→HU | 视频流 (H.264) | ✅ |
+| MEDIA | 9240 | 9200 | MD→HU | 媒体音频 (PCM/AAC) | ❌ |
+| TTS | 9241 | 9201 | MD→HU | 导航语音 | ❌ |
+| VR | 9242 | 9202 | HU→MD | 语音识别 (麦克风) | ❌ |
+| CTRL | 9340 | 9300 | HU→MD | 触摸/按键控制 | ✅ |
 
 ### CarLife 协议格式
 
@@ -51,25 +53,40 @@
 [data_len(4B)][timestamp(4B)][service_type(4B)] + [raw_data]
 ```
 
-**注意**：`ChannelHeader` 类定义了另一种格式（带 magic 0x434C），仅用于内部 Channel 框架，**不用于 CarLife 协议通信**。
+**注意**：`ChannelHeader` 类定义了另一种格式（带 magic 0x434C），仅用于内部 Channel 框架的 `read()` / `writeFrame()` 方法，**不用于 CarLife 协议通信**。实际通信使用 `readCarLifeMsg()` / `sendCarLifeMsg()`（CMD）和 `readCarLifeMediaMsg()` / `sendCarLifeMediaMsg()`（媒体）。
 
-### 握手流程（13 步）
+### 握手流程（8 阶段 13 步）
 
 ```
+═══════ Phase 1: 协议版本协商 ═══════
 1.  Box(HU) → PhoneB: HU_PROTOCOL_VERSION (0x00018001)
 2.  PhoneB → Box: VERSION_MATCH_STATUS (0x00010002)
+
+═══════ Phase 2: 设备信息交换 ═══════
 3.  Box → PhoneB: HU_INFO (0x00018003)
 4.  PhoneB → Box: MD_INFO (0x00010004)
+
+═══════ Phase 3: 认证请求/响应 ════════
 5.  Box → PhoneB: HU_AUTHEN_REQUEST (0x00018048)
 6.  PhoneB → Box: MD_AUTHEN_RESPONSE (0x00010049)
+
+═══════ Phase 4: 认证结果 ════════════
 7.  Box → PhoneB: HU_AUTHEN_RESULT (0x0001804A)
 8.  PhoneB → Box: MD_AUTHEN_RESULT (0x0001004B)
+
+═══════ Phase 5: 特性配置 ════════════
 9.  PhoneB → Box: MD_FEATURE_CONFIG_REQUEST (0x00010051)
 10. Box → PhoneB: HU_FEATURE_CONFIG_RESPONSE (0x00018052)
+
+═══════ Phase 6: 视频编码器初始化 ════
 11. Box → PhoneB: VIDEO_ENCODER_INIT (0x00018007)
 12. PhoneB → Box: VIDEO_ENCODER_INIT_DONE (0x00010008)
+
+═══════ Phase 7: 开始传输 ════════════
 13. Box → PhoneB: VIDEO_ENCODER_START (0x00018009)
 ```
+
+> 详细协议格式和消息 ID 映射见 `docs/通讯协议分析报告.md`。
 
 ## 目录结构
 
@@ -163,3 +180,12 @@ A: 运行 NetworkDiagnostics 检查 CarWith 端口是否已监听。手机 B 必
 | Coroutines | 1.7.3 | 异步 |
 | Material | 1.11.0 | UI |
 | Robolectric | 4.11.1 | 单元测试 |
+
+## 相关文档
+
+| 文档 | 说明 |
+|------|------|
+| `docs/通讯协议分析报告.md` | CarLife 协议完整规范（包头格式、消息 ID、Protobuf 定义、版本兼容性） |
+| `docs/ARCHITECTURE.md` | 系统架构（模块依赖、数据流时序图、Gradle 依赖） |
+| `docs/AUDIT_REPORT.md` | 代码审计报告 |
+| `docs/PRD.md` | 产品需求文档 |
