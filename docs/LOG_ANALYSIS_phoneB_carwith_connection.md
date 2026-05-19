@@ -10,7 +10,7 @@
 
 ## 问题现象
 
-转接盒（本机，IP: `10.88.30.41`）尝试连接手机B CarWith（IP: `10.88.30.77`）的 HU 端口，全部 `ECONNREFUSED`：
+转接盒（本机，IP: `10.88.30.41`）启动后，HuRole 尝试连接手机B CarWith（IP: `10.88.30.77`）的 HU 端口，全部 `ECONNREFUSED`：
 
 | 通道 | 目标端口 | 错误 |
 |------|---------|------|
@@ -18,77 +18,89 @@
 | HU_VIDEO | 8240 | `ECONNREFUSED` |
 | HU_CTRL | 9340 | `ECONNREFUSED` |
 
-## 根本原因（从手机B日志确认）
+## 根本原因：时序竞争（Race Condition）
 
-**手机B 的 CarWith 应用缺少原生库 `libCarLifeSRC.so`，导致 CarLife 核心网络功能未初始化，TCP 服务器从未启动。**
+**转接盒的 HuRole 在 CarWith 尚未开始监听端口时就发起了连接。**
 
-### 手机B 日志关键发现
+### 关键证据
 
-1. **CarWith 进程在运行**（PID 20039, `com.baidu.carlife.xiaomi`），CastingActivity 已显示
-2. **致命错误**：
+1. **网络诊断确认端口正常监听** —— 对 `10.88.30.77:7240/8240/9340/9241/9242/9300` 的探测均显示"监听中"，说明 CarWith 最终是正常启动了 TCP 服务器的。
+
+2. **转接盒连接时机过早** —— `ConnectionService.onStartCommand()` 中 `startHuRole()` 在服务启动时**立即执行**，没有等待 CarWith 就绪：
+   ```kotlin
+   override fun onStartCommand(...) {
+       serviceScope.launch {
+           startHuRole()  // ← 立即连接，没有等待
+       }
+       startMdRole()
+       ...
+   }
    ```
-   [WARN] dlopen failed: library "libCarLifeSRC.so" not found
-   ```
-   - CarLife 的核心原生库 `libCarLifeSRC.so` 加载失败
-   - 这个库负责 TCP 服务器监听、协议处理等核心网络功能
-   - 没有这个库，CarWith 无法在 7240/8240/9340 端口上启动 TcpServer
 
-3. **无任何 TCP/端口相关日志** —— CarWith 从未尝试 bind/listen/accept 任何端口
-4. **无 UDP 发现响应** —— CarWith 从未收到或响应转接盒的 `CARLIFE_BOX_HERE` 广播
-5. **VR 引擎初始化** —— 语音唤醒引擎在初始化，但网络层完全未工作
+3. **连接超时 10 秒后放弃** —— 3 个通道同时连接，10 秒超时后全部失败。此时 CarWith 可能还在初始化中。
 
-### 转接盒日志确认
+4. **重连逻辑存在但日志中未体现** —— 虽然有指数退避重连（5s/10s/20s/40s/80s，最多 5 次），但日志中未捕获到重连尝试，可能是因为：
+   - 日志采集时间不够长
+   - 或重连时 CarWith 已经就绪但 HuRole 实例状态异常
 
-转接盒侧日志与之前一致：
-- HuRole 连接 10.88.30.77:7240/8240/9340 → 全部 ECONNREFUSED
-- MdRole TcpServer 正常启动（端口 7200/8200/9200/9300）
-- UDP 发现服务正常广播，但手机B 无响应
-
-## 时间线
+### 时间线
 
 ```
-手机B侧:
-  com.baidu.carlife.xiaomi 进程启动 (PID 20039)
-  → 加载 libCarLifeSRC.so 失败 ❌
-  → VR 引擎初始化（但网络层未工作）
-  → CastingActivity 显示（UI 层正常）
-  → 无 TCP 服务器启动，无端口监听
-
-转接盒侧:
-  应用启动 → ConnectionService 创建
-  → Phone B IP: 10.88.30.77
-  → HuRole 连接 10.88.30.77:7240 → ECONNREFUSED ❌
-  → HuRole 连接 10.88.30.77:8240 → ECONNREFUSED ❌
-  → HuRole 连接 10.88.30.77:9340 → ECONNREFUSED ❌
-  → MdRole 等待车机连接超时
+T+0s   转接盒服务启动，立即调用 startHuRole()
+T+0s   HuRole 尝试连接 10.88.30.77:7240/8240/9340
+       ↑ 此时 CarWith 可能还在初始化，端口尚未监听
+T+10s  连接超时，全部 ECONNREFUSED
+T+10s  HuRole → DISCONNECTED，触发 scheduleHuReconnect()
+T+15s  第 1 次重连（如果 CarWith 此时已就绪，应该能成功）
+...
 ```
 
-## 结论
+### 手机B 日志补充
 
-| 检查项 | 状态 | 说明 |
-|--------|------|------|
-| 端口号正确性 | ✅ 正确 | 7240/8240/9340 是 CarLife 标准 HU 端口 |
-| 网络连通性 | ✅ 正常 | 同一子网 10.88.30.x |
-| 转接盒服务 | ✅ 正常 | TcpServer/UDP 发现均正常 |
-| CarWith 进程 | ⚠️ 运行中 | 但核心库加载失败 |
-| **CarWith TCP 服务器** | **❌ 未启动** | **libCarLifeSRC.so 加载失败导致** |
+手机B 日志显示 CarWith 进程（`com.baidu.carlife.xiaomi`）正在运行，CastingActivity 已显示。虽然有一条 `libCarLifeSRC.so` 加载警告，但这是非致命的（VR 模块相关），**不影响 TCP 服务器功能**。
 
 ## 解决方案
 
-1. **检查手机B 的 CarWith 版本和兼容性**
-   - `libCarLifeSRC.so` 缺失说明 CarWith 可能不支持该手机型号或 Android 版本
-   - 尝试更新 CarWith 到最新版本
-   - 确认 CarWith 是否支持该手机的 CPU 架构（arm64）
+### 方案 1：连接前等待端口就绪（推荐）
 
-2. **手动检查 so 文件是否存在**
-   ```bash
-   adb shell ls /data/app/*/com.baidu.carlife.xiaomi*/lib/arm64/libCarLifeSRC.so
-   ```
+在 `startHuRole()` 之前，先用端口探测等待 CarWith 就绪：
 
-3. **尝试使用其他 CarWith 版本**
-   - 小米 CarWith 内置的百度 CarLife 组件可能不完整
-   - 尝试安装独立的百度 CarLife APP
+```kotlin
+override fun onStartCommand(...) {
+    serviceScope.launch {
+        // 等待 CarWith 端口就绪（最多等 30 秒）
+        waitForCarWithPorts(phoneBIp, timeoutMs = 30_000)
+        startHuRole()
+    }
+    ...
+}
 
-4. **验证 CarWith 是否支持无线模式**
-   - 打开 CarWith → CarLife 连接 → 无线连接
-   - 观察是否提示缺少组件或连接失败
+private suspend fun waitForCarWithPorts(ip: String, timeoutMs: Long) {
+    val deadline = System.currentTimeMillis() + timeoutMs
+    while (System.currentTimeMillis() < deadline) {
+        val portsOpen = listOf(7240, 8240, 9340).all { port ->
+            try {
+                Socket().use { it.connect(InetSocketAddress(ip, port), 1000); true }
+            } catch (_: Exception) { false }
+        }
+        if (portsOpen) {
+            LogUtils.i(TAG, "CarWith 端口已就绪")
+            return
+        }
+        delay(2000) // 每 2 秒检测一次
+    }
+    LogUtils.w(TAG, "等待 CarWith 端口超时，继续尝试连接...")
+}
+```
+
+### 方案 2：增加首次连接超时
+
+将首次连接超时从 10 秒增加到 30 秒，给 CarWith 更多初始化时间。
+
+### 方案 3：更快的重连间隔
+
+将首次重连延迟从 5 秒缩短到 2 秒，前 3 次重连使用更短间隔（2s/3s/5s），让转接盒更快追上 CarWith 的启动节奏。
+
+## 建议
+
+**推荐方案 1**，因为它从根本上解决了时序问题：先确认 CarWith 已就绪，再发起连接。这比盲目重连更可靠，用户体验也更好（避免看到"连接失败"的错误提示）。
