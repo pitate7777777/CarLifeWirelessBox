@@ -62,6 +62,12 @@ class MdRole(private val context: Context) {
     companion object {
         private const val TAG = "MdRole"
 
+        /** 握手阶段 socket 读超时（毫秒）— 车机握手可能较慢 */
+        private const val HANDSHAKE_READ_TIMEOUT_MS = 15_000
+
+        /** 数据传输阶段 socket 读超时（毫秒） */
+        private const val DATA_READ_TIMEOUT_MS = 5_000
+
         /** 获取设备 ID（Build.SERIAL 在 API 29+ 已废弃，使用 fingerprint 兜底） */
         private fun getDeviceId(): String {
             @Suppress("DEPRECATION")
@@ -241,6 +247,9 @@ class MdRole(private val context: Context) {
         val type = ChannelType.getByPort(port)
         when (type) {
             ChannelType.HU_CMD -> {
+                // 握手阶段：增加 socket 读超时，车机首次响应可能较慢
+                channel.setReadTimeout(HANDSHAKE_READ_TIMEOUT_MS)
+                LogUtils.i(TAG, "Socket read timeout set to ${HANDSHAKE_READ_TIMEOUT_MS}ms for car handshake")
                 startCmdReadLoop(channel)
                 connectionStartTime.set(System.currentTimeMillis())
                 // CMD 连接后等待其他通道就绪再开始握手
@@ -566,6 +575,13 @@ class MdRole(private val context: Context) {
     private fun handleCarVideoEncoderStart() {
         LogUtils.i(TAG, "[Phase 13] Car VIDEO_ENCODER_START — handshake complete!")
         handshakeCompleted.set(true)
+
+        // 握手完成，恢复正常的 socket 读超时
+        channels.values.forEach { ch ->
+            ch.setReadTimeout(DATA_READ_TIMEOUT_MS)
+        }
+        LogUtils.i(TAG, "Socket read timeout restored to ${DATA_READ_TIMEOUT_MS}ms for data phase")
+
         updateState(MdState.READY)
         protocolService?.completeHandshake(true)
         LogUtils.i(TAG, "===== Ready to forward data =====")

@@ -166,6 +166,11 @@ abstract class Channel(
                 out.flush()
             }
             LogUtils.d("[$name] CarLife sent: 0x${Integer.toHexString(serviceType)}, len=${protobufData.size}")
+            // 调试：打印完整消息的原始字节（header + payload），方便对比协议格式
+            if (LogUtils.isDebug()) {
+                val fullMsg = header + protobufData
+                LogUtils.d("[$name] TX RAW [${fullMsg.size}B]: ${fullMsgToHex(fullMsg)}")
+            }
             true
         } catch (e: Exception) {
             LogUtils.e(e, "[$name] sendCarLifeMsg failed")
@@ -219,6 +224,11 @@ abstract class Channel(
             }
 
             LogUtils.d("[$name] CarLife received: 0x${Integer.toHexString(serviceType)}, len=${data.size}")
+            // 调试：打印完整消息的原始字节（header + payload），方便对比协议格式
+            if (LogUtils.isDebug()) {
+                val fullMsg = header + data
+                LogUtils.d("[$name] RX RAW [${fullMsg.size}B]: ${fullMsgToHex(fullMsg)}")
+            }
             Pair(serviceType, data)
         } catch (e: Exception) {
             LogUtils.e(e, "[$name] readCarLifeMsg failed")
@@ -278,6 +288,12 @@ abstract class Channel(
             }
 
             LogUtils.d("[$name] CarLife media received: 0x${Integer.toHexString(serviceType)}, ts=$timestamp, len=${data.size}")
+            // 调试：打印媒体消息原始字节（仅前 64B，避免音视频帧过大）
+            if (LogUtils.isDebug()) {
+                val fullMsg = header + data
+                val preview = if (fullMsg.size > 64) fullMsg.copyOf(64) else fullMsg
+                LogUtils.d("[$name] RX RAW media [${fullMsg.size}B, preview ${preview.size}B]: ${fullMsgToHex(preview)}")
+            }
             Triple(serviceType, timestamp, data)
         } catch (e: Exception) {
             LogUtils.e(e, "[$name] readCarLifeMediaMsg failed")
@@ -325,6 +341,12 @@ abstract class Channel(
                 out.flush()
             }
             LogUtils.d("[$name] CarLife media sent: 0x${Integer.toHexString(serviceType)}, len=${rawData.size}")
+            // 调试：打印媒体消息原始字节（仅前 64B）
+            if (LogUtils.isDebug()) {
+                val fullMsg = header + rawData
+                val preview = if (fullMsg.size > 64) fullMsg.copyOf(64) else fullMsg
+                LogUtils.d("[$name] TX RAW media [${fullMsg.size}B, preview ${preview.size}B]: ${fullMsgToHex(preview)}")
+            }
             true
         } catch (e: Exception) {
             LogUtils.e(e, "[$name] sendCarLifeMediaMsg failed")
@@ -337,6 +359,55 @@ abstract class Channel(
     // 写锁：保护 outputStream 写操作不被并发交错
     // 使用独立于 this 的锁对象，避免与读操作的 synchronized 竞争
     private val writeLock = Any()
+
+    /**
+     * 设置 socket 读超时（毫秒）
+     *
+     * 握手阶段建议使用较长超时（如 15 秒），数据传输阶段使用较短超时（5 秒）。
+     */
+    fun setReadTimeout(timeoutMs: Int) {
+        try {
+            socket?.soTimeout = timeoutMs
+            LogUtils.d("[$name] Socket read timeout set to ${timeoutMs}ms")
+        } catch (e: Exception) {
+            LogUtils.w("[$name] Failed to set read timeout: ${e.message}")
+        }
+    }
+
+    /**
+     * 将字节数组转为十六进制字符串（带分隔符和 ASCII 预览）
+     *
+     * 输出格式: "01 02 03 04 | ...." （前 32 字节 + ASCII）
+     */
+    protected fun fullMsgToHex(data: ByteArray, maxBytes: Int = 64): String {
+        if (data.isEmpty()) return "(empty)"
+        val sb = StringBuilder()
+        val limit = minOf(data.size, maxBytes)
+        for (i in 0 until limit) {
+            if (i > 0 && i % 16 == 0) {
+                // ASCII 预览
+                sb.append(" | ")
+                for (j in (i - 16) until i) {
+                    val c = data[j].toInt() and 0xFF
+                    sb.append(if (c in 0x20..0x7E) c.toChar() else '.')
+                }
+                sb.append("\n   ")
+            }
+            sb.append(String.format("%02X ", data[i].toInt() and 0xFF))
+        }
+        // 补齐最后一行的 ASCII
+        val remainder = limit % 16
+        if (remainder > 0) {
+            for (i in 0 until (16 - remainder)) sb.append("   ")
+            sb.append(" | ")
+            for (i in (limit - remainder) until limit) {
+                val c = data[i].toInt() and 0xFF
+                sb.append(if (c in 0x20..0x7E) c.toChar() else '.')
+            }
+        }
+        if (data.size > maxBytes) sb.append(" ... (${data.size - maxBytes} more bytes)")
+        return sb.toString()
+    }
 
     /**
      * 发送一帧数据（自动添加 ChannelHeader 格式包头）

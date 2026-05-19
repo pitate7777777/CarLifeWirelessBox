@@ -149,6 +149,12 @@ class HuRole(
         /** 握手超时（毫秒）— 从发送 HU_PROTOCOL_VERSION 到收到 VIDEO_ENCODER_START */
         private const val HANDSHAKE_TIMEOUT_MS = 30_000L
 
+        /** 握手阶段 socket 读超时（毫秒）— 首次握手手机 B 可能响应较慢，给更多时间 */
+        private const val HANDSHAKE_READ_TIMEOUT_MS = 15_000
+
+        /** 数据传输阶段 socket 读超时（毫秒）— 握手完成后切回正常超时 */
+        private const val DATA_READ_TIMEOUT_MS = 5_000
+
         /** 等待手机 B 就绪超时（毫秒）— 用户点击"开始连接"的最长时间 */
         private const val PHONE_READY_TIMEOUT_MS = 120_000L
 
@@ -557,6 +563,13 @@ class HuRole(
         if (requiredConnectedCount.get() >= channelConfig.requiredCount
             && cmdConnected
             && handshakeStarted.compareAndSet(false, true)) {
+            // 握手阶段：将所有通道的 socket 读超时设为更长时间
+            // 手机 B 首次响应可能较慢（尤其通过 WiFi 热点），5 秒太短
+            channels.values.forEach { ch ->
+                ch.setReadTimeout(HANDSHAKE_READ_TIMEOUT_MS)
+            }
+            LogUtils.i("$TAG: Socket read timeout set to ${HANDSHAKE_READ_TIMEOUT_MS}ms for handshake phase")
+
             val optionalPending = channelConfig.optionalChannels.count { channels[it]?.isConnected != true }
             if (optionalPending > 0) {
                 LogUtils.i("$TAG: All required channels connected, $optionalPending optional channels pending. Starting handshake...")
@@ -977,6 +990,12 @@ class HuRole(
         try {
             channels[ChannelType.HU_CMD]?.sendCarLifeMsg(CarLifeMsg.VIDEO_ENCODER_START, ByteArray(0))
             LogUtils.i("$TAG: [Phase 7] VIDEO_ENCODER_START sent")
+
+            // 握手完成，恢复正常的 socket 读超时（数据传输阶段不需要长超时）
+            channels.values.forEach { ch ->
+                ch.setReadTimeout(DATA_READ_TIMEOUT_MS)
+            }
+            LogUtils.i("$TAG: Socket read timeout restored to ${DATA_READ_TIMEOUT_MS}ms for data phase")
 
             updateState(HuState.CONNECTED)
             protocolService?.completeHandshake(true)

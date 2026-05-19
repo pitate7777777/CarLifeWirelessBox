@@ -77,6 +77,12 @@ object LogUtils {
     fun isFileLogEnabled(): Boolean = fileLogEnabled
 
     /**
+     * 是否为调试构建（控制台日志开启时视为调试模式）
+     * 用于控制详细日志输出（如原始字节 hex dump），避免 Release 构建产生大量日志
+     */
+    fun isDebug(): Boolean = consoleLogEnabled || BuildConfig.DEBUG
+
+    /**
      * 调试级别日志
      */
     fun d(message: String) {
