@@ -128,3 +128,38 @@ UDP 广播声明了 6 个端口（7200, 8200, 9200, 9201, 9202, 9300），但 Md
 1. 首先确认手机 B 端 CarWith 的状态和版本
 2. 在手机 B 端抓取日志确认是否收到并解析了握手消息
 3. 对比 CarWith 期望的握手格式与当前发送的格式是否一致
+
+---
+
+## 六、已实施修复（v2）
+
+### 问题根因
+HuRole 在 ConnectionService 启动时**立即**尝试连接手机 B 的 HU 端口（7240/8240/9340），但手机 B 的 CarWith 只有在用户点击「开始连接」后才会监听这些端口。过早连接导致握手失败。
+
+### 修复方案
+
+#### 1. UDP 就绪信号（`UdpDiscoveryService`）
+- 新增 `CARLIFE_PHONE_READY` 消息监听
+- 手机 B 用户点击「开始连接」后广播 `CARLIFE_PHONE_READY|<ip>|<cmd_port>|<video_port>|<ctrl_port>`
+- 盒子收到后回复 `CARLIFE_BOX_ACK` 确认，并通知 HuRole 开始连接
+
+#### 2. 端口探测降级方案（`HuRole`）
+- 如果手机 B 未发送 UDP 信号，HuRole 每 3 秒探测一次 CMD 端口（7240）
+- 端口可连接时自动进入 TCP 连接阶段
+
+#### 3. 连接流程优化（`ConnectionService`）
+- **之前**：启动 → 立即连接手机 B → 失败
+- **现在**：启动 → UDP 发现服务先启动 → HuRole 等待手机 B 就绪 → 端口探测/UDP 信号 → 连接
+
+#### 4. 超时配置
+| 参数 | 值 | 说明 |
+|------|-----|------|
+| 等待手机就绪超时 | 120 秒 | 用户点击「开始连接」的最长时间 |
+| 端口探测间隔 | 3 秒 | 作为 UDP 信号的降级方案 |
+| TCP 连接超时 | 30 秒 | 不变 |
+| 握手超时 | 30 秒 | 不变 |
+
+### 修改文件
+- `UdpDiscoveryService.kt` — 新增 `PhoneReadyListener` 接口和 `CARLIFE_PHONE_READY` 消息处理
+- `HuRole.kt` — `connect()` 改为两阶段：等待就绪 → 连接；新增 `notifyPhoneReady()` 和 `probePhonePorts()`
+- `ConnectionService.kt` — UDP 发现服务先启动，注册 `PhoneReadyListener` 通知 HuRole

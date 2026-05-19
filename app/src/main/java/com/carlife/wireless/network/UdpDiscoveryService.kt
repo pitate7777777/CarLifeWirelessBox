@@ -33,13 +33,30 @@ class UdpDiscoveryService {
         private const val DISCOVERY_PORT = 7200
         private const val DISCOVER_MAGIC = "CARLIFE_DISCOVER"
         private const val RESPONSE_MAGIC = "CARLIFE_BOX_HERE"
+        /** 手机 B 就绪信号（手机 B 用户点击"开始连接"后广播） */
+        private const val PHONE_READY_MAGIC = "CARLIFE_PHONE_READY"
+        /** 盒子确认收到就绪信号 */
+        private const val BOX_ACK_MAGIC = "CARLIFE_BOX_ACK"
         private const val BROADCAST_INTERVAL_MS = 5000L
         private const val BUFFER_SIZE = 1024
+    }
+
+    /**
+     * 手机 B 就绪回调
+     */
+    interface PhoneReadyListener {
+        /** 手机 B 已就绪，可以连接 */
+        fun onPhoneReady(phoneIp: String, cmdPort: Int, videoPort: Int, ctrlPort: Int)
     }
 
     private var scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var listenSocket: DatagramSocket? = null
     @Volatile private var running = false
+    @Volatile private var phoneReadyListener: PhoneReadyListener? = null
+
+    fun setPhoneReadyListener(listener: PhoneReadyListener?) {
+        this.phoneReadyListener = listener
+    }
 
     /**
      * 启动 UDP 发现服务
@@ -61,6 +78,7 @@ class UdpDiscoveryService {
      */
     fun stop() {
         running = false
+        phoneReadyListener = null
         try { listenSocket?.close() } catch (_: Exception) {}
         listenSocket = null
         scope.cancel()
@@ -92,6 +110,9 @@ class UdpDiscoveryService {
                     if (message.startsWith(DISCOVER_MAGIC)) {
                         // 收到发现请求，回复本机信息
                         sendDiscoveryResponse(senderIp)
+                    } else if (message.startsWith(PHONE_READY_MAGIC)) {
+                        // 收到手机 B 就绪信号
+                        handlePhoneReady(message, senderIp)
                     }
                 } catch (e: java.net.SocketTimeoutException) {
                     // 超时，继续监听
@@ -121,6 +142,52 @@ class UdpDiscoveryService {
                 LogUtils.w(TAG, "Broadcast error: ${e.message}")
             }
             delay(BROADCAST_INTERVAL_MS)
+        }
+    }
+
+    /**
+     * 处理手机 B 就绪信号
+     * 格式: CARLIFE_PHONE_READY|<phone_ip>|<cmd_port>|<video_port>|<ctrl_port>
+     */
+    private fun handlePhoneReady(message: String, senderIp: String) {
+        try {
+            val parts = message.split("|")
+            val phoneIp = if (parts.size >= 2 && parts[1].isNotBlank()) parts[1] else senderIp
+            val cmdPort = if (parts.size >= 3) parts[2].toIntOrNull() ?: 7240 else 7240
+            val videoPort = if (parts.size >= 4) parts[3].toIntOrNull() ?: 8240 else 8240
+            val ctrlPort = if (parts.size >= 5) parts[4].toIntOrNull() ?: 9340 else 9340
+
+            LogUtils.i(TAG, "Phone B ready signal: ip=$phoneIp, cmd=$cmdPort, video=$videoPort, ctrl=$ctrlPort")
+
+            // 回复确认，让手机 B 知道盒子已收到
+            sendBoxAck(phoneIp)
+
+            // 通知监听器
+            phoneReadyListener?.onPhoneReady(phoneIp, cmdPort, videoPort, ctrlPort)
+        } catch (e: Exception) {
+            LogUtils.w(TAG, "Failed to parse PHONE_READY: ${e.message}")
+            // 降级：使用发送者 IP 和默认端口
+            sendBoxAck(senderIp)
+            phoneReadyListener?.onPhoneReady(senderIp, 7240, 8240, 9340)
+        }
+    }
+
+    /**
+     * 发送盒子确认消息给手机 B
+     */
+    private fun sendBoxAck(targetIp: String) {
+        val localIp = NetworkUtils.getLocalIpAddress() ?: return
+        val ack = "$BOX_ACK_MAGIC|$localIp"
+        try {
+            DatagramSocket().use { socket ->
+                socket.broadcast = true
+                val data = ack.toByteArray()
+                val packet = DatagramPacket(data, data.size, InetAddress.getByName(targetIp), DISCOVERY_PORT)
+                socket.send(packet)
+            }
+            LogUtils.d(TAG, "Box ACK sent to $targetIp")
+        } catch (e: Exception) {
+            LogUtils.w(TAG, "Failed to send ACK to $targetIp: ${e.message}")
         }
     }
 

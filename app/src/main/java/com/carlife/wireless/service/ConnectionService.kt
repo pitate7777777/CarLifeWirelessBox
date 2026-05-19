@@ -133,9 +133,11 @@ class ConnectionService : Service() {
         LogUtils.i(TAG, "ConnectionService started")
         isServiceActive = true
         startForegroundService()
+        // 先启动 UDP 发现服务，确保能收到手机 B 的就绪信号
+        startUdpDiscovery()
         // 启动双角色：
-        // - HuRole: 作为 HU 客户端连接手机 B 的 CarWith（HU 端口）
-        // - MdRole: 作为 MD 服务端监听车机连接（MD 端口）
+        // - HuRole: 等待手机 B 就绪信号后才连接（避免无效 TCP 尝试）
+        // - MdRole: 作为 MD 服务端立即监听车机连接（MD 端口）
         serviceScope.launch {
             startHuRole()
         }
@@ -143,7 +145,6 @@ class ConnectionService : Service() {
         startTouchService()
         startProtocolService()
         startUsbMonitoring()
-        startUdpDiscovery()
         // mDNS 仍然启动，供手机 B 发现本设备
         startMdnsService()
         isRunning = true
@@ -218,7 +219,17 @@ class ConnectionService : Service() {
     private fun startUdpDiscovery() {
         if (udpDiscoveryService != null) return
         try {
-            udpDiscoveryService = UdpDiscoveryService().apply { start() }
+            udpDiscoveryService = UdpDiscoveryService().apply {
+                // 监听手机 B 就绪信号，通知 HuRole 开始连接
+                setPhoneReadyListener(object : UdpDiscoveryService.PhoneReadyListener {
+                    override fun onPhoneReady(phoneIp: String, cmdPort: Int, videoPort: Int, ctrlPort: Int) {
+                        LogUtils.i(TAG, "Phone B ready: $phoneIp (cmd=$cmdPort, video=$videoPort, ctrl=$ctrlPort)")
+                        // 通知 HuRole 手机 B 已就绪，可以开始 TCP 连接
+                        huRole?.notifyPhoneReady()
+                    }
+                })
+                start()
+            }
             LogUtils.i(TAG, "UDP discovery service started")
         } catch (e: Exception) {
             LogUtils.e(TAG, e, "启动 UDP 发现服务失败")

@@ -149,6 +149,12 @@ class HuRole(
         /** 握手超时（毫秒）— 从发送 HU_PROTOCOL_VERSION 到收到 VIDEO_ENCODER_START */
         private const val HANDSHAKE_TIMEOUT_MS = 30_000L
 
+        /** 等待手机 B 就绪超时（毫秒）— 用户点击"开始连接"的最长时间 */
+        private const val PHONE_READY_TIMEOUT_MS = 120_000L
+
+        /** 端口探测间隔（毫秒）— 作为 UDP 就绪信号的降级方案 */
+        private const val PORT_PROBE_INTERVAL_MS = 3_000L
+
         /**
          * 默认通道配置
          * - 必选: CMD（协议握手）、VIDEO（投屏画面）、CTRL（触摸控制）
@@ -234,21 +240,22 @@ class HuRole(
     /**
      * 主动连接手机 B 的 CarWith
      *
-     * CarWith 在手机B上监听 HU 端口 (7240/8240/9240/9340)，
-     * HuRole 作为 HU 角色主动连接这些端口，完成 CarLife 协议握手。
+     * 优化流程：
+     * 1. 先等待手机 B 就绪（UDP CARLIFE_PHONE_READY 信号或端口探测）
+     * 2. 手机 B 就绪后，再建立 TCP 连接
+     * 3. 完成 CarLife 协议握手
+     *
+     * 这样避免在手机 B 用户点击"开始连接"之前进行无效的 TCP 连接尝试。
      */
     fun connect() {
         // 允许从 IDLE 或 DISCONNECTED 状态发起连接
-        // 之前只允许 IDLE，导致超时断开后无法重连（DISCONNECTED 状态被拒绝）
         val currentState = state.get()
         if (currentState != HuState.IDLE && currentState != HuState.DISCONNECTED) {
             LogUtils.w("$TAG: Cannot connect, current state: $currentState")
             return
         }
 
-        // 清理可能残留的旧资源（静默清理，不触发 listener 回调）
-        // 注意：不能调用 disconnect()，因为它会触发 DISCONNECTED 回调，
-        // 导致 ConnectionService 调度重连并销毁当前 HuRole 实例
+        // 清理可能残留的旧资源
         channels.values.forEach { ch ->
             try { ch.disconnect("preparing new connection") } catch (_: Exception) {}
         }
@@ -263,52 +270,25 @@ class HuRole(
         handshakePhase.set("未开始")
 
         updateState(HuState.CONNECTING)
+        LogUtils.i("$TAG: Waiting for phone B to be ready at $phoneBIp...")
 
         scope.launch {
             try {
-                val config = channelConfig
-
-                LogUtils.i("$TAG: Connecting to phone B CarWith at $phoneBIp " +
-                        "(${config.totalEnabled} channels)...")
-
-                // 为每个启用的通道创建 TcpClient 并连接到手机B的 CarWith 端口
-                for (type in config.allChannels) {
-                    val autoRead = type != ChannelType.HU_CMD
-                    val channel = createChannel(type, autoRead)
-                    channels[type] = channel
-
-                    // 连接到手机B的 CarWith 端口（HU端口，CarWith 在这些端口上监听）
-                    val port = type.huPort
-                    LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:$port (autoRead=$autoRead)")
-                    channel.connect(phoneBIp, port)
+                // === 阶段 1：等待手机 B 就绪 ===
+                val ready = waitForPhoneReady()
+                if (!ready) {
+                    val errMsg = "等待手机B就绪超时（${PHONE_READY_TIMEOUT_MS / 1000}秒），" +
+                            "请在手机B的 CarWith 中点击「开始连接」"
+                    LogUtils.e("$TAG: Phone B not ready within timeout")
+                    lastError.set(errMsg)
+                    listener?.onError(errMsg)
+                    disconnect("Phone B not ready timeout")
+                    return@launch
                 }
 
-                LogUtils.i("$TAG: All ${config.totalEnabled} channels connecting, waiting for connections...")
-
-                // 连接超时检测
-                launch timeout@{
-                    delay(CONNECT_TIMEOUT_MS)
-                    if (state.get() == HuState.DISCONNECTED) return@timeout
-
-                    val videoConnected = channels[ChannelType.HU_VIDEO]?.isConnected == true
-                    val requiredOk = config.requiredChannels.all { channels[it]?.isConnected == true }
-
-                    if (!videoConnected) {
-                        val connected = connectedChannelCount.get()
-                        val errMsg = "连接手机B超时（已连 $connected/${config.totalEnabled} 个通道），" +
-                                "请确认手机B已打开 CarWith 并进入无线连接模式"
-                        LogUtils.e("$TAG: Connection timeout! VIDEO not connected. Connected: $connected/${config.totalEnabled}")
-                        lastError.set(errMsg)
-                        listener?.onError(errMsg)
-                        ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, CONNECT_TIMEOUT_MS)
-                        disconnect("Connection timeout: cannot reach phone B CarWith")
-                    } else if (!requiredOk) {
-                        val missing = config.requiredChannels.filter { channels[it]?.isConnected != true }
-                        LogUtils.w("$TAG: Some required channels not connected: ${missing.joinToString { it.name }}, but VIDEO is OK")
-                    } else {
-                        LogUtils.i("$TAG: All required channels connected within timeout window")
-                    }
-                }
+                // === 阶段 2：建立 TCP 连接 ===
+                if (state.get() == HuState.DISCONNECTED) return@launch
+                connectChannels()
             } catch (e: Exception) {
                 val errMsg = "连接手机B失败: ${e.message}"
                 LogUtils.e(e, "$TAG: Failed to connect to phone B")
@@ -316,6 +296,127 @@ class HuRole(
                 listener?.onError(errMsg)
                 ErrorTracker.recordConnectionLost("HuRole", errMsg)
                 updateState(HuState.DISCONNECTED, "Initialization failed")
+            }
+        }
+    }
+
+    /**
+     * 等待手机 B 就绪
+     *
+     * 两种检测方式并行：
+     * 1. UDP 就绪信号（优先）— 手机 B 用户点击"开始连接"后广播 CARLIFE_PHONE_READY
+     * 2. 端口探测（降级）— 如果手机 B 没有发送 UDP 信号，通过 TCP 端口探测判断
+     *
+     * @return true 手机 B 已就绪，false 超时
+     */
+    private suspend fun waitForPhoneReady(): Boolean {
+        val startTime = System.currentTimeMillis()
+        var lastProbeTime = 0L
+
+        LogUtils.i("$TAG: Waiting for phone B ready signal or open ports...")
+
+        while (state.get() != HuState.DISCONNECTED) {
+            val elapsed = System.currentTimeMillis() - startTime
+            if (elapsed >= PHONE_READY_TIMEOUT_MS) {
+                LogUtils.e("$TAG: Phone B ready timeout after ${elapsed}ms")
+                return false
+            }
+
+            // 检查是否已被 notifyPhoneReady() 唤醒
+            if (phoneReadyFlag.get()) {
+                LogUtils.i("$TAG: Phone B signaled ready via UDP")
+                return true
+            }
+
+            // 降级方案：定期探测端口
+            val now = System.currentTimeMillis()
+            if (now - lastProbeTime >= PORT_PROBE_INTERVAL_MS) {
+                lastProbeTime = now
+                if (probePhonePorts()) {
+                    LogUtils.i("$TAG: Phone B ports detected open via probe")
+                    return true
+                }
+            }
+
+            delay(500)
+        }
+        return false
+    }
+
+    /** 手机 B 就绪标志（由 notifyPhoneReady() 设置） */
+    private val phoneReadyFlag = AtomicBoolean(false)
+
+    /**
+     * 通知 HuRole 手机 B 已就绪（由 ConnectionService 调用）
+     *
+     * 当 UdpDiscoveryService 收到手机 B 的 CARLIFE_PHONE_READY 信号时触发。
+     */
+    fun notifyPhoneReady() {
+        if (phoneReadyFlag.compareAndSet(false, true)) {
+            LogUtils.i("$TAG: Phone B ready notification received")
+        }
+    }
+
+    /**
+     * 探测手机 B 的 CarWith 端口是否已监听
+     *
+     * 尝试对 CMD 端口（7240）建立 TCP 连接，如果成功说明手机 B 已就绪。
+     * 探测用的 socket 立即关闭，不影响后续正式连接。
+     */
+    private fun probePhonePorts(): Boolean {
+        return try {
+            val socket = java.net.Socket()
+            socket.connect(java.net.InetSocketAddress(phoneBIp, ChannelType.HU_CMD.huPort), 2000)
+            socket.close()
+            LogUtils.d("$TAG: Port probe success: $phoneBIp:${ChannelType.HU_CMD.huPort}")
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /**
+     * 建立 TCP 连接通道并启动握手
+     */
+    private suspend fun connectChannels() {
+        val config = channelConfig
+
+        LogUtils.i("$TAG: Phone B ready, connecting to $phoneBIp (${config.totalEnabled} channels)...")
+
+        for (type in config.allChannels) {
+            val autoRead = type != ChannelType.HU_CMD
+            val channel = createChannel(type, autoRead)
+            channels[type] = channel
+
+            val port = type.huPort
+            LogUtils.i("$TAG: Connecting ${type.name} to $phoneBIp:$port (autoRead=$autoRead)")
+            channel.connect(phoneBIp, port)
+        }
+
+        LogUtils.i("$TAG: All ${config.totalEnabled} channels connecting, waiting for connections...")
+
+        // 连接超时检测
+        launch timeout@{
+            delay(CONNECT_TIMEOUT_MS)
+            if (state.get() == HuState.DISCONNECTED) return@timeout
+
+            val videoConnected = channels[ChannelType.HU_VIDEO]?.isConnected == true
+            val requiredOk = config.requiredChannels.all { channels[it]?.isConnected == true }
+
+            if (!videoConnected) {
+                val connected = connectedChannelCount.get()
+                val errMsg = "连接手机B超时（已连 $connected/${config.totalEnabled} 个通道），" +
+                        "请确认手机B已打开 CarWith 并进入无线连接模式"
+                LogUtils.e("$TAG: Connection timeout! VIDEO not connected. Connected: $connected/${config.totalEnabled}")
+                lastError.set(errMsg)
+                listener?.onError(errMsg)
+                ErrorTracker.recordConnectionTimeout("HuRole", phoneBIp, CONNECT_TIMEOUT_MS)
+                disconnect("Connection timeout: cannot reach phone B CarWith")
+            } else if (!requiredOk) {
+                val missing = config.requiredChannels.filter { channels[it]?.isConnected != true }
+                LogUtils.w("$TAG: Some required channels not connected: ${missing.joinToString { it.name }}, but VIDEO is OK")
+            } else {
+                LogUtils.i("$TAG: All required channels connected within timeout window")
             }
         }
     }
