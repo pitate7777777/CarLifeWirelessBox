@@ -2,6 +2,16 @@ package com.carlife.wireless.util
 
 import android.content.Context
 
+/**
+ * 设置管理器
+ *
+ * 使用 SharedPreferences (MODE_PRIVATE) 存储配置。
+ * 当前存储的数据（分辨率、码率、IP 地址等）不涉及高敏感信息，
+ * MODE_PRIVATE 已满足需求。
+ *
+ * 安全备注：如果未来需要存储认证 token 或密钥，应迁移到
+ * EncryptedSharedPreferences (Jetpack Security 库)。
+ */
 object SettingsManager {
 
     const val SAMPLE_RATE_DEFAULT = 44100

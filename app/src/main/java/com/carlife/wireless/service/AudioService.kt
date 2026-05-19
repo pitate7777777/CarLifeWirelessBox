@@ -68,8 +68,9 @@ class AudioService : Service() {
     private var audioRecord: AudioRecord? = null
     private var bufferSize: Int = 0
 
-    // MediaCodec AAC 编码器
+    // MediaCodec AAC 编码器（capture 和 drain 两个线程共享，需通过 encoderLock 同步访问）
     private var encoder: MediaCodec? = null
+    private val encoderLock = Any()
 
     // 工作线程
     private var captureThread: Thread? = null
@@ -329,6 +330,7 @@ class AudioService : Service() {
 
     /**
      * 从 AudioRecord 读取 PCM 数据，送入 MediaCodec 编码
+     * 与 drainEncoder() 共享 encoder 实例，通过 encoderLock 同步访问
      */
     private fun captureAndEncode() {
         val pcmBuffer = ByteArray(bufferSize)
@@ -337,22 +339,24 @@ class AudioService : Service() {
         while (isStreaming.get()) {
             try {
                 val record = audioRecord ?: break
-                val enc = encoder ?: break
 
                 val bytesRead = record.read(pcmBuffer, 0, pcmBuffer.size)
                 if (bytesRead > 0) {
-                    // 送入编码器
-                    val inputIndex = enc.dequeueInputBuffer(10_000)
-                    if (inputIndex >= 0) {
-                        val inputBuffer = enc.getInputBuffer(inputIndex) ?: continue
-                        inputBuffer.clear()
-                        val size = minOf(bytesRead, inputBuffer.remaining())
-                        inputBuffer.put(pcmBuffer, 0, size)
-                        enc.queueInputBuffer(
-                            inputIndex, 0, size,
-                            System.nanoTime() / 1000, // 时间戳（微秒）
-                            0
-                        )
+                    // 送入编码器（加锁防止与 drainEncoder 并发操作 encoder）
+                    synchronized(encoderLock) {
+                        val enc = encoder ?: return@synchronized
+                        val inputIndex = enc.dequeueInputBuffer(10_000)
+                        if (inputIndex >= 0) {
+                            val inputBuffer = enc.getInputBuffer(inputIndex) ?: return@synchronized
+                            inputBuffer.clear()
+                            val size = minOf(bytesRead, inputBuffer.remaining())
+                            inputBuffer.put(pcmBuffer, 0, size)
+                            enc.queueInputBuffer(
+                                inputIndex, 0, size,
+                                System.nanoTime() / 1000, // 时间戳（微秒）
+                                0
+                            )
+                        }
                     }
                 } else if (bytesRead < 0) {
                     LogUtils.e(TAG, "AudioRecord read error: $bytesRead")
@@ -361,11 +365,13 @@ class AudioService : Service() {
             } catch (e: IllegalStateException) {
                 if (isStreaming.get()) {
                     LogUtils.e(TAG, e, "Audio capture error (state)")
+                    audioCallback?.onError("Audio capture state error: ${e.message}")
                 }
                 break
             } catch (e: Exception) {
                 if (isStreaming.get()) {
                     LogUtils.e(TAG, e, "Audio capture error")
+                    audioCallback?.onError("Audio capture error: ${e.message}")
                 }
                 break
             }
@@ -376,6 +382,7 @@ class AudioService : Service() {
 
     /**
      * 从编码器读取 AAC 数据，通过回调传递
+     * 与 captureAndEncode() 共享 encoder 实例，通过 encoderLock 同步访问
      */
     private fun drainEncoder() {
         val bufferInfo = MediaCodec.BufferInfo()
@@ -383,15 +390,23 @@ class AudioService : Service() {
 
         while (isStreaming.get()) {
             try {
-                val enc = encoder ?: break
-                val index = enc.dequeueOutputBuffer(bufferInfo, 10_000)
+                // 加锁防止与 captureAndEncode 并发操作 encoder
+                val index = synchronized(encoderLock) {
+                    val enc = encoder ?: return@synchronized -2 // -2 表示 encoder 为 null
+                    enc.dequeueOutputBuffer(bufferInfo, 10_000)
+                }
 
                 when {
+                    index == -2 -> break // encoder 已释放
                     index == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED -> {
-                        LogUtils.i(TAG, "AAC encoder output format: ${enc.outputFormat}")
+                        synchronized(encoderLock) {
+                            LogUtils.i(TAG, "AAC encoder output format: ${encoder?.outputFormat}")
+                        }
                     }
                     index >= 0 -> {
-                        val outputBuffer = enc.getOutputBuffer(index) ?: continue
+                        val outputBuffer = synchronized(encoderLock) {
+                            encoder?.getOutputBuffer(index)
+                        } ?: continue
 
                         if (bufferInfo.size > 0 && bufferInfo.flags and MediaCodec.BUFFER_FLAG_CODEC_CONFIG == 0) {
                             val data = ByteArray(bufferInfo.size)
@@ -399,7 +414,9 @@ class AudioService : Service() {
                             audioCallback?.onAudioData(data)
                         }
 
-                        enc.releaseOutputBuffer(index, false)
+                        synchronized(encoderLock) {
+                            encoder?.releaseOutputBuffer(index, false)
+                        }
 
                         if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
                             LogUtils.w(TAG, "AAC encoder EOS")
@@ -410,11 +427,13 @@ class AudioService : Service() {
             } catch (e: IllegalStateException) {
                 if (isStreaming.get()) {
                     LogUtils.e(TAG, e, "AAC drain error (state)")
+                    audioCallback?.onError("AAC drain state error: ${e.message}")
                 }
                 break
             } catch (e: Exception) {
                 if (isStreaming.get()) {
                     LogUtils.e(TAG, e, "AAC drain error")
+                    audioCallback?.onError("AAC drain error: ${e.message}")
                 }
                 break
             }

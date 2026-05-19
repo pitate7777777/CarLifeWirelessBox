@@ -4,7 +4,24 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 /**
- * 协议包头定义
+ * 内部通道框架包头定义（Channel.read() / writeFrame() 使用）
+ *
+ * ⚠️ 注意：此格式 **不用于** CarLife 协议通信！
+ * CarLife 协议使用另一种格式（见 Channel.readCarLifeMsg() / sendCarLifeMsg()）。
+ * 两者区别如下：
+ *
+ * | 格式           | CMD 头大小 | Media 头大小 | Magic | 用途             |
+ * |----------------|-----------|-------------|-------|------------------|
+ * | ChannelHeader  | 8 字节    | 11 字节     | 0x434C| 内部 Channel 框架 |
+ * | CarLife 协议   | 8 字节    | 12 字节     | 无    | 实际 CarLife 通信 |
+ *
+ * 本项目所有实际 CarLife 通信均使用 Channel 类中的 CarLife 格式方法：
+ * - sendCarLifeMsg() / readCarLifeMsg()       — CMD 通道（8字节，无 magic）
+ * - sendCarLifeMediaMsg() / readCarLifeMediaMsg() — 媒体通道（12字节，无 magic）
+ *
+ * 本类仅供 Channel.read() / writeFrame() 及 TcpClient 等旧代码使用。
+ *
+ * ===== 本类包头格式 =====
  *
  * CMD 通道包头（8字节）：
  * - magic (2字节): 固定 0x434C ("CL")

@@ -331,11 +331,13 @@ class VideoService : Service() {
             } catch (e: IllegalStateException) {
                 if (isStreaming.get()) {
                     LogUtils.e(TAG, e, "Encoder drain error (state error)")
+                    frameCallback?.onError("Encoder state error: ${e.message}")
                 }
                 break
             } catch (e: Exception) {
                 if (isStreaming.get()) {
                     LogUtils.e(TAG, e, "Encoder drain error")
+                    frameCallback?.onError("Encoder drain error: ${e.message}")
                 }
                 break
             }

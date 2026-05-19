@@ -25,6 +25,7 @@ import java.util.concurrent.atomic.AtomicLong
 /**
  * TCP客户端回调接口
  */
+@Deprecated("使用 Channel 类替代，TcpClient 使用 ChannelHeader magic 格式而非 CarLife 协议格式")
 interface TcpClientListener {
     fun onConnected()
     fun onDisconnected()
@@ -35,7 +36,15 @@ interface TcpClientListener {
 /**
  * TCP客户端
  * 封装 Socket 连接管理，支持 CarLife 协议分帧、心跳、重连
+ *
+ * ⚠️ 已废弃：此类使用 ChannelHeader magic (0x434C) 格式读取数据，
+ * 与 CarLife 协议实际格式不一致。请使用 Channel 类（CarLife 格式）替代。
+ * 保留此类仅为向后兼容，新代码不应使用。
  */
+@Deprecated(
+    message = "使用 Channel 类替代，此类使用 ChannelHeader magic 格式而非 CarLife 协议格式",
+    replaceWith = ReplaceWith("Channel.create(type, role, autoRead)")
+)
 class TcpClient(
     private val context: Context,
     private val listener: TcpClientListener? = null
@@ -142,7 +151,10 @@ class TcpClient(
             listener?.onError("Max retries reached: ${e.message}")
             return
         }
-        val delay = Constants.Reconnect.DELAY_MS * (1L shl (currentRetry - 1))
+        val delay = minOf(
+            Constants.Reconnect.DELAY_MS * (1L shl (currentRetry - 1)),
+            60_000L // 最大 60 秒，防止位移溢出
+        )
         LogUtils.w("$TAG: Retry $currentRetry/${Constants.Reconnect.MAX_RETRY} after ${delay}ms...")
         delay(delay)
         if (!NetworkUtils.isWifiConnected(context)) {

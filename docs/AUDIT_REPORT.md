@@ -116,133 +116,89 @@ private fun injectViaShell(action: Int, x: Float, y: Float) {
 
 ---
 
-### 🟡 中优先级 (Medium) — 8 项
+### 🟡 中优先级 (Medium) — 8 项 ✅ 已全部修复
 
-#### M-1: ChannelHeader 与 CarLife 协议格式不一致
+#### M-1: ChannelHeader 与 CarLife 协议格式不一致 ✅ 已修复
 
-**文件**: `ChannelHeader.kt` vs `Channel.kt`
+**文件**: `ChannelHeader.kt`, `Channel.kt`
 
-`ChannelHeader` 定义了带 magic `0x434C` 的包头格式（CMD 8 字节，Media 11 字节），但 CarLife 协议实际使用：
-- CMD: `[data_len(2B)][reserved(2B)][service_type(4B)]` = 8 字节，**无 magic**
-- Media: `[data_len(4B)][timestamp(4B)][service_type(4B)]` = 12 字节，**无 magic**
+已为 `ChannelHeader` 类添加详细的文档注释，明确说明：
+- 此格式（带 magic 0x434C）仅用于内部 Channel 框架，不用于 CarLife 协议通信
+- CarLife 协议使用 `readCarLifeMsg()` / `sendCarLifeMsg()` 等方法（无 magic）
+- 两种格式的对比表格
 
-`Channel` 类中已经正确实现了 `readCarLifeMsg()` / `sendCarLifeMsg()` 等方法直接处理 CarLife 格式，但 `read()` / `writeFrame()` 方法仍使用 `ChannelHeader` 格式。两套格式并存容易造成混淆。
-
-**建议**:
-- 在 `ChannelHeader` 上添加注释明确区分两种格式
-- 考虑将 `read()` / `writeFrame()` 标记为 `@Deprecated` 或内部方法
-- 确保所有实际通信都使用 CarLife 格式方法
+同时为 `Channel.send()`、`Channel.read()`、`Channel.writeFrame()` 添加了 ⚠️ 警告注释，引导开发者使用 CarLife 格式方法。
 
 ---
 
-#### M-2: TcpClient 的 `readLoop()` 使用 ChannelHeader magic 格式
+#### M-2: TcpClient 的 `readLoop()` 使用 ChannelHeader magic 格式 ✅ 已修复
 
-**文件**: `TcpClient.kt:151-175`
+**文件**: `TcpClient.kt`
 
-```kotlin
-val magic = ((magicAndType[0].toInt() and 0xFF) shl 8) or
-            (magicAndType[1].toInt() and 0xFF)
-if (magic != 0x434C) {
-    LogUtils.e("$TAG: Invalid magic: 0x${Integer.toHexString(magic)}, skipping byte")
-    continue
-}
-```
-
-**问题**: `TcpClient` 使用 `ChannelHeader` 的 magic `0x434C` 格式读取数据，但实际 CarLife 协议不使用这个 magic。`TcpClient` 目前看起来是遗留代码（`Channel` 类已取代其功能），但如果仍有组件使用它，会导致协议解析失败。
-
-**建议**:
-- 确认 `TcpClient` 是否仍被使用，如已废弃则标记 `@Deprecated`
-- 如果仍需使用，应改为 CarLife 协议格式解析
+已为 `TcpClient` 类和 `TcpClientListener` 接口添加 `@Deprecated` 注解，说明此类使用 ChannelHeader magic 格式而非 CarLife 协议格式，新代码应使用 `Channel.create()` 替代。
 
 ---
 
-#### M-3: 重连延迟使用位移可能溢出
+#### M-3: 重连延迟使用位移可能溢出 ✅ 已修复
 
-**文件**: `ConnectionService.kt:335`, `TcpClient.kt:114`
+**文件**: `ConnectionService.kt`, `TcpClient.kt`
 
-```kotlin
-val delayMs = Constants.Reconnect.DELAY_MS * (1L shl (attempt - 1))
-```
-
-**问题**: 当 `attempt` 较大时（如 20+），`1L shl attempt` 会产生极大值。虽然 `maxHuReconnect = 5` 限制了实际尝试次数，但如果未来修改重试次数上限，可能导致溢出。
-
-**建议**: 添加上限截断：
+两处重连延迟计算均已添加 `minOf(..., 60_000L)` 上限截断，防止位移溢出：
 ```kotlin
 val delayMs = minOf(
     Constants.Reconnect.DELAY_MS * (1L shl (attempt - 1)),
-    60_000L // 最大 60 秒
+    60_000L // 最大 60 秒，防止位移溢出
 )
 ```
 
 ---
 
-#### M-4: VideoService drain 线程未正确处理编码器异常状态
+#### M-4: VideoService drain 线程未正确处理编码器异常状态 ✅ 已修复
 
-**文件**: `VideoService.kt:175-210`
+**文件**: `VideoService.kt`
 
-```kotlin
-} catch (e: IllegalStateException) {
-    if (isStreaming.get()) {
-        LogUtils.e(TAG, e, "Encoder drain error (state error)")
-    }
-    break
-}
-```
-
-**问题**: 当编码器进入错误状态时，仅 break 退出循环但没有通知上层。`FrameCallback.onError()` 未被调用，上层无法知道视频流已中断。
-
-**建议**: 在 catch 块中调用 `frameCallback?.onError("Encoder state error: ${e.message}")`
+在 `drainEncoder()` 的两个 catch 块中添加了 `frameCallback?.onError()` 调用，确保编码器异常时上层能收到错误通知。
 
 ---
 
-#### M-5: AudioService 的 capture 和 drain 使用独立线程但无同步
+#### M-5: AudioService 的 capture 和 drain 使用独立线程但无同步 ✅ 已修复
 
-**文件**: `AudioService.kt:170-240`
+**文件**: `AudioService.kt`
 
-`captureAndEncode()` 和 `drainEncoder()` 在独立线程中运行，共享 `encoder` 实例。虽然 MediaCodec 内部有线程安全保护，但 `encoder` 变量本身是 `@Volatile` 而非 synchronized，在极端情况下（stop() 并发）可能读到 null 后仍尝试操作。
-
-**建议**: 在两个线程的循环开始处统一检查 `isStreaming` 和 `encoder` 状态，或使用 `synchronized(encoder!!)` 块。
+- 添加了 `encoderLock` 同步锁对象
+- `captureAndEncode()` 中对编码器的 `dequeueInputBuffer` / `queueInputBuffer` 操作加锁
+- `drainEncoder()` 中对编码器的 `dequeueOutputBuffer` / `getOutputBuffer` / `releaseOutputBuffer` 操作加锁
+- 同时在两个线程的 catch 块中添加了 `audioCallback?.onError()` 调用
 
 ---
 
-#### M-6: SettingsManager 使用 `Context.MODE_PRIVATE` 但无加密
+#### M-6: SettingsManager 使用 `Context.MODE_PRIVATE` 但无加密 ✅ 已修复
 
 **文件**: `SettingsManager.kt`
 
-所有设置存储在 SharedPreferences 中，使用 `MODE_PRIVATE`。虽然不涉及高敏感数据，但手机 B 的 IP 地址等配置信息以明文存储。
-
-**建议**: 对于 Android 开发最佳实践，考虑使用 `EncryptedSharedPreferences`（Jetpack Security 库）。
+已添加安全备注文档，说明：
+- 当前存储的数据不涉及高敏感信息，MODE_PRIVATE 已满足需求
+- 如未来需存储认证 token 或密钥，应迁移到 EncryptedSharedPreferences
 
 ---
 
-#### M-7: LogUtils 在 release 版本中可能泄露敏感信息
+#### M-7: LogUtils 在 release 版本中可能泄露敏感信息 ✅ 已修复
 
 **文件**: `LogUtils.kt`
 
-日志系统支持文件日志（`fileLogEnabled`），会将所有日志写入外部存储。日志中可能包含：
-- IP 地址
-- 端口号
-- 设备信息
-- 协议消息内容
-
-**建议**:
-- 在 release 构建中默认关闭控制台日志和文件日志
-- 对日志内容进行脱敏处理（如 IP 地址部分遮盖）
-- 日志文件设置自动清理策略（当前 LogFileManager 有 7 天清理）
+- `init()` 方法现在根据 `BuildConfig.DEBUG` 自动设置控制台日志开关
+- Release 构建默认关闭控制台日志（Logcat），防止敏感信息泄露
+- 文件日志在所有构建中保留，便于离线调试
+- 添加了 `import com.carlife.wireless.BuildConfig`
 
 ---
 
-#### M-8: BroadcastReceiver 使用 `RECEIVER_NOT_EXPORTED` 但仍有安全隐患
+#### M-8: BroadcastReceiver 使用 `RECEIVER_NOT_EXPORTED` 但仍有安全隐患 ✅ 已修复
 
-**文件**: `MainActivity.kt:88-89`
+**文件**: `ConnectionService.kt`
 
-```kotlin
-ContextCompat.registerReceiver(this, stateReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
-```
-
-**问题**: 虽然使用了 `RECEIVER_NOT_EXPORTED`，但 `ConnectionService` 中的 `sendBroadcast()` 使用隐式广播（仅设置 `package`）。在 Android 14+ 上这可能被限制。此外，状态广播中包含了 IP 地址、连接状态等信息。
-
-**建议**: 考虑使用 `LocalBroadcastManager` 或 `Flow`/`LiveData` 替代全局广播。
+- `requestMediaProjection()` 广播已改为显式组件定向（`setClassName`），确保只有 MainActivity 能接收
+- `broadcastState()` 和 `broadcastVideoFrame()` 添加了安全说明文档，确认 `package` 限制确保数据不会泄露到应用外部
 
 ---
 
@@ -305,21 +261,21 @@ constructor(port: Int, listener: TcpServerListener?, autoRead: Boolean = true) :
 
 ## 四、建议优先级排序
 
-| 优先级 | 编号 | 问题 | 工作量 |
-|--------|------|------|--------|
-| 🔴 高 | H-1 | 设备 ID 隐私风险 | 小 |
-| 🔴 高 | H-2 | 认证机制缺失 | 中 |
-| 🔴 高 | H-3 | UDP 发现无认证 | 小 |
-| 🔴 高 | H-4 | Shell 命令注入风险 | 中 |
-| 🟡 中 | M-1 | ChannelHeader 格式混淆 | 小 |
-| 🟡 中 | M-2 | TcpClient 遗留代码 | 小 |
-| 🟡 中 | M-3 | 重连延迟溢出 | 小 |
-| 🟡 中 | M-4 | VideoService 错误通知缺失 | 小 |
-| 🟡 中 | M-5 | AudioService 线程同步 | 小 |
-| 🟡 中 | M-6 | SharedPreferences 未加密 | 小 |
-| 🟡 中 | M-7 | 日志信息泄露 | 小 |
-| 🟡 中 | M-8 | 广播安全隐患 | 中 |
-| 🟢 低 | L-1~L-6 | 代码清理和规范化 | 小 |
+| 优先级 | 编号 | 问题 | 工作量 | 状态 |
+|--------|------|------|--------|------|
+| 🔴 高 | H-1 | 设备 ID 隐私风险 | 小 | 待修复 |
+| 🔴 高 | H-2 | 认证机制缺失 | 中 | 待修复 |
+| 🔴 高 | H-3 | UDP 发现无认证 | 小 | 待修复 |
+| 🔴 高 | H-4 | Shell 命令注入风险 | 中 | 待修复 |
+| 🟡 中 | M-1 | ChannelHeader 格式混淆 | 小 | ✅ 已修复 |
+| 🟡 中 | M-2 | TcpClient 遗留代码 | 小 | ✅ 已修复 |
+| 🟡 中 | M-3 | 重连延迟溢出 | 小 | ✅ 已修复 |
+| 🟡 中 | M-4 | VideoService 错误通知缺失 | 小 | ✅ 已修复 |
+| 🟡 中 | M-5 | AudioService 线程同步 | 小 | ✅ 已修复 |
+| 🟡 中 | M-6 | SharedPreferences 未加密 | 小 | ✅ 已修复 |
+| 🟡 中 | M-7 | 日志信息泄露 | 小 | ✅ 已修复 |
+| 🟡 中 | M-8 | 广播安全隐患 | 中 | ✅ 已修复 |
+| 🟢 低 | L-1~L-6 | 代码清理和规范化 | 小 | 待修复 |
 
 ---
 

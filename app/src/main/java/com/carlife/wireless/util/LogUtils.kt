@@ -2,6 +2,7 @@ package com.carlife.wireless.util
 
 import android.content.Context
 import android.util.Log
+import com.carlife.wireless.BuildConfig
 
 /**
  * 日志工具类
@@ -13,6 +14,7 @@ import android.util.Log
  * 2. 需要初始化 context 才能保存日志到文件
  * 3. 支持控制台日志开关（生产环境可关闭 Logcat 输出）
  * 4. 支持文件日志开关（独立控制）
+ * 5. Release 构建默认关闭控制台日志，防止敏感信息泄露
  */
 object LogUtils {
 
@@ -29,11 +31,15 @@ object LogUtils {
 
     /**
      * 初始化（在 Application 中调用）
+     *
+     * Release 构建默认关闭控制台日志（Logcat），防止敏感信息泄露。
+     * 文件日志在所有构建中保留，便于离线调试。
      */
     fun init(context: Context, saveToFile: Boolean = true) {
         this.context = context.applicationContext
         this.fileLogEnabled = saveToFile
-        this.consoleLogEnabled = true
+        // Release 构建默认关闭控制台日志，减少信息泄露风险
+        this.consoleLogEnabled = BuildConfig.DEBUG
 
         i(TAG, "LogUtils initialized, consoleLog=$consoleLogEnabled, fileLog=$fileLogEnabled")
     }

@@ -92,7 +92,10 @@ abstract class Channel(
     val isConnected: Boolean get() = state == KConnectionState.CONNECTED
 
     /**
-     * 发送数据（自动添加协议包头）
+     * 发送数据（自动添加 ChannelHeader 格式包头）
+     *
+     * ⚠️ 此方法使用 ChannelHeader 格式（带 magic 0x434C），
+     * **不用于** CarLife 协议通信。CarLife 通信请使用 sendCarLifeMsg() / sendCarLifeMediaMsg()。
      *
      * @param payloadType 消息类型 / 媒体类型
      * @param payload 载荷数据（Protobuf 序列化结果或音视频帧）
@@ -332,7 +335,10 @@ abstract class Channel(
     private val writeLock = Any()
 
     /**
-     * 发送一帧数据（自动添加协议包头）
+     * 发送一帧数据（自动添加 ChannelHeader 格式包头）
+     *
+     * ⚠️ 此方法使用 ChannelHeader 格式（带 magic 0x434C），
+     * **不用于** CarLife 协议通信。CarLife 通信请使用 sendCarLifeMsg() / sendCarLifeMediaMsg()。
      *
      * 使用 writeLock 保护写操作，避免并发写入导致数据交错。
      * 不使用 @Synchronized（锁 this），避免与 read() 的阻塞读操作锁竞争。
@@ -374,7 +380,10 @@ abstract class Channel(
 
     /**
      * 读取一条完整消息（阻塞）
-     * 先读取协议包头，再读取载荷数据
+     * 先读取 ChannelHeader 格式包头（带 magic 0x434C），再读取载荷数据
+     *
+     * ⚠️ 此方法使用 ChannelHeader 格式，**不用于** CarLife 协议通信。
+     * CarLife 通信请使用 readCarLifeMsg() / readCarLifeMediaMsg()。
      *
      * 不使用 @Synchronized，避免与 writeFrame() 锁竞争。
      * 读操作使用 inputStream，写操作使用 outputStream，天然线程安全。

@@ -699,10 +699,12 @@ class ConnectionService : Service() {
     /**
      * 请求 MediaProjection 授权
      * 通过发送广播让 MainActivity 启动 MediaProjection 请求
+     * 使用显式组件定向，防止其他应用接收此广播
      */
     private fun requestMediaProjection() {
         val intent = Intent(ACTION_REQUEST_PROJECTION).apply {
             `package` = packageName
+            setClassName(packageName, "${packageName}.ui.MainActivity")
         }
         sendBroadcast(intent)
         LogUtils.i(TAG, "MediaProjection requested via broadcast")
@@ -799,7 +801,10 @@ class ConnectionService : Service() {
             return
         }
 
-        val delayMs = com.carlife.wireless.util.Constants.Reconnect.DELAY_MS * (1L shl (attempt - 1))
+        val delayMs = minOf(
+            com.carlife.wireless.util.Constants.Reconnect.DELAY_MS * (1L shl (attempt - 1)),
+            60_000L // 最大 60 秒，防止位移溢出
+        )
         LogUtils.i(TAG, "HuRole 将在 ${delayMs}ms 后重连 (第 $attempt 次)")
         updateNotification("连接中断，${delayMs / 1000}秒后重连 (第 $attempt 次)")
 
@@ -821,6 +826,13 @@ class ConnectionService : Service() {
 
     // ==================== 广播状态 ====================
 
+    /**
+     * 广播连接状态变更
+     *
+     * 安全说明：使用 `package` 限制确保只有同应用内的组件能接收此广播。
+     * 在 Android 14+ 上，隐式广播必须声明 package 才能送达。
+     * 状态信息（IP、连接数等）不会泄露到应用外部。
+     */
     private fun broadcastState() {
         val intent = Intent(ACTION_STATE_CHANGED).apply {
             `package` = packageName
@@ -914,6 +926,7 @@ class ConnectionService : Service() {
 
     /**
      * 广播视频帧给 MainActivity（用于本地预览）
+     * 使用 `package` 限制确保视频帧数据不会泄露到应用外部
      */
     private fun broadcastVideoFrame(frame: ByteArray, isKeyFrame: Boolean) {
         val intent = Intent(ACTION_VIDEO_FRAME).apply {
