@@ -276,16 +276,16 @@ class HuRole(
         handshakePhase.set("未开始")
 
         updateState(HuState.CONNECTING)
-        LogUtils.i("$TAG: Waiting for phone B to be ready at $phoneBIp...")
+        LogUtils.i("$TAG: Waiting for phone B ports at $phoneBIp...")
 
         scope.launch {
             try {
-                // === 阶段 1：等待手机 B 就绪 ===
+                // === 阶段 1：等待手机 B 就绪（定时端口扫描） ===
                 val ready = waitForPhoneReady()
                 if (!ready) {
-                    val errMsg = "等待手机B就绪超时（${PHONE_READY_TIMEOUT_MS / 1000}秒），" +
-                            "请在手机B的 CarWith 中点击「开始连接」"
-                    LogUtils.e("$TAG: Phone B not ready within timeout")
+                    val errMsg = "等待手机B端口就绪超时（${PHONE_READY_TIMEOUT_MS / 1000}秒），" +
+                            "请在手机B的 CarWith 中点击「开始连接」，确认热点已开启"
+                    LogUtils.e("$TAG: Phone B ports not ready within timeout")
                     lastError.set(errMsg)
                     listener?.onError(errMsg)
                     disconnect("Phone B not ready timeout")
@@ -309,38 +309,47 @@ class HuRole(
     /**
      * 等待手机 B 就绪
      *
-     * 两种检测方式并行：
-     * 1. UDP 就绪信号（优先）— 手机 B 用户点击"开始连接"后广播 CARLIFE_PHONE_READY
-     * 2. 端口探测（降级）— 如果手机 B 没有发送 UDP 信号，通过 TCP 端口探测判断
+     * 定时扫描手机 B 的 CarWith 端口（CMD:7240, VIDEO:8240, CTRL:9340），
+     * 所有必需端口均可连接时判定手机 B 已就绪。
+     *
+     * 同时保留 UDP 就绪信号作为加速通道（收到即刻连接，跳过等待）。
      *
      * @return true 手机 B 已就绪，false 超时
      */
     private suspend fun waitForPhoneReady(): Boolean {
         val startTime = System.currentTimeMillis()
         var lastProbeTime = 0L
+        val requiredPorts = channelConfig.requiredChannels.map { it to it.huPort }
 
-        LogUtils.i("$TAG: Waiting for phone B ready signal or open ports...")
+        LogUtils.i("$TAG: Scanning phone B ports: ${requiredPorts.joinToString { "${it.first.name}:${it.second}" }}")
 
         while (state.get() != HuState.DISCONNECTED) {
             val elapsed = System.currentTimeMillis() - startTime
             if (elapsed >= PHONE_READY_TIMEOUT_MS) {
-                LogUtils.e("$TAG: Phone B ready timeout after ${elapsed}ms")
+                LogUtils.e("$TAG: Phone B port scan timeout after ${elapsed / 1000}s")
                 return false
             }
 
-            // 检查是否已被 notifyPhoneReady() 唤醒
+            // UDP 加速通道：收到信号直接跳过等待
             if (phoneReadyFlag.get()) {
-                LogUtils.i("$TAG: Phone B signaled ready via UDP")
+                LogUtils.i("$TAG: Phone B signaled ready via UDP (fast path)")
                 return true
             }
 
-            // 降级方案：定期探测端口
+            // 定时端口扫描
             val now = System.currentTimeMillis()
             if (now - lastProbeTime >= PORT_PROBE_INTERVAL_MS) {
                 lastProbeTime = now
-                if (probePhonePorts()) {
-                    LogUtils.i("$TAG: Phone B ports detected open via probe")
+                val result = probePhonePorts(requiredPorts)
+                if (result.allOpen) {
+                    LogUtils.i("$TAG: All phone B ports ready: ${result.openPorts.joinToString()}")
                     return true
+                }
+                // 每次扫描都记录进度（仅 debug 级别）
+                if (result.openPorts.isNotEmpty()) {
+                    LogUtils.d("$TAG: Port scan: ${result.openPorts.size}/${requiredPorts.size} ready " +
+                            "(open: ${result.openPorts.joinToString()}, " +
+                            "closed: ${result.closedPorts.joinToString()})")
                 }
             }
 
@@ -349,36 +358,57 @@ class HuRole(
         return false
     }
 
-    /** 手机 B 就绪标志（由 notifyPhoneReady() 设置） */
+    /** 手机 B 就绪标志（由 notifyPhoneReady() 设置，UDP 加速通道） */
     private val phoneReadyFlag = AtomicBoolean(false)
 
     /**
      * 通知 HuRole 手机 B 已就绪（由 ConnectionService 调用）
      *
      * 当 UdpDiscoveryService 收到手机 B 的 CARLIFE_PHONE_READY 信号时触发。
+     * 作为加速通道：跳过端口扫描等待，立即开始 TCP 连接。
      */
     fun notifyPhoneReady() {
         if (phoneReadyFlag.compareAndSet(false, true)) {
-            LogUtils.i("$TAG: Phone B ready notification received")
+            LogUtils.i("$TAG: Phone B ready notification received (UDP fast path)")
         }
     }
 
     /**
-     * 探测手机 B 的 CarWith 端口是否已监听
+     * 端口扫描结果
+     */
+    private data class ProbeResult(
+        val allOpen: Boolean,
+        val openPorts: List<String>,
+        val closedPorts: List<String>
+    )
+
+    /**
+     * 探测手机 B 的 CarWith 必需端口是否已监听
      *
-     * 尝试对 CMD 端口（7240）建立 TCP 连接，如果成功说明手机 B 已就绪。
+     * 对每个必需通道的端口尝试 TCP 连接（2 秒超时），
+     * 全部可连接时返回 allOpen=true。
      * 探测用的 socket 立即关闭，不影响后续正式连接。
      */
-    private fun probePhonePorts(): Boolean {
-        return try {
-            val socket = java.net.Socket()
-            socket.connect(java.net.InetSocketAddress(phoneBIp, ChannelType.HU_CMD.huPort), 2000)
-            socket.close()
-            LogUtils.d("$TAG: Port probe success: $phoneBIp:${ChannelType.HU_CMD.huPort}")
-            true
-        } catch (e: Exception) {
-            false
+    private fun probePhonePorts(requiredPorts: List<Pair<ChannelType, Int>>): ProbeResult {
+        val open = mutableListOf<String>()
+        val closed = mutableListOf<String>()
+
+        for ((type, port) in requiredPorts) {
+            try {
+                val socket = java.net.Socket()
+                socket.connect(java.net.InetSocketAddress(phoneBIp, port), 2000)
+                socket.close()
+                open.add("${type.name}:$port")
+            } catch (e: Exception) {
+                closed.add("${type.name}:$port")
+            }
         }
+
+        return ProbeResult(
+            allOpen = closed.isEmpty(),
+            openPorts = open,
+            closedPorts = closed
+        )
     }
 
     /**
@@ -387,7 +417,7 @@ class HuRole(
     private suspend fun connectChannels() {
         val config = channelConfig
 
-        LogUtils.i("$TAG: Phone B ready, connecting to $phoneBIp (${config.totalEnabled} channels)...")
+        LogUtils.i("$TAG: Phone B ports ready, connecting to $phoneBIp (${config.totalEnabled} channels)...")
 
         for (type in config.allChannels) {
             val autoRead = type != ChannelType.HU_CMD
