@@ -22,6 +22,7 @@ import com.carlife.wireless.proto.CarlifeProtocolVersionProto
 import com.carlife.wireless.util.Constants
 import com.carlife.wireless.util.ErrorTracker
 import com.carlife.wireless.util.LogUtils
+import com.carlife.wireless.service.ProtocolService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -218,6 +219,9 @@ class HuRole(
 
     // 通道配置
     var channelConfig: ChannelConfig = DEFAULT_CHANNEL_CONFIG
+
+    /** ProtocolService 引用（握手追踪） */
+    var protocolService: ProtocolService? = null
 
     // 通道映射（按类型索引）
     private val channels = ConcurrentHashMap<ChannelType, Channel>()
@@ -527,6 +531,8 @@ class HuRole(
             CarLifeMsg.VERSION_MATCH_STATUS -> {
                 // Phase 1 响应：版本匹配
                 LogUtils.i("$TAG: [Phase 1] VERSION_MATCH_STATUS received")
+                protocolService?.reportHandshakePhase(
+                    ProtocolService.HandshakePhase.VERSION_NEGOTIATION, "←", serviceType)
                 handshakePhase.set("Phase 2: 等待设备信息")
                 // 发送车机设备信息
                 sendHuInfo()
@@ -534,6 +540,8 @@ class HuRole(
             CarLifeMsg.MD_INFO -> {
                 // Phase 2 响应：手机设备信息
                 LogUtils.i("$TAG: [Phase 2] MD_INFO received")
+                protocolService?.reportHandshakePhase(
+                    ProtocolService.HandshakePhase.DEVICE_INFO, "←", serviceType)
                 handshakePhase.set("Phase 3: 等待认证")
                 // 发送认证请求
                 sendAuthenRequest()
@@ -541,11 +549,15 @@ class HuRole(
             CarLifeMsg.MD_AUTHEN_RESPONSE -> {
                 // Phase 3 响应：认证响应
                 handshakePhase.set("Phase 3: 认证响应")
+                protocolService?.reportHandshakePhase(
+                    ProtocolService.HandshakePhase.AUTHENTICATION, "←", serviceType)
                 handleAuthenResponse(data)
             }
             CarLifeMsg.MD_AUTHEN_RESULT -> {
                 // Phase 4：MD 认证结果
                 LogUtils.i("$TAG: [Phase 4] MD_AUTHEN_RESULT received")
+                protocolService?.reportHandshakePhase(
+                    ProtocolService.HandshakePhase.AUTH_RESULT, "←", serviceType)
                 handshakePhase.set("Phase 5: 等待特性配置")
                 // 发送 HU 认证结果（直接成功）
                 sendAuthenResult(true)
@@ -553,6 +565,8 @@ class HuRole(
             CarLifeMsg.MD_FEATURE_CONFIG_REQUEST -> {
                 // Phase 5：特性配置请求
                 LogUtils.i("$TAG: [Phase 5] FEATURE_CONFIG_REQUEST received")
+                protocolService?.reportHandshakePhase(
+                    ProtocolService.HandshakePhase.FEATURE_CONFIG, "←", serviceType)
                 handshakePhase.set("Phase 6: 等待编码器初始化")
                 sendFeatureConfigResponse()
             }
@@ -864,6 +878,7 @@ class HuRole(
             LogUtils.i("$TAG: [Phase 7] VIDEO_ENCODER_START sent")
 
             updateState(HuState.CONNECTED)
+            protocolService?.completeHandshake(true)
             LogUtils.i("$TAG: ===== Screen projection started =====")
         } catch (e: Exception) {
             LogUtils.e(e, "$TAG: [Phase 7] Failed to send VIDEO_ENCODER_START")

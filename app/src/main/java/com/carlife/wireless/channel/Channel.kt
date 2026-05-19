@@ -94,7 +94,7 @@ abstract class Channel(
     /**
      * 发送数据（自动添加 ChannelHeader 格式包头）
      *
-     * ⚠️ 此方法使用 ChannelHeader 格式（带 magic 0x434C），
+     * ⚠️ 已废弃：此方法使用 ChannelHeader 格式（带 magic 0x434C），
      * **不用于** CarLife 协议通信。CarLife 通信请使用 sendCarLifeMsg() / sendCarLifeMediaMsg()。
      *
      * @param payloadType 消息类型 / 媒体类型
@@ -102,6 +102,10 @@ abstract class Channel(
      * @param timestamp 时间戳（仅媒体通道有效，毫秒）
      * @return 是否发送成功
      */
+    @Deprecated(
+        message = "使用 ChannelHeader magic 格式，非 CarLife 协议格式。请使用 sendCarLifeMsg() 或 sendCarLifeMediaMsg()",
+        replaceWith = ReplaceWith("sendCarLifeMsg(payloadType, payload)")
+    )
     fun send(payloadType: Int, payload: ByteArray, timestamp: Int = 0): Boolean {
         if (state != KConnectionState.CONNECTED) {
             LogUtils.w("[$name] send failed: not connected (state=$state)")

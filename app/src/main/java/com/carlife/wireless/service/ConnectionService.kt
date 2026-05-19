@@ -133,14 +133,13 @@ class ConnectionService : Service() {
         LogUtils.i(TAG, "ConnectionService started")
         isServiceActive = true
         startForegroundService()
-        // 只启动 HuRole 连接手机 B 的 CarWith（HU 端口）
-        // MdRole 不在此启动——它用于车机侧连接（USB 网络共享），
-        // 而非手机 B 侧。之前 MdRole 和 HuRole 同时连接 Phone B 的
-        // 同一组 HU 端口（7240/8240/9240...），导致 CarWith 收到
-        // 双重 HU 连接，协议状态机混乱，握手卡住。
+        // 启动双角色：
+        // - HuRole: 作为 HU 客户端连接手机 B 的 CarWith（HU 端口）
+        // - MdRole: 作为 MD 服务端监听车机连接（MD 端口）
         serviceScope.launch {
             startHuRole()
         }
+        startMdRole()
         startTouchService()
         startProtocolService()
         startUsbMonitoring()
@@ -231,11 +230,10 @@ class ConnectionService : Service() {
         udpDiscoveryService = null
     }
 
-    // ==================== MD 角色 ====================
+    // ==================== MD 角色（监听车机） ====================
 
     private fun startMdRole() {
-        LogUtils.i(TAG, "启动 MD 角色（连接手机 B CarWith）")
-        startMdnsService()
+        LogUtils.i(TAG, "启动 MdRole（TcpServer 监听车机 MD 端口）")
 
         if (mdRole == null) {
             try {
@@ -244,13 +242,16 @@ class ConnectionService : Service() {
                     broadcastState()
                     onMdRoleStateChanged(newState)
                 }
+                // 注入 HuRole 和 ProtocolService
+                huRole?.let { mdRole?.setHuRole(it) }
+                protocolService?.let { mdRole?.protocolService = it }
                 mdRole?.start()
-                LogUtils.i(TAG, "MdRole 已启动，正在连接手机 B CarWith")
-                updateNotification("正在连接手机 B...")
+                LogUtils.i(TAG, "MdRole 已启动，等待车机连接 MD 端口")
+                updateNotification("等待车机连接...")
                 broadcastState()
             } catch (e: Exception) {
                 LogUtils.e(TAG, e, "启动 MdRole 失败")
-                updateNotification("连接手机B失败: ${e.message}")
+                updateNotification("MdRole 启动失败: ${e.message}")
             }
         }
     }
@@ -445,6 +446,9 @@ class ConnectionService : Service() {
                 vrEnabled = savedConfig.vrEnabled
             )
             LogUtils.i(TAG, "Channel config applied: media=${savedConfig.mediaEnabled}, tts=${savedConfig.ttsEnabled}, vr=${savedConfig.vrEnabled}")
+
+            // 注入 ProtocolService 用于握手追踪
+            protocolService?.let { huRole?.protocolService = it }
 
             // 将 HuRole 注入 MdRole，实现车机→手机B的数据转发
             val hr = huRole

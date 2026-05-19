@@ -11,12 +11,15 @@ import java.io.IOException
 /**
  * 数据流桥接器
  *
- * 负责在两个通道之间转发数据，支持协议转换（高版本 → 旧版本）。
+ * ⚠️ 已废弃：数据转发由 ConnectionService 直接协调 HuRole/MdRole 完成，
+ * 无需通过 StreamBridge 中转。保留此类仅为向后兼容。
  *
- * 数据流向：
- * 手机 → HuRole → StreamBridge → MdRole → 车机
- * 车机 → MdRole → StreamBridge → HuRole → 手机
+ * 负责在两个通道之间转发数据，支持协议转换（高版本 → 旧版本）。
  */
+@Deprecated(
+    message = "数据转发由 ConnectionService 直接协调 HuRole/MdRole 完成",
+    level = DeprecationLevel.WARNING
+)
 class StreamBridge(
     private val sourceChannel: Channel,
     private val targetChannel: Channel,
